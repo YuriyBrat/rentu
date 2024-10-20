@@ -9,9 +9,26 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "cloudinary": "^2.2.0",
+    "mapbox-gl": "^3.5.2",
+    "mongodb": "^6.7.0",
+    "mongoos": "^0.0.1-security",
+    "mongoose": "^8.4.1",
+    "next": "14.2.3",
+    "next-auth": "^4.24.7",
+    "node-openssl-cert": "^0.1.42",
+    "openssl": "^2.0.0",
+    "photoswipe": "^5.4.4",
     "react": "^18",
     "react-dom": "^18",
-    "next": "14.2.3"
+    "react-geocode": "^1.0.0-alpha.1",
+    "react-geocoding": "^4.0.5",
+    "react-icons": "^5.2.1",
+    "react-map-gl": "^7.1.7",
+    "react-photoswipe-gallery": "^3.0.2",
+    "react-share": "^5.1.0",
+    "react-spinners": "^0.13.8",
+    "react-toastify": "^10.0.5"
   },
   "devDependencies": {
     "postcss": "^8",
