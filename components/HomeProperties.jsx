@@ -7,10 +7,10 @@ import { fetchProperties } from '@/utils/request';
 
 
 const HomeProperties = async () => {
-   const data = await fetchProperties();
+   // const data = await fetchProperties();
 
    let recentProperties = []
-   recentProperties = data.properties
+   // recentProperties = data.properties
    //    .sort(() => Math.random() - Math.random())
    //    .slice(0, 3)
    console.log(recentProperties.length);
