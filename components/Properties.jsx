@@ -32,9 +32,9 @@ const Properties = () => {
 
             const data = await res.json();
             const { properties } = data;
-            if (properties) {
-               properties.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-            }
+            // if (properties) {
+            //    properties.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+            // }
             setProperties(properties);
             setTotalItems(data.total)
          } catch (error) {
