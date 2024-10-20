@@ -13,6 +13,7 @@ const HomeProperties = async () => {
    recentProperties = data.properties
    //    .sort(() => Math.random() - Math.random())
    //    .slice(0, 3)
+   console.log(recentProperties.length);
 
    return (
       <>
