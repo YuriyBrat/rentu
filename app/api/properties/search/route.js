@@ -1,12 +1,11 @@
 import connectDB from "@/config/database";
 import Property from "@/models/Property";
-import { description } from "node-openssl-cert/name_mappings";
 
 // GET /api/properties/search
-export const GET = async req => {
+export const GET = async request => {
    try {
       await connectDB();
-      const { searchParams } = new URL(req.url);
+      const { searchParams } = new URL(request.url);
       const location = searchParams.get('location');
       const propertyType = searchParams.get('propertyType');
 
