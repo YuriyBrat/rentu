@@ -3,7 +3,7 @@ import { fetchProperties } from '@/utils/request'
 import PropertyCardFeatured from './PropertyCardFeatured';
 
 const PropertiesFeatured = async () => {
-   const properties = await fetchProperties({ showFeatured: true });
+   const {properties} = await fetchProperties({ showFeatured: true });
 
    return properties.length > 0 && (
       <section className="bg-blue-50 px-4 pt-6 pb-10">

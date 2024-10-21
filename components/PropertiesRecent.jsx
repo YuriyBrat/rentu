@@ -5,10 +5,10 @@ import PropertyCard from '@/components/PropertyCard';
 import { fetchProperties } from '@/utils/request';
 
 const PropertiesRecent = async () => {
-   const recentProperties = await fetchProperties({ showFeatured: true });
+   const { properties: recentProperties } = await fetchProperties({ showFeatured: true });
 
    // const data = await fetchProperties();
-   
+
    // const  recentProperties = data.properties
    //    .sort(() => Math.random() - Math.random())
    //    .slice(0, 3)
