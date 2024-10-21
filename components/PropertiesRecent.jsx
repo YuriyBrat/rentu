@@ -1,7 +1,8 @@
 import React from 'react'
 import Link from 'next/link'
 // import properties from '@/properties.json'
-import PropertyCard from '@/components/PropertyCard';
+// import PropertyCard from '@/components/PropertyCard';
+import PropertyCardFeatured from './PropertyCardFeatured';
 import { fetchProperties } from '@/utils/request';
 
 const PropertiesRecent = async () => {
@@ -22,7 +23,8 @@ const PropertiesRecent = async () => {
                   {recentProperties.length === 0 ? <p>No Properties Found</p>
                      :
                      recentProperties.map((property => (
-                        <PropertyCard key={property._id} property={property} />
+                        // <PropertyCard key={property._id} property={property} />
+                        <PropertyCardFeatured key={property._id} property={property} />
                      )))}
                </div>
             </div>
