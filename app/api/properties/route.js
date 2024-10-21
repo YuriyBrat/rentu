@@ -4,7 +4,7 @@ import { getSessionUser } from '@/utils/getSessionUser';
 import cloudinary from '@/config/cloudinary';
 
 
-export const dynamic = 'force-dynamic'; //! хз чи треба хз що за фігня
+// export const dynamic = 'force-dynamic'; //! хз чи треба хз що за фігня
 
 // GET /api/properties
 export const GET = async (req) => {
