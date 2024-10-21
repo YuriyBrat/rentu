@@ -8,23 +8,23 @@ const PropertySearchForm = () => {
 
    const router = useRouter();
 
-   // const handleSubmit = e => {
-   //    e.preventDefault();
-   //    // console.log(propertyType, location);
+   const handleSubmit = e => {
+      e.preventDefault();
+      // console.log(propertyType, location);
 
-   //    if (location === '' && propertyType === 'All') {
-   //       router.push('/properties');
-   //    } else {
-   //       const query = `?location=${location}&propertyType=${propertyType}`;
+      if (location === '' && propertyType === 'All') {
+         router.push('/properties');
+      } else {
+         const query = `?location=${location}&propertyType=${propertyType}`;
 
-   //       router.push(`/properties/search-results${query}`)
-   //    }
+         router.push(`/properties/search-results${query}`)
+      }
 
-   // }
+   }
 
    return (
       <form
-         // onSubmit={handleSubmit}
+         onSubmit={handleSubmit}
          className="mt-3 mx-auto max-w-2xl w-full flex flex-col md:flex-row items-center"
       >
          <div className="w-full md:w-3/5 md:pr-2 mb-4 md:mb-0">
