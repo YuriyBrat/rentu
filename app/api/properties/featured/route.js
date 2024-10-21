@@ -9,7 +9,12 @@ export const GET = async (req) => {
       await connectDB();
       const properties = await Property.find({ is_featured: true });
 
-      return new Response(JSON.stringify({ properties }), { status: 200 })
+      const headers = {
+         // 'Content-Disposition': '...',
+         'Content-Type': 'application/json'
+      };
+
+      return new Response(JSON.stringify({ properties }), { status: 200, headers })
    } catch (error) {
       console.log(error)
       return new Response('Smth wrong', {
