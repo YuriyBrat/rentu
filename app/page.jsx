@@ -2,7 +2,7 @@ import React from 'react'
 import Link from 'next/link'
 import Hero from '@/components/Hero'
 import InfoBoxes from '@/components/InfoBoxes'
-import HomeProperties from '@/components/HomeProperties'
+import PropertiesRecent from '@/components/PropertiesRecent'
 import PropertiesFeatured from '@/components/PropertiesFeatured'
 
 const HomePage = () => {
@@ -11,7 +11,7 @@ const HomePage = () => {
       <Hero />
       <InfoBoxes />
       <PropertiesFeatured />
-      <HomeProperties />
+      <PropertiesRecent />
     </div>
   )
 }

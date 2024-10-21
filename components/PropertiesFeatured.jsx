@@ -5,10 +5,6 @@ import PropertyCardFeatured from './PropertyCardFeatured';
 const PropertiesFeatured = async () => {
    const properties = await fetchProperties({ showFeatured: true });
 
-   // console.log(properties);
-   // console.log(properties.length);
-
-
    return properties.length > 0 && (
       <section className="bg-blue-50 px-4 pt-6 pb-10">
          <div className="container-xl lg:container m-auto">

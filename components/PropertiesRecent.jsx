@@ -4,16 +4,12 @@ import Link from 'next/link'
 import PropertyCard from '@/components/PropertyCard';
 import { fetchProperties } from '@/utils/request';
 
+const PropertiesRecent = async () => {
+   const data = await fetchProperties();
+   const  recentProperties = data.properties
+      .sort(() => Math.random() - Math.random())
+      .slice(0, 3)
 
-
-const HomeProperties = async () => {
-   // const data = await fetchProperties();
-
-   let recentProperties = []
-   // recentProperties = data.properties
-   //    .sort(() => Math.random() - Math.random())
-   //    .slice(0, 3)
-   console.log(recentProperties.length);
 
    return (
       <>
@@ -42,4 +38,4 @@ const HomeProperties = async () => {
    )
 }
 
-export default HomeProperties
+export default PropertiesRecent
