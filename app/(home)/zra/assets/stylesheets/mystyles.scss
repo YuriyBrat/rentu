@@ -1,0 +1,60 @@
+// $border-dark: rgba($base-color, 0.88);
+$colorOrange: #f85a40;
+
+
+
+.myform {
+   opacity: 70%;
+   input {
+         text-align: center;
+   }
+   .btn-send {
+      background: $colorOrange;
+      height: 38px;
+
+      &:hover {
+         background: lighten($color: $colorOrange, $amount: 10%);
+         box-shadow: 0px 0px 10px $colorOrange;
+         border: 1px solid $colorOrange
+      };
+      &:active {
+         transform: translateY(4px);
+      }
+   }
+};
+
+.mytext1 {
+   // font-size: 42px;
+   font-size: 3vw;
+   color: rgba(255, 255, 255, 0.8);
+   font-weight: 600;
+}
+
+.mynumber1 {
+   display: flex;
+   justify-self: start;
+   margin-right: 30%;
+   margin-top: 10px;
+   span {
+      margin-left: 5px;
+      // font-size: 20px;
+      color: rgba(255, 255, 255, 0.8);
+   }
+}
+
+.triangle-house {
+   width: 0;
+   height: 0;
+   border-left: 50px solid transparent;
+   border-right: 50px solid transparent;
+   border-bottom: 36px solid #f85a40;
+}
+
+@media screen and (max-width: 767px) {
+   .testimonial-item {
+      display: flex;
+      flex-direction: column;
+      padding: 30px;
+      margin: 15px;
+  }
+}

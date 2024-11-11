@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@next/font": "^14.2.15",
     "aos": "^2.3.4",
     "cloudinary": "^2.2.0",
     "mapbox-gl": "^3.5.2",
@@ -29,7 +30,8 @@
     "react-photoswipe-gallery": "^3.0.2",
     "react-share": "^5.1.0",
     "react-spinners": "^0.13.8",
-    "react-toastify": "^10.0.5"
+    "react-toastify": "^10.0.5",
+    "sass": "^1.80.4"
   },
   "devDependencies": {
     "@types/aos": "^3.0.7",
