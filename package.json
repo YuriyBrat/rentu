@@ -9,7 +9,6 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@next/font": "^14.2.15",
     "aos": "^2.3.4",
     "cloudinary": "^2.2.0",
     "mapbox-gl": "^3.5.2",

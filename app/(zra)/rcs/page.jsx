@@ -2,6 +2,7 @@
 
 // import "./App.css";
 import axios from "axios";
+import { toast } from 'react-toastify';
 
 import { FaLocationArrow, FaPaperPlane, FaPhoneVolume } from "react-icons/fa";
 
@@ -10,7 +11,7 @@ import 'aos/dist/aos.css'
 import Swiper from './assets/vendor/swiper/swiper-bundle.min.js'
 import './assets/vendor/swiper/swiper-bundle.min.css'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
 
 {/* <!-- Vendor CSS Files --> */ }
 import './assets/vendor/bootstrap/css/bootstrap.min.css' // додаткова стилістика присутня
@@ -61,25 +62,42 @@ const HomeZra = () => {
   const [ip, setIP] = useState("");
   const getApi = async () => {
     const res = await axios.get("https://api.ipify.org/?format=json");
-    console.log(res.data);
+    // console.log(res.data.ip);
     setIP(res.data.ip);
   };
 
+  // обнулена форма
+  const fieldsZero = {
+    name: '',
+    phone: '',
+    email: '',
+    ip: '',
+    notes: ''
+  }
+
+  const [fields, setFields] = useState(fieldsZero);
+
+
+
+
   useEffect(() => {
+    // console.log(fields);
+
     setTriangleStyle();
 
     getApi();
 
-    console.log(navigator);
-    if (navigator.geolocation) {
-      navigator.permissions
-        .query({ name: "geolocation" })
-        .then(function (result) {
-          console.log(result);
-        });
-    } else {
-      console.log("Geolocation is not supported by this browser.");
-    }
+    // console.log(navigator);
+    // if (navigator.geolocation) {
+    //   navigator.permissions
+    //     .query({ name: "geolocation" })
+    //     .then(function (result) {
+    //       console.log(result);
+    //     });
+    // } else {
+    //   console.log("Geolocation is not supported by this browser.");
+    // }
+
     /**
  * Preloader
  */
@@ -305,10 +323,12 @@ const HomeZra = () => {
       }));
     }
 
-  }, []);
+  }, [fields]);
 
-  // const [classPost, setClassPost] = useState('accordion-button collapsed');
 
+
+
+  // дописав щоб відкривалась менюха питань але вона поки не плавна(())
   const toggleFaq = e => {
     const el = e.currentTarget;
     const elDiv = el?.parentElement?.parentElement?.getElementsByTagName('DIV')[0];
@@ -323,6 +343,166 @@ const HomeZra = () => {
     }
   };
 
+  // ф-я перевірки номеру телефону і вирізки усіх символів крім цифр
+  const checkPhone = str => {
+    let newstr = "";
+    let errCount = 0;
+    let errText = "";
+    try {
+      str = str.trim();
+      for (let i = 0; i < str.length; i++) {
+        let s = str[i];
+        switch (true) {
+          case (i == 0 && (s == "+" || s == 0)): newstr += s; break;
+          // case (i == 0): newstr += parseInt(s); break;
+          default: {
+            if (Number.isInteger(Number(s))) {
+              newstr += s
+            }
+          }
+        }
+      }
+    } catch (error) {
+      return newstr
+    }
+
+
+    // 2 step. Check correct number
+    const lenNum = newstr.length;
+    if (lenNum > 0) {
+      const sFirst = str[0].toString();
+      const sSec = str[1].toString();
+      switch (lenNum) {
+        case 9: {
+          if (sFirst !== "0" && sFirst !== "+") {
+            newstr = "0" + newstr
+          } else {
+            errCount++;
+            errText = "Будь ласка, виправте неправильний номер телефону"
+          }
+        };
+          break;
+        case 10: {
+          if (sFirst !== "0" && sFirst !== "+") {
+            errCount++;
+            errText = "Будь ласка, виправте неправильний номер телефону"
+          } else if (sFirst == "+" && sSec != "0") {
+            newstr = "0" + newstr.substring(1); //cut + and add 0
+          }
+        };
+          break;
+        case 11: {
+          if (sFirst == "8" && sSec == "0") {
+            newstr = newstr.substring(1); //cut 8
+          } else if (sFirst == "3" && sSec == "0") {
+            newstr = newstr.substring(1); //cut 3
+          } else if (sFirst == "+" && sSec == "0") {
+            newstr = newstr.substring(1); //cut +
+          } else {
+            errCount++;
+            errText = "Будь ласка, виправте неправильний номер телефону"
+          }
+        };
+          break;
+        case 12: {
+          if (newstr.substring(0, 3) == "380") {
+            newstr = "+" + newstr
+          } else if (newstr.substring(0, 3) == "+80" || newstr.substring(0, 3) == "+30" || newstr.substring(0, 3) == "+38") {
+            newstr = "+380" + newstr.substring(3);
+          } else {
+            errCount++;
+            errText = "Будь ласка, виправте неправильний номер телефону"
+          }
+        };
+          break;
+        case 13: {
+          if (newstr.substring(0, 4) != "+380") {
+            errCount++;
+            errText = "Будь ласка, виправте неправильний номер телефону"
+          }
+        };
+          break;
+        default: {
+          errCount++;
+          errText = "Будь ласка, виправте неправильний номер телефону"
+        }
+      }
+    }
+    // console.log('Перевірений номер телефону ' + newstr);
+    return { newstr, errCount, errText }
+  }
+
+  const handleChange = (e) => {
+    let { name, value } = e.target;
+    // Check if nested property
+
+    // if (name == "phone") {
+    //   value = checkPhone(value);
+    // }
+
+    if (name.includes('.')) {
+      const [outerKey, innerKey] = name.split('.');
+
+      setFields((prevFields) => ({
+        ...prevFields,
+        [outerKey]: {
+          ...prevFields[outerKey],
+          [innerKey]: value,
+        },
+      }));
+    } else {
+      // Not nested
+      setFields((prevFields) => ({
+        ...prevFields,
+        [name]: value,
+      }));
+    }
+  };
+
+  const handleSubmit = async (e) => {
+
+    e.preventDefault();
+    // 1 STEP. Check phone number
+
+    const { newstr, errCount, errText } = checkPhone(fields.phone);
+
+    if (errCount > 0) {
+      toast.error(errText);
+      return
+    } else {
+      fields.phone = newstr
+      // console.log('goood new phone  ' + fields.phone);
+      // toast.success("Дякуємо за звернення! Очікуйте дзвінка");
+      // return
+    }
+
+
+    const formData = { ...fields, ip }
+
+    try {
+      const res = await fetch('/api/leads', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(formData)
+      });
+      // const resData = await res.json();
+      if (res.status === 200) {
+        toast.success('Дякуємо за звернення! Очікуйте дзвінка');
+      } else {
+        toast.error('Помилка надсилання даних...')
+      }
+    } catch (error) {
+      // console.log(error);
+      toast.error('Помилка надсилання даних...')
+    } finally {
+      setFields(fieldsZero)
+    }
+  };
+
+
+
 
   return (
 
@@ -334,7 +514,7 @@ const HomeZra = () => {
               Rentu<span>.</span>
             </h1>
           </a>
-          <a href={"tel: +38"+phone} className="mynumber1">
+          <a href={"tel: +38" + phone} className="mynumber1">
             <FaPhoneVolume />
             <span>{phone}</span>
           </a>
@@ -390,7 +570,7 @@ const HomeZra = () => {
       {/* /* - - - - - - - -  Hero Section - - - - - - - -  */}
       <section id="hero" className="hero">
         <div className="container position-relative">
-          <div className="row gy-5" data-aos="fade-in">
+          <div className="row gy-2" data-aos="fade-in">
             <div className="col-lg-12  order-lg-1 d-flex flex-column justify-content-center text-center caption">
               <h2>
                 Вас Вітає <span>Rentu</span>
@@ -404,7 +584,12 @@ const HomeZra = () => {
 
 
 
-              <form className="row g-1 col-6 m-auto myform">
+              <form className="row g-1 col-6 m-auto myform"
+                // action='/api/leads'
+                // method='POST'
+                // encType='multipart/form-data'
+                onSubmit={handleSubmit}
+              >
 
                 <div className="col-md-2"></div>
                 <div className="col-md-8">
@@ -415,29 +600,53 @@ const HomeZra = () => {
                 <div className="col-md-2"></div>
                 <div className="col-md-8">
                   {/* <label for="inputAddress" className="form-label">Address</label> */}
-                  <input type="text" className="form-control" id="inputAddress" placeholder="Як до Вас звертатись?" />
+                  <input type="text" className="form-control" id="inputName" placeholder="Як до Вас звертатись?"
+                    name='name'
+                    value={fields.name}
+                    onChange={handleChange}
+                  />
                 </div>
                 <div className="col-md-2"></div>
 
                 <div className="col-md-2"></div>
                 <div className="col-md-4">
                   {/* <label for="inputEmail4" className="form-label">Email</label> */}
-                  <input type="text" className="form-control" id="inputEmail4" placeholder="Телефон..." />
+                  <input type="text" className="form-control" id="inputPhonel4" placeholder="Телефон..."
+                    name='phone'
+                    value={fields.phone}
+                    onChange={handleChange}
+                  />
                 </div>
                 <div className="col-md-4">
                   {/* <label for="inputPassword4" className="form-label">Password</label> */}
-                  <input type="text" className="form-control" id="inputPassword4" placeholder="Емейл..." />
+                  <input type="text" className="form-control" id="inputEmail4" placeholder="Емейл..."
+                    name='email'
+                    value={fields.email}
+                    onChange={handleChange}
+                  />
                 </div>
                 <div className="col-md-2"></div>
+
                 <div className="col-md-2"></div>
                 <div className="col-md-8">
                   {/* <label for="inputAddress" className="form-label">Address</label> */}
-                  <div
-                    onClick={() => console.log(123)}
-                    // type="button" 
+                  <input type="text" className="form-control" id="inputNotes" placeholder="Залиште Ваше побажання..."
+                    name='notes'
+                    value={fields.notes}
+                    onChange={handleChange}
+                  />
+                </div>
+                <div className="col-md-2"></div>
+
+
+                <div className="col-md-2"></div>
+                <div className="col-md-8">
+                  {/* <label for="inputAddress" className="form-label">Address</label> */}
+                  <button
+                    type="submit"
                     className="btn-send btn col-12">
                     <FaPaperPlane className="mx-auto" />
-                  </div>
+                  </button>
                 </div>
                 <div className="col-md-2"></div>
 
