@@ -11,7 +11,7 @@ import 'aos/dist/aos.css'
 import Swiper from './assets/vendor/swiper/swiper-bundle.min.js'
 import './assets/vendor/swiper/swiper-bundle.min.css'
 
-import { useEffect, useState, useRef, useCallback, useMemo } from 'react'
+import { useEffect, useState, useRef } from 'react'
 
 {/* <!-- Vendor CSS Files --> */ }
 import './assets/vendor/bootstrap/css/bootstrap.min.css' // додаткова стилістика присутня
@@ -27,6 +27,8 @@ import './assets/stylesheets/mystyles.scss'
 // import './assets/vendor/swiper/swiper-bundle.min.js'
 // {/* <!-- Template Main JS File --> */}
 // import './assets/javascripts/main.js'
+
+import { sendMessageTelegram } from "@/hooks/telegram.js";
 
 const HomeZra = () => {
   const refPreLoader = useRef();
@@ -323,7 +325,7 @@ const HomeZra = () => {
       }));
     }
 
-  }, [fields]);
+  }, []);  //fields
 
 
 
@@ -471,9 +473,12 @@ const HomeZra = () => {
       return
     } else {
       fields.phone = newstr
-      // console.log('goood new phone  ' + fields.phone);
-      // toast.success("Дякуємо за звернення! Очікуйте дзвінка");
-      // return
+
+      // Формуємо смс для телеграм і відправляємо ))
+      // Символи переносу строки %0A   або  "\r\n" або \n
+      const messageToSend = `Отримано заявку із сайту для Продавців. %0A Ім'я: ${fields.name}
+      %0A Телефон: ${fields.phone} %0A Емейл: ${fields.email} %0A Побажання: ${fields.notes}`;
+      await sendMessageTelegram(messageToSend);
     }
 
 
@@ -576,7 +581,7 @@ const HomeZra = () => {
                 Вас Вітає <span>Rentu</span>
                 <span className="circle">.</span>
               </h2>
-              <p>Компанія нерухомості із новітньою діджиталізованою технологією продажу квартир</p>
+              <p className="mytext2">Компанія нерухомості із новітньою діджиталізованою технологією продажу квартир</p>
               <div className="mytext1">
                 ПРОДАВАЙ НЕРУХОМІСТЬ ТУТ
                 <span className="circle">.</span>
@@ -584,7 +589,7 @@ const HomeZra = () => {
 
 
 
-              <form className="row g-1 col-6 m-auto myform"
+              <form className="row g-1 col-xl-6 col-lg-8 col-sm-10 col-10   m-auto myform"
                 // action='/api/leads'
                 // method='POST'
                 // encType='multipart/form-data'
@@ -682,9 +687,10 @@ const HomeZra = () => {
         </div >
         <div className="icon-boxes position-relative">
           <div className="container position-relative">
-            <div className="row gy-4 mt-5">
+            <div className="row gy-4 mt-5 justify-content-center">
               <div
-                className="col-xl-4 col-md-4"
+                // className="col-xl-4 col-md-4"
+                className="col-lg-4 col-md-10"
                 data-aos="fade-up"
                 data-aos-delay={100}
               >
@@ -693,7 +699,7 @@ const HomeZra = () => {
                     <i className="bi bi-fullscreen" />
                   </div>
                   <h4 className="title">
-                    <a href="" className="stretched-link">
+                    <a href="#call-to-action" className="stretched-link">
                       Персоналізований сайт об'єкту продажу
                     </a>
                   </h4>
@@ -701,7 +707,8 @@ const HomeZra = () => {
               </div>
               {/*End Icon Box */}
               <div
-                className="col-xl-4 col-md-4 card-two"
+                // className="col-xl-4 col-md-4 card-two"
+                className="col-lg-4 col-md-5"
                 data-aos="fade-up"
                 data-aos-delay={200}
               >
@@ -710,12 +717,12 @@ const HomeZra = () => {
                     <i className="bi bi-headset" />
                   </div>
                   <h2 className="title">
-                    <a href="" className="stretched-link">
+                    <a href="#about" className="stretched-link">
                       7 днів - 7 кроків
                     </a>
                   </h2>
                   <h4 className="title">
-                    <a href="" className="stretched-link">
+                    <a href="#about" className="stretched-link">
                       Ефективна стратегія продажу
                     </a>
                   </h4>
@@ -723,7 +730,8 @@ const HomeZra = () => {
               </div>
               {/*End Icon Box */}
               <div
-                className="col-xl-4 col-md-4"
+                // className="col-xl-4 col-md-4"
+                className="col-lg-4 col-md-5"
                 data-aos="fade-up"
                 data-aos-delay={500}
               >
@@ -732,7 +740,7 @@ const HomeZra = () => {
                     <i className="bi bi-person-check" />
                   </div>
                   <h4 className="title">
-                    <a href="" className="stretched-link">
+                    <a href="#about" className="stretched-link">
                       Переговорний супровід та сервісна підтримка
                     </a>
                   </h4>
