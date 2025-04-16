@@ -1,0 +1,33 @@
+<svg width="82.000000" height="82.000000" viewBox="0 0 82 82" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+	<desc>
+			Created with Pixso.
+	</desc>
+	<defs>
+		<clipPath id="clip104_13312">
+			<rect id="Icon" width="34.000000" height="34.000000" transform="translate(24.000000 24.000000)" fill="white" fill-opacity="0"/>
+		</clipPath>
+		<linearGradient id="paint_linear_104_12854_0" x1="6.750008" y1="86.499977" x2="85.750023" y2="-5.499985" gradientUnits="userSpaceOnUse">
+			<stop stop-color="#A685FA"/>
+			<stop offset="0.323723" stop-color="#A685FA" stop-opacity="0.000000"/>
+		</linearGradient>
+		<linearGradient id="paint_linear_104_12854_1" x1="81.750000" y1="-10.500015" x2="6.750031" y2="82.000008" gradientUnits="userSpaceOnUse">
+			<stop stop-color="#A685FA"/>
+			<stop offset="0.576615" stop-color="#A685FA" stop-opacity="0.000000"/>
+		</linearGradient>
+		<linearGradient id="paint_linear_104_12855_0" x1="3.250000" y1="13.500000" x2="71.750000" y2="72.000000" gradientUnits="userSpaceOnUse">
+			<stop stop-color="#A685FA"/>
+			<stop offset="0.323723" stop-color="#A685FA" stop-opacity="0.000000"/>
+		</linearGradient>
+		<linearGradient id="paint_linear_104_12855_1" x1="84.250000" y1="86.000015" x2="12.249989" y2="35.000031" gradientUnits="userSpaceOnUse">
+			<stop stop-color="#A685FA"/>
+			<stop offset="0.576615" stop-color="#A685FA" stop-opacity="0.000000"/>
+		</linearGradient>
+	</defs>
+	<g clipPath="url(#clip104_13312)">
+		<path id="Subtract" d="M40.3477 55.664C40.3906 55.6888 40.4258 55.7079 40.4492 55.7213L40.4883 55.7433C40.8047 55.9167 41.1953 55.9154 41.5117 55.744L41.5508 55.7213C41.5742 55.7079 41.6094 55.6888 41.6523 55.664C41.7383 55.6144 41.8594 55.5421 42.0117 55.4474C42.3203 55.2582 42.7539 54.9791 43.2734 54.6129C44.3086 53.8819 45.6875 52.7972 47.0742 51.3804C49.8281 48.5605 52.6875 44.3237 52.6875 38.875C52.6875 32.4202 47.4531 27.1875 41 27.1875C34.5469 27.1875 29.3125 32.4202 29.3125 38.875C29.3125 44.3237 32.1719 48.5605 34.9258 51.3804C36.3125 52.7972 37.6914 53.8819 38.7266 54.6129C39.2461 54.9791 39.6797 55.2582 39.9883 55.4474C40.1406 55.5421 40.2617 55.6144 40.3477 55.664ZM41 43.125C43.3477 43.125 45.25 41.2222 45.25 38.875C45.25 36.5278 43.3477 34.625 41 34.625C38.6523 34.625 36.75 36.5278 36.75 38.875C36.75 41.2222 38.6523 43.125 41 43.125Z" fill="#A685FA" fill-opacity="1.000000" fillRule="evenodd"/>
+	</g>
+	<rect id="Container" rx="15.500000" width="61.000000" height="61.000000" transform="translate(10.500000 10.500000)" stroke="url(#paint_linear_104_12855_0)" stroke-opacity="1.000000" strokeWidth="1.000000"/>
+	<rect id="Container" rx="15.500000" width="61.000000" height="61.000000" transform="translate(10.500000 10.500000)" stroke="url(#paint_linear_104_12855_1)" stroke-opacity="1.000000" strokeWidth="1.000000"/>
+	<rect id="Icon Container" rx="20.500000" width="81.000000" height="81.000000" transform="translate(0.500000 0.500000)" stroke="url(#paint_linear_104_12854_0)" stroke-opacity="1.000000" strokeWidth="1.000000"/>
+	<rect id="Icon Container" rx="20.500000" width="81.000000" height="81.000000" transform="translate(0.500000 0.500000)" stroke="url(#paint_linear_104_12854_1)" stroke-opacity="1.000000" strokeWidth="1.000000"/>
+</svg>

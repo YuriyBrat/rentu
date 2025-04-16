@@ -29,7 +29,7 @@ const MainLayout = ({ children }) => {
    return (
       // <GlobalProvider>
       //    <AuthProvider>
-      <html lang="en">
+      <html lang="en" >
          <head>
             {/* <meta charset="utf-8"> */}
             {/* <meta content="width=device-width, initial-scale=1.0" name="viewport"> */}
@@ -56,7 +56,7 @@ const MainLayout = ({ children }) => {
          </head>
 
 
-         <body>
+         <body >
             <main className={comfortaa.className}>{children}</main>
             <ToastContainer />
          </body>

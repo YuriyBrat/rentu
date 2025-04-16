@@ -1,0 +1,33 @@
+<svg width="82.000000" height="82.000000" viewBox="0 0 82 82" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+	<desc>
+			Created with Pixso.
+	</desc>
+	<defs>
+		<clipPath id="clip104_13308">
+			<rect id="Icon" width="34.000000" height="34.000000" transform="translate(24.000000 24.000000)" fill="white" fill-opacity="0"/>
+		</clipPath>
+		<linearGradient id="paint_linear_104_12838_0" x1="6.750008" y1="86.499977" x2="85.750023" y2="-5.499985" gradientUnits="userSpaceOnUse">
+			<stop stop-color="#A685FA"/>
+			<stop offset="0.323723" stop-color="#A685FA" stop-opacity="0.000000"/>
+		</linearGradient>
+		<linearGradient id="paint_linear_104_12838_1" x1="81.750000" y1="-10.500015" x2="6.750031" y2="82.000008" gradientUnits="userSpaceOnUse">
+			<stop stop-color="#A685FA"/>
+			<stop offset="0.576615" stop-color="#A685FA" stop-opacity="0.000000"/>
+		</linearGradient>
+		<linearGradient id="paint_linear_104_12839_0" x1="3.250000" y1="13.500000" x2="71.750000" y2="72.000000" gradientUnits="userSpaceOnUse">
+			<stop stop-color="#A685FA"/>
+			<stop offset="0.323723" stop-color="#A685FA" stop-opacity="0.000000"/>
+		</linearGradient>
+		<linearGradient id="paint_linear_104_12839_1" x1="84.250000" y1="86.000015" x2="12.249989" y2="35.000031" gradientUnits="userSpaceOnUse">
+			<stop stop-color="#A685FA"/>
+			<stop offset="0.576615" stop-color="#A685FA" stop-opacity="0.000000"/>
+		</linearGradient>
+	</defs>
+	<g clipPath="url(#clip104_13308)">
+		<path id="Subtract" d="M55.875 33.5625L55.875 33.7861L42.1133 42.2546C41.4297 42.6749 40.5703 42.6749 39.8867 42.2546L26.125 33.7861L26.125 33.5625C26.125 31.2153 28.0273 29.3125 30.375 29.3125L51.625 29.3125C53.9727 29.3125 55.875 31.2153 55.875 33.5625ZM26.125 48.4375L26.125 36.2812L38.7734 44.0643C40.1367 44.905 41.8633 44.905 43.2266 44.0643L55.875 36.2812L55.875 48.4375C55.875 50.7847 53.9727 52.6875 51.625 52.6875L30.375 52.6875C28.0273 52.6875 26.125 50.7847 26.125 48.4375Z" fill="#A685FA" fill-opacity="1.000000" fillRule="evenodd"/>
+	</g>
+	<rect id="Container" rx="15.500000" width="61.000000" height="61.000000" transform="translate(10.500000 10.500000)" stroke="url(#paint_linear_104_12839_0)" stroke-opacity="1.000000" strokeWidth="1.000000"/>
+	<rect id="Container" rx="15.500000" width="61.000000" height="61.000000" transform="translate(10.500000 10.500000)" stroke="url(#paint_linear_104_12839_1)" stroke-opacity="1.000000" strokeWidth="1.000000"/>
+	<rect id="Icon Container" rx="20.500000" width="81.000000" height="81.000000" transform="translate(0.500000 0.500000)" stroke="url(#paint_linear_104_12838_0)" stroke-opacity="1.000000" strokeWidth="1.000000"/>
+	<rect id="Icon Container" rx="20.500000" width="81.000000" height="81.000000" transform="translate(0.500000 0.500000)" stroke="url(#paint_linear_104_12838_1)" stroke-opacity="1.000000" strokeWidth="1.000000"/>
+</svg>

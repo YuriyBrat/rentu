@@ -6,7 +6,6 @@ import Properties from '@/components/Properties';
 
 const PropertiesPage = async () => {
 
-
    return (<>
 
       <section className='bg-blue-700 py-4'>

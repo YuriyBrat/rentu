@@ -2,6 +2,12 @@
 $colorOrange: #f85a40;
 
 
+// shablon for btn hover effects
+%btn-hover {
+   background: lighten($color: $colorOrange, $amount: 10%);
+   box-shadow: 0px 0px 10px $colorOrange;
+   border: 1px solid $colorOrange
+}
 
 .myform {
    opacity: 70%;
@@ -11,17 +17,60 @@ $colorOrange: #f85a40;
    .btn-send {
       background: $colorOrange;
       height: 38px;
+      border-radius: 4px;
 
-      &:hover {
-         background: lighten($color: $colorOrange, $amount: 10%);
-         box-shadow: 0px 0px 10px $colorOrange;
-         border: 1px solid $colorOrange
-      };
+      &:hover {  @extend %btn-hover };
       &:active {
          transform: translateY(4px);
       }
    }
 };
+
+.btn-estate {
+   background: lighten($color: $colorOrange, $amount: 20%);
+   height: 38px;
+   border-radius: 4px;
+
+   &:hover {  @extend %btn-hover };
+   &:active {
+      transform: translateY(4px);
+   }
+}
+
+.btn-estate-set {
+   background: $colorOrange;
+   height: 38px;
+   border-radius: 4px;
+
+   transform: translateY(7px);
+
+   &:hover {  @extend %btn-hover };
+   &:active {
+      transform: translateY(10px);
+   }
+}
+
+.myform2 {
+   opacity: 60%;
+   
+   input {
+      text-align: center;
+      // opacity: 70%;
+      // color: aliceblue;
+      // border: 1px solid $colorOrange;
+   }
+
+   .btn-send {
+      background: $colorOrange;
+      height: 38px;
+
+      &:hover {  @extend %btn-hover };
+      &:active {
+         transform: translateY(4px);
+      }
+   }
+}
+
 
 .mytext1 {
    // font-size: 42px;
@@ -55,6 +104,17 @@ $colorOrange: #f85a40;
    border-right: 50px solid transparent;
    border-bottom: 36px solid #f85a40;
 }
+
+::-webkit-input-placeholder {
+   text-align: center;
+ }
+ 
+ :-moz-placeholder {
+   text-align: center;
+ }
+
+
+
 
 @media screen and (max-width: 767px) {
    .testimonial-item {

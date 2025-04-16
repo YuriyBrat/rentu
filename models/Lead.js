@@ -7,20 +7,24 @@ const LeadSchema = new Schema({
    },
    phone: {
       type: String,
-      unique: [true, 'Phone already exist'],
+      // unique: [true, 'Phone already exist'],
       required: [true, 'Phone is required']
    },
    email: {
       type: String,
-      unique: [true, 'Email already exist'],
-      required: [true, 'Email is required']
+      // unique: [true, 'Email already exist'],
+      // required: [true, 'Email is required']
    },
    ip: {
       type: String,
       // unique: [true, 'Email already exist'],
       // required: [true, 'Email is required']
    },
-
+   notes: {
+      type: String,
+      // unique: [true, 'Email already exist'],
+      // required: [true, 'Email is required']
+   },
    // bookmarks: [
    //    {
    //       type: Schema.Types.ObjectId,

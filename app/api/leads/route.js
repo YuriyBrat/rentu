@@ -18,9 +18,10 @@ export const POST = async (req) => {
       const reqData = await req.json();
 
       const leadData = {
-         name: reqData.name,
+         leadname: reqData.name,
          phone: reqData.phone,
          email: reqData.email,
+         notes: reqData.notes,
          // notes: formData.get('notes'),
          ip: reqData.ip
       };
@@ -28,8 +29,8 @@ export const POST = async (req) => {
       console.log(leadData);
 
 
-      // const newProperty = new Property(propertyData);
-      // await newProperty.save();
+      const newLead = new Lead(leadData);
+      await newLead.save();
 
       // console.log(propertyData)
       // return Response.redirect(`${process.env.NEXTAUTH_URL}/properties/${newProperty._id}`)
@@ -37,7 +38,7 @@ export const POST = async (req) => {
       return new Response(JSON.stringify({ message: 'Success' }),
          { status: 200 });
    } catch (error) {
-      return new Response('Error to add lead',
-         { status: 500 });
+      // return new Response(JSON.stringify({ message: 'Smth done wrong' }), { status: 500 })
+      return new Response(JSON.stringify({ message: 'Error in saving lead in db', error }), { status: 500 })
    }
 }
