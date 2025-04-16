@@ -1,5 +1,5 @@
 'use client'
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 // import { useTheme } from "@emotion/react";
 import { Box, Drawer, styled, useTheme } from "@mui/material";
 import Iconify from "../../iconify/iconify";
@@ -30,7 +30,14 @@ const MobileMenu = () => {
   const handleClose = () => {
     setOpen(false);
   };
-  const pathName = window.location.pathname;
+  // const pathName = window.location.pathname;
+
+  let pathName = '';
+
+
+  useEffect(() => {
+    pathName = window.location.pathname;
+  }, [])
   return (
     <div>
       <Box

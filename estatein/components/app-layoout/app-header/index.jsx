@@ -1,4 +1,5 @@
 'use client'
+import { useEffect } from "react";
 import { Stack, Box, styled, useTheme, Divider } from "@mui/material";
 import MobileMenu from "./mobile-menu";
 import { LayoutContainer } from "../container";
@@ -27,8 +28,13 @@ export const headerNav = [
 
 const AppHeader = () => {
   const theme = useTheme();
-  const pathName = window.location.pathname;
-  
+  let pathName = '';
+
+
+  useEffect(() => {
+    pathName = window.location.pathname;
+  }, [])
+
   return (
     <header>
       <Box
