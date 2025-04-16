@@ -47,6 +47,8 @@ const HomeZra = () => {
   }
 
   const setTriangleStyle = () => {
+    if (typeof window == undefined) return;
+
     const form = document?.getElementsByClassName('myform')[0];
     if (form) {
       // const btn = form?.getElementsByTagName('BUTTON')[0];
@@ -251,6 +253,8 @@ const HomeZra = () => {
    */
     const selectHeader = document.querySelector('#header');
     if (selectHeader) {
+      if (typeof window == undefined) return;
+
       let headerOffset = selectHeader.offsetTop;
       let nextElement = selectHeader.nextElementSibling;
 
@@ -280,6 +284,7 @@ const HomeZra = () => {
 
         let section = document.querySelector(navbarlink.hash);
         if (!section) return;
+        if (typeof window == undefined) return;
 
         let position = window.scrollY + 200;
 
@@ -290,7 +295,9 @@ const HomeZra = () => {
         }
       })
     }
-    window.addEventListener('load', navbarlinksActive);
+    if (typeof window !== undefined) {
+      window.addEventListener('load', navbarlinksActive);
+    }
     document.addEventListener('scroll', navbarlinksActive);
 
 
@@ -355,7 +362,8 @@ const HomeZra = () => {
    * Scroll top button
    */
     const scrollTop = document.querySelector('.scroll-top');
-    if (scrollTop) {
+    if (scrollTop && typeof window !== undefined) {
+
       const togglescrollTop = function () {
         window.scrollY > 100 ? scrollTop.classList.add('active') : scrollTop.classList.remove('active');
       }
@@ -727,7 +735,7 @@ const HomeZra = () => {
           <i className="mobile-nav-toggle mobile-nav-hide d-none bi bi-x" />
         </div>
       </header>
-      
+
       {/* /* End Header */}
       {/* /* - - - - - - - -  Hero Section - - - - - - - -  */}
       <section id="hero" className="hero">
