@@ -10,10 +10,22 @@ import {
 } from '@mui/material'
 import SendIcon from '@mui/icons-material/Send';
 
+import { getMyFormatDate } from "@/hooks/date.hook";
 
 const genWord = () => {
 
    const [value, setValue] = useState('');
+
+   const bgDiv = "#d0d1cf"
+   const colFulled = "#e2ffc8"
+   const colEmpty = 'rgb(242, 244, 248)'
+   const colRed = '#f6cede'
+   const styleFulled = {
+      background: colFulled,
+   };
+   const styleRed = {
+      background: colRed,
+   }
 
    const fieldsDataZero = {
       numberZS: '',
@@ -93,22 +105,42 @@ const genWord = () => {
             [name]: value,
          }));
       }
+
+      if (e.target.tagName == 'INPUT') {
+         if (value != "") {
+            if (value.trim() != "") {
+               e.target.style = styleFulled
+               e.target.parentElement.parentElement.style.background = colFulled
+               // console.log(e.target.tagName);
+            } else {
+               e.target.parentElement.parentElement.style.background = colEmpty
+            }
+         } else {
+            e.target.parentElement.parentElement.style.background = colEmpty
+         }
+      }
    };
 
 
 
 
-   const generateDealZS = async () => {
+   const generateDealZS = async (kind = 'zs') => {
       console.log('fetch genDealZS');
       try {
-         let nameFile = 'ЗС Пулюя 30'                     // options.nameFile ? options.nameFile : 'Список';
-         let dateMyFormat = '25.12.2025' // d.getMyFormatDate(new Date(), 'DD.MM.YY');
-         let newNameFile = nameFile + ' ' + dateMyFormat + '.docx';
+         let nameFile = fieldsData.estateAdress                   // options.nameFile ? options.nameFile : 'Список';
+         let dateMyFormat = getMyFormatDate(new Date(), 'DD.MM.YY');
+         if (kind == 'zs') {
+            nameFile = 'ЗС ' + nameFile
+         } else if (kind == 'rp') {
+            nameFile = 'РП ' + nameFile
+         }
+
+         nameFile = nameFile + ' ' + dateMyFormat + '.docx';
 
 
          await fetch('/api/rcs/genzs', {
             method: 'POST',
-            body: JSON.stringify(fieldsData),
+            body: JSON.stringify({ fieldsData, kind, nameFile }),
             headers: {
                ['Content-Type']: 'application/json'
             }
@@ -124,7 +156,7 @@ const genWord = () => {
             })
             .then(function (blob) {
                if (blob) {
-                  FileSaver.saveAs(blob, newNameFile);
+                  FileSaver.saveAs(blob, nameFile);
                } else {
                   toast.error('На жаль, дивна помилка при генеруванні Договору!');
                }
@@ -137,21 +169,34 @@ const genWord = () => {
          toast.error('На жаль, фатальна помилка при генеруванні Договору!');
          throw new Error()
       } finally {
-         setFieldsData(fieldsDataZero)
+         //! setFieldsData(fieldsDataZero) //не обновляємо форму для подальшої можливої корекції!!! І для Договору послуг!
       }
    } //, []);
 
-   const bgDiv = "#d0d1cf"
+   function randomIntFromInterval(min, max) { // min and max included 
+      return Math.floor(Math.random() * (max - min + 1) + min);
+   }
+   // const rndInt = randomIntFromInterval(1, 6);
+
+
 
    return (
-      <Stack spacing={4}>
+      <Stack spacing={4} sx={{
+         backgroundImage: `url(/esta/assets/docs/docu2.jpg)`,
+         // width: '100%'
+         backgroundAttachment: 'fixed',
+         backgroundSize: 'cover'
+         // position: 'fixed',
+
+      }}>
 
          <Stack sx={{
             justifyContent: "center",
             alignItems: "center",
          }}>
             <Grid lg={8} md={10} xs={12} container rowSpacing={1} columnSpacing={1} sx={{
-               background: "#f2f4f8"
+               background: "#f2f4f8",
+               opacity: '90%'
             }}>
                <Grid item xs={12} mt={2} sx={{ background: bgDiv }}>
                   <Divider>ДОГОВІР ЗАВДАТКУ КУПІВЛІ-ПРОДАЖУ</Divider>
@@ -161,19 +206,17 @@ const genWord = () => {
                   <TextField fullWidth label="№ Договору" variant='standard' helperText="зразок: 25/04"
                      name='numberZS'
                      value={fieldsData.numberZS}
-                     onChange={handleChangeData}
-                     sx={{
-                        background: "#e2ffc8",
-                     }} />
+                     onChange={handleChangeData} />
                </Grid>
                <Grid item sm={2} xs={4}>
                   <TextField fullWidth label="Місце Договору" variant='standard' helperText="зразок: м.Львів"
                      name='placeZS'
                      value={fieldsData.placeZS}
-                     onChange={handleChangeData} />
+                     onChange={handleChangeData}
+                     sx={styleFulled} />
                </Grid>
                <Grid item sm={3} xs={4}>
-                  <TextField fullWidth label="Дата Договору" variant='standard' helperText="зразок: 27 жовтян 2022р"
+                  <TextField fullWidth label="Дата Договору" variant='standard' helperText="зразок: 27 жовтня 2022р"
                      name='dateZS'
                      value={fieldsData.dateZS}
                      onChange={handleChangeData} />
@@ -182,7 +225,8 @@ const genWord = () => {
                   <TextField fullWidth label="ФОП угоди" variant='standard' helperText="зразок: ФОП Рачун Юрій Тарасович"
                      name='nameFOP'
                      value={fieldsData.nameFOP}
-                     onChange={handleChangeData} />
+                     onChange={handleChangeData}
+                     sx={styleFulled} />
                </Grid>
 
 
@@ -288,7 +332,8 @@ const genWord = () => {
                   <TextField fullWidth label="Валюта Договору" variant='standard'
                      name='zsCurrency'
                      value={fieldsData.zsCurrency}
-                     onChange={handleChangeData} />
+                     onChange={handleChangeData}
+                     sx={styleFulled} />
                </Grid>
                <Grid item sm={2} xs={4}>
                   <TextField fullWidth label="Сума ЗАВДАТКУ" variant='standard'
@@ -321,13 +366,15 @@ const genWord = () => {
                   <TextField fullWidth label="Об'єкт нерухомості (кого?що?)" variant='standard' helperText="зразок: одно-кімнатну квартиру"
                      name='estateName'
                      value={fieldsData.estateName}
-                     onChange={handleChangeData} />
+                     onChange={handleChangeData}
+                     sx={styleRed} />
                </Grid>
                <Grid item sm={8} xs={12}>
                   <TextField fullWidth label="Адреса Об'єкту" variant='standard' helperText="зразок: м.Львів, вулиця Замарстинівська 170, проектний номер №03/5"
                      name='estateAdress'
                      value={fieldsData.estateAdress}
-                     onChange={handleChangeData} />
+                     onChange={handleChangeData}
+                     sx={styleRed} />
                </Grid>
                <Grid item sm={9} xs={12}>
                   <TextField fullWidth label="Документи на право власності" variant='standard' helperText='зразок: Договір купівлі-продажу від 05.06.2006року, серія №5174'
@@ -353,7 +400,7 @@ const genWord = () => {
                      value={fieldsData.furnitureRemain}
                      onChange={handleChangeData} />
                </Grid>
-               
+
 
                <Grid item xs={12} mt={2} sx={{ background: bgDiv }}>
                   <Divider>ДОДАТКОВІ ПЛАТЕЖІ</Divider>
@@ -370,7 +417,9 @@ const genWord = () => {
                         name='costsNotarDeal'
                         value={fieldsData.costsNotarDeal}
                         onChange={handleChangeData}
+                     // sx={styleFulled}
                      >
+                        <MenuItem value=""></MenuItem>
                         <MenuItem value="Покупець">Покупець</MenuItem>
                         <MenuItem value="Продавець">Продавець</MenuItem>
                         <MenuItem value="Продавець та Покупець пополам">Продавець та Покупець пополам</MenuItem>
@@ -387,7 +436,9 @@ const genWord = () => {
                         name='costs_1PF'
                         value={fieldsData.costs_1PF}
                         onChange={handleChangeData}
+                     // sx={styleFulled}
                      >
+                        <MenuItem value=""></MenuItem>
                         <MenuItem value="Покупець">Покупець</MenuItem>
                         <MenuItem value="Продавець">Продавець</MenuItem>
                         <MenuItem value="Продавець та Покупець пополам">Продавець та Покупець пополам</MenuItem>
@@ -404,7 +455,9 @@ const genWord = () => {
                         name='costs_1DM'
                         value={fieldsData.costs_1DM}
                         onChange={handleChangeData}
+                     // sx={styleFulled}
                      >
+                        <MenuItem value=""></MenuItem>
                         <MenuItem value="Покупець">Покупець</MenuItem>
                         <MenuItem value="Продавець">Продавець</MenuItem>
                         <MenuItem value="Продавець та Покупець пополам">Продавець та Покупець пополам</MenuItem>
@@ -421,7 +474,9 @@ const genWord = () => {
                         name='costsNotarCheking'
                         value={fieldsData.costsNotarCheking}
                         onChange={handleChangeData}
+                     // sx={styleFulled}
                      >
+                        <MenuItem value=""></MenuItem>
                         <MenuItem value="Покупець">Покупець</MenuItem>
                         <MenuItem value="Продавець">Продавець</MenuItem>
                         <MenuItem value="Продавець та Покупець пополам">Продавець та Покупець пополам</MenuItem>
@@ -438,7 +493,9 @@ const genWord = () => {
                         name='costsOcinka'
                         value={fieldsData.costsOcinka}
                         onChange={handleChangeData}
+                     // sx={styleFulled}
                      >
+                        <MenuItem value=""></MenuItem>
                         <MenuItem value="Покупець">Покупець</MenuItem>
                         <MenuItem value="Продавець">Продавець</MenuItem>
                         <MenuItem value="Продавець та Покупець пополам">Продавець та Покупець пополам</MenuItem>
@@ -455,7 +512,9 @@ const genWord = () => {
                         name='costsAdd'
                         value={fieldsData.costsAdd}
                         onChange={handleChangeData}
+                     // sx={styleFulled}
                      >
+                        <MenuItem value=""></MenuItem>
                         <MenuItem value="Покупець">Покупець</MenuItem>
                         <MenuItem value="Продавець">Продавець</MenuItem>
                         <MenuItem value="Продавець та Покупець пополам">Продавець та Покупець пополам</MenuItem>
@@ -473,6 +532,7 @@ const genWord = () => {
                         value={fieldsData.costs_5PPFO_15VZ}
                         onChange={handleChangeData}
                      >
+                        <MenuItem value=""></MenuItem>
                         <MenuItem value="Покупець">Покупець</MenuItem>
                         <MenuItem value="Продавець">Продавець</MenuItem>
                         <MenuItem value="Продавець та Покупець пополам">Продавець та Покупець пополам</MenuItem>
@@ -481,7 +541,7 @@ const genWord = () => {
                      </Select>
                   </FormControl>
                </Grid>
-               
+
 
                <Grid item xs={12}>
                   <TextField fullWidth label="Будь-які інші витрати поза списком, які прописуються окремим пунктом у договорі" variant='standard' helperText='зразок: виготовлення документації на підключення світла оплачує Продавець'
@@ -502,22 +562,51 @@ const genWord = () => {
                      onChange={handleChangeData} />
                </Grid> */}
 
+               {/* <Grid item xs={12} mt={2} sx={{ background: bgDiv }}>
+                  <Divider>ГЕНЕРАЦІЯ ДОГОВОРІВ</Divider>
+               </Grid> */}
+
+               <Grid item xs={12} mt={1} pb={2} sx={{ background: bgDiv}}>
+                  <Stack spacing={0} direction="row"
+                     sx={{
+                        justifyContent: "center",
+                        alignItems: "center",
+                     }}>
+
+                     <Button variant='contained' color="secondary" endIcon={<SendIcon />}
+                        disableRipple
+                        // onClick={() => alert('Click')}
+                        onClick={e => generateDealZS()}
+                     >Згенерувати договір завдатку</Button>
+
+                     {/* <Button variant='contained' color="success" endIcon={<SendIcon />}
+                        disableRipple
+                        // onClick={() => alert('Click')}
+                        onClick={e => generateDealZS()}
+                     >Згенерувати договір послуг</Button> */}
+                  </Stack>
+               </Grid>
+
+               <Grid item xs={12} pb={2} sx={{ background: bgDiv}}>
+                  <Stack spacing={1} direction="row"
+                     sx={{
+                        justifyContent: "center",
+                        alignItems: "center",
+                     }}>
+
+                     <Button variant='contained' color="success" endIcon={<SendIcon />}
+                        disableRipple
+                        // onClick={() => alert('Click')}
+                        onClick={e => generateDealZS('rp')}
+                     >Згенерувати договір послуг</Button>
+                  </Stack>
+               </Grid>
+
             </Grid>
          </Stack>
 
 
-         <Stack spacing={1} direction="row"
-            sx={{
-               justifyContent: "center",
-               alignItems: "center",
-            }}>
 
-            <Button variant='contained' color="secondary" endIcon={<SendIcon />}
-               disableRipple
-               // onClick={() => alert('Click')}
-               onClick={e => generateDealZS()}
-            >Згенерувати договір завдатку</Button>
-         </Stack>
       </Stack>
    )
 }

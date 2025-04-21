@@ -13,9 +13,11 @@ const docx = require("docx");
 // const c = require('config');
 
 const { Document, Packer, Paragraph, Tab, TextRun, SequentialIdentifier,
+   TabStopType, TabStopPosition, PositionalTab, PositionalTabAlignment, PositionalTabRelativeTo, PositionalTabLeader,
    Table, TableRow, TableCell, Footer, VerticalAlign, AlignmentType,
    SectionType, PageOrientation, HeadingLevel, ShadingType, WidthType, convertInchesToTwip, convertMillimetersToTwip,
-   BorderStyle, UnderlineType, HeightRule } = docx;
+   BorderStyle, UnderlineType, HeightRule,
+   FrameAnchorType, HorizontalPositionAlign, VerticalPositionAlign } = docx;
 
 
 function sectionListTitle() {
@@ -967,11 +969,62 @@ function tableTwoColumns(text1, text2) {
    })
 };
 
+function tableOneCell(text, perc, size = '24', bold = false, align = 'center', border = 'thick') {
+   const alignHor = align == 'left' ? AlignmentType.LEFT : align == 'right' ? AlignmentType.RIGHT : AlignmentType.CENTER;
+   let bord = border == 'thick' ? BorderStyle.THICK : border == 'dashed' ? BorderStyle.DASHED : border == 'dotted' ? BorderStyle.DOTTED : border == 'none' ? BorderStyle.NIL : BorderStyle.NIL;
+   return new TableCell({
+      children: [
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: text,
+                  size: size,
+                  bold: bold,
+               }),
+            ],
+            alignment: alignHor,
+         })
+      ],
+      verticalAlign: VerticalAlign.CENTER,
+      width: {
+         size: perc,
+         type: WidthType.PERCENTAGE,
+      },
+      margins: {
+         top: convertInchesToTwip(0.05),
+         bottom: convertInchesToTwip(0.05),
+         left: convertInchesToTwip(0.05),
+         right: convertInchesToTwip(0.05)
+      },
+      borders: {
+         top: { style: bord },
+         right: { style: bord },
+         bottom: { style: bord },
+         left: { style: bord },
+      },
+   })
+};
+
 function fixCurrText(curr) {
    if (curr.toLowerCase().includes('дол')) {
       return 'доларів США'
    } else return curr
 };
+
+function correctTextZtoN(text) {
+   let newtext = text;
+   if (text != '') {
+      if (text.trim() != '') {
+         // text = text.toString();
+         text = text.toLowerCase();
+         newtext = text.replace('$1ртиру', '$1ртира');
+         newtext = text.replace('натну', 'натна');
+         newtext = text.replace('лянку', 'лянка');
+         // newtext = text.replace('fuck', 'best');
+      }
+   };
+   return newtext
+}
 
 function buildAvansText(dataDealZs) { //also Duty else
    const obj = {
@@ -1416,12 +1469,13 @@ function buildCosts(dataDealZs) {
 };
 
 const spacingAfter = 200;
+const spacingAfterRP = 100;
 const indentFirst = 600;
-
-const forex = Number(dataDealZs.zsForex.replace(",", "."));
 
 
 function buildDealZS(dataDealZs) {
+   const forex = Number(dataDealZs.zsForex.replace(",", "."));
+
    let section1 = {
       properties: {
          type: SectionType.NEXT_PAGE,
@@ -1492,23 +1546,31 @@ function buildDealZS(dataDealZs) {
             ],
             alignment: AlignmentType.CENTER,
          }),
-         tableTwoColumns(dataDealZs.placeZS, dataDealZs.dateZS),
+         // tableTwoColumns(dataDealZs.placeZS, dataDealZs.dateZS),
 
-         // new Paragraph({
-         //    children: [
-         //       new TextRun({ text: "Hey everyone", bold: true }),
-         //       new TextRun("\t11th November 1999"),
-         //       new TextRun({
-         //          children: [new Tab(), "11th November 1999"],
-         //       }),
-         //    ],
-         //    tabStops: [
-         //       {
-         //          type: docx.TabStopType.RIGHT,
-         //          position: docx.TabStopPosition.MAX,
-         //       },
-         //    ],
-         // })
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: dataDealZs.placeZS,
+                  size: 24,
+                  bold: true,
+               }),
+               new TextRun({
+                  children: [
+                     new PositionalTab({
+                        alignment: PositionalTabAlignment.RIGHT,
+                        relativeTo: PositionalTabRelativeTo.MARGIN,
+                        leader: PositionalTabLeader.NONE
+                     }),
+                     dataDealZs.dateZS,
+                  ],
+                  size: 24,
+                  bold: true,
+               }),
+            ],
+         }),
+
+
          new Paragraph({
             children: [
                new TextRun({
@@ -1657,7 +1719,7 @@ function buildDealZS(dataDealZs) {
                   bold: false,
                }),
                new TextRun({
-                  text: `по курсу ${dataDealZs.zsForex} грн/${dataDealZs.zsCurrency} за згодою сторін на день реєстрації нотаріально посвідченого Договору купівлі-продажу.`,
+                  text: `по курсу ${dataDealZs.zsForex} грн/${dataDealZs.zsCurrency} за згодою сторін на день підписання даного Договору.`,  // за згодою сторін на день реєстрації нотаріально посвідченого Договору купівлі-продажу.
                   size: 24,
                   bold: false,
                }),
@@ -2218,15 +2280,799 @@ ${dataDealZs.RP_Customer != '' ? `Договором про надання по�
    });
 };
 
+function buildDealRP(dataDealZs) {
+   const forex = Number(dataDealZs.zsForex.replace(",", "."));
+
+   let section1 = {
+      properties: {
+         type: SectionType.NEXT_PAGE,
+         page: {
+            margin: {
+               top: 568,
+               right: 568,
+               bottom: 568,
+               left: 568 * 2,
+            },
+         },
+         titlePage: true,
+      },
+      footers: {  // The footer on first page when the 'Different First Page' option is activated
+         first: new Footer({
+            children: [
+               new Paragraph({
+                  children: [
+                     new TextRun({
+                        text: `Виконавець (${dataDealZs.nameFOP}): ____________    Замовник: ________________________`,
+                        size: 24,
+                        bold: false,
+                     }),
+                  ],
+                  alignment: AlignmentType.CENTER,
+                  // indent: { firstLine: indentFirst },
+                  spacing: { before: spacingAfterRP },
+               })
+            ],
+         }),
+         default: new Footer({ // The standard default footer on every page or footer on odd pages when the 'Different Odd & Even Pages' option is activated
+            children: [],
+         }),
+         // even: new Footer({ // The footer on even pages when the 'Different Odd & Even Pages' option is activated
+         //    children: [],
+         // }),
+      },
+      children: [
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: `ДОГОВІР №${dataDealZs.numberZS}`,
+                  size: 24,
+                  bold: true,
+               }),
+               new TextRun({
+                  text: `про надання посередницьких послуг з купівлі чи оренди`,
+                  size: 24,
+                  bold: true,
+                  break: 1
+               })
+            ],
+            alignment: AlignmentType.CENTER,
+            // spacing: { after: spacingAfter },
+         }),
+
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: dataDealZs.placeZS,
+                  size: 24,
+                  bold: true,
+               }),
+               new TextRun({
+                  children: [
+                     new PositionalTab({
+                        alignment: PositionalTabAlignment.RIGHT,
+                        relativeTo: PositionalTabRelativeTo.MARGIN,
+                        leader: PositionalTabLeader.NONE
+                     }),
+                     dataDealZs.dateZS,
+                  ],
+                  size: 24,
+                  bold: true,
+               }),
+            ],
+         }),
+
+
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: "1. Учасники Договору:",
+                  size: 24,
+                  bold: true,
+               }),
+            ],
+            alignment: AlignmentType.LEFT,
+            spacing: { after: spacingAfterRP },
+            indent: { //! All paragraph left indent if left
+               left: 4000,
+               // firstLine: 1000
+            },
+         }),
+
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: `1.1. Замовник: `,
+                  size: 24,
+                  bold: false,
+               }),
+               new TextRun({
+                  text: `${dataDealZs.customerPIB}, `,
+                  size: 24,
+                  bold: true,
+               }),
+               new TextRun({
+                  text: `ІПН ${dataDealZs.cIPN}, `,
+                  size: 24,
+                  bold: false,
+               }),
+               new TextRun({
+                  text: `паспорт серії ${dataDealZs.cPassUkr}, виданий ${dataDealZs.cPassIssued} від ${dataDealZs.cPassDate}, місце реєстрації: ${dataDealZs.cPlaceRegister} з одного боку `,
+                  size: 24,
+                  bold: false,
+               }),
+            ],
+            alignment: AlignmentType.JUSTIFIED,
+            // spacing: { after: spacingAfter },
+            indent: { firstLine: indentFirst },
+         }),
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: `та Виконавець: `,
+                  size: 24,
+                  bold: false,
+               }),
+               new TextRun({
+                  text: `${dataDealZs.nameFOP}, `,
+                  size: 24,
+                  bold: true,
+               }),
+               new TextRun({
+                  text: `(агентство нерухомості), який діє на підставі Виписки з державного реєстру юридичних осіб та фізичних осіб-підприємців
+в особі директора-розпорядника, надалі Сторони, уклали даний Договір про наступне:`,
+                  size: 24,
+                  bold: false,
+               }),
+            ],
+            alignment: AlignmentType.JUSTIFIED,
+            spacing: { after: spacingAfterRP },
+            indent: { firstLine: indentFirst },
+         }),
+
+
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: "2. Предмет договору:",
+                  size: 24,
+                  bold: true,
+               }),
+            ],
+            alignment: AlignmentType.CENTER,
+            // spacing: { after: spacingAfter },
+         }),
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: `2.1. За цим Договором Замовник доручає, а Виконавець приймає на себе обов’язки по виконанню посередницьких послуг з купівлі чи оренди 
+Об'єктів нерухомості Замовником та маркетингових і консультаційних (рієлторських) послуг, а Замовник бере на себе зобов'язання своєчасно приймати та оплачувати
+Виконавцю надані послуги згідно з умовами цього договору .`,
+                  size: 24,
+                  bold: false,
+               }),
+            ],
+            alignment: AlignmentType.JUSTIFIED,
+            spacing: { after: spacingAfterRP },
+            indent: { firstLine: indentFirst },
+         }),
+
+
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: "3. Обов'язки Сторін:",
+                  size: 24,
+                  bold: true,
+               }),
+            ],
+            alignment: AlignmentType.CENTER,
+            // spacing: { after: spacingAfter },
+         }),
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: "3.1. Виконавець зобов'язаний:",
+                  size: 24,
+                  bold: true,
+               }),
+            ],
+            alignment: AlignmentType.LEFT,
+            indent: { firstLine: indentFirst },
+         }),
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: `3.1.1. надавати інформаційні та маркетингові (рієлторські) послуги щодо існуючого ринку нерухомості;`,
+                  size: 24,
+                  bold: false,
+               })
+            ],
+            alignment: AlignmentType.JUSTIFIED,
+            // spacing: { after: spacingAfter },
+            indent: { firstLine: indentFirst },
+         }),
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: `3.1.2. здійснити пошук Об’єктів нерухомості для Замовника за вказаними ним характеристиками;`,
+                  size: 24,
+                  bold: false,
+               })
+            ],
+            alignment: AlignmentType.JUSTIFIED,
+            // spacing: { after: spacingAfter },
+            indent: { firstLine: indentFirst },
+         }),
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: `3.1.3. показати Замовнику знайдені Об’єкти нерухомості та надати характеристики цих об'єктів для
+прийняття рішення про доцільність його придбання;`,
+                  size: 24,
+                  bold: false,
+               })
+            ],
+            alignment: AlignmentType.JUSTIFIED,
+            // spacing: { after: spacingAfter },
+            indent: { firstLine: indentFirst },
+         }),
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: `3.1.4. бути посередником у переговорах із Продавцем чи Орендодавцем об’єкту нерухомості щодо
+погодження усіх істотних умов при укладанні Договору купівлі-продажу (або договору переуступки або відступлення майнових прав), чи оренди знайдених для Замовника Об’єктів нерухомості;`,
+                  size: 24,
+                  bold: false,
+               })
+            ],
+            alignment: AlignmentType.JUSTIFIED,
+            // spacing: { after: spacingAfter },
+            indent: { firstLine: indentFirst },
+         }),
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: `3.1.5. надавати консультації при укладанні Договору купівлі-продажу чи оренди Об’єктів нерухомості.`,
+                  size: 24,
+                  bold: false,
+               })
+            ],
+            alignment: AlignmentType.JUSTIFIED,
+            // spacing: { after: spacingAfter },
+            indent: { firstLine: indentFirst },
+         }),
+
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: "3.2. Замовник зобов'язаний:",
+                  size: 24,
+                  bold: true,
+               }),
+            ],
+            alignment: AlignmentType.LEFT,
+            indent: { firstLine: indentFirst },
+         }),
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: `3.2.1. здійснити оплату послуг Виконавця у термін, визначений цим Договором;`,
+                  size: 24,
+                  bold: false,
+               })
+            ],
+            alignment: AlignmentType.JUSTIFIED,
+            // spacing: { after: spacingAfter },
+            indent: { firstLine: indentFirst },
+         }),
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: `3.2.2. підписувати примірники Актів здавання-приймання виконаних робіт в день нотаріального посвідчення
+Договору купівлі-продажу об’єкту нерухомості (або договору переуступки або відступлення майнових прав), або укладання з Орендодавцем договору оренди.`,
+                  size: 24,
+                  bold: false,
+               })
+            ],
+            alignment: AlignmentType.JUSTIFIED,
+            spacing: { after: spacingAfterRP },
+            indent: { firstLine: indentFirst },
+         }),
+
+
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: "4. Вартість послуг і порядок проведення взаєморозрахунків:",
+                  size: 24,
+                  bold: true,
+               }),
+            ],
+            alignment: AlignmentType.CENTER,
+            // spacing: { after: spacingAfter },
+         }),
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: `4.1. Послуги за даним Договором вважаються наданими після огляду Замовником Об’єктів нерухомості, що вказані у пункті 7 цього Договору
+та укладанні Замовником Договору купівлі-продажу (або договору переуступки або відступлення майнових прав) чи оренди Об’єктів нерухомості,
+які знайшов і порекомендував Замовнику Виконавець.`,
+                  size: 24,
+                  bold: false,
+               })
+            ],
+            alignment: AlignmentType.JUSTIFIED,
+            spacing: { after: spacingAfterRP },
+            indent: { firstLine: indentFirst },
+         }),
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: `4.2. За надання послуг по даному договору Замовник зобов'язується оплатити Виконавцю винагороду у розмірі `,
+                  size: 24,
+                  bold: false,
+               }),
+               new TextRun({
+                  text: `${(Number(dataDealZs.RP_Customer) * forex).toFixed(2)} ${textCaseCurrency((Number(dataDealZs.RP_Customer) * forex).toFixed(2), "гривня")} (${number_to_string(Number(dataDealZs.RP_Customer) * forex, "гривня")}), що становить в еквіваленті `,
+                  size: 24,
+                  bold: false,
+               }),
+               new TextRun({
+                  text: `${dataDealZs.RP_Customer} ${textCaseCurrency(dataDealZs.RP_Customer, dataDealZs.zsCurrency)} `, // доларів США
+                  size: 24,
+                  bold: true,
+               }),
+               new TextRun({
+                  text: `(${number_to_string(dataDealZs.RP_Customer, dataDealZs.zsCurrency)}), `,
+                  size: 24,
+                  bold: false,
+               }),
+               new TextRun({
+                  text: `по курсу ${dataDealZs.zsForex} грн/${dataDealZs.zsCurrency} за згодою сторін на день підписання даного Договору.`,
+                  size: 24,
+                  bold: false,
+               }),
+            ],
+            alignment: AlignmentType.JUSTIFIED,
+            spacing: { after: spacingAfterRP },
+            indent: { firstLine: indentFirst },
+         }),
+
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: "5. Відповідальність Сторін:",
+                  size: 24,
+                  bold: true,
+               }),
+            ],
+            alignment: AlignmentType.CENTER,
+            // spacing: { after: spacingAfter },
+         }),
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: `5.1. У випадку невиконання Замовником грошового зобов’язання за даним Договором у термін, який перевищує 5 календарних днів,
+останній зобов’язується сплатити Виконавцю додатково неустойку в розмірі подвійної облікової ставки НБУ, за кожний день прострочки платежу,
+а також 24% річних від суми невиконаного зобов’язання. У випадку невиконання грошового зобов’язання за даним договором у термін, що перевищує 30
+календарних днів, Замовник додатково сплачує Виконавцю штраф у розмірі 50% від суми невиконаного зобов’язання.`,
+                  size: 24,
+                  bold: false,
+               })
+            ],
+            alignment: AlignmentType.JUSTIFIED,
+            // spacing: { after: spacingAfter },
+            indent: { firstLine: indentFirst },
+         }),
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: `5.2. У випадку, якщо Замовник не підписує та/або не повертає Виконавцеві Акти здавання-приймання виконаних
+робіт у термін, встановлений цим Договором, послуги вважаються такими, що надані і прийняті та підлягають оплаті згідно з цим Договором.`,
+                  size: 24,
+                  bold: false,
+               })
+            ],
+            alignment: AlignmentType.JUSTIFIED,
+            // spacing: { after: spacingAfter },
+            indent: { firstLine: indentFirst },
+         }),
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: `5.3. У випадку, якщо Замовник або його Довірена особа (або Пов'язані із Замовником особи), без посередника - Виконавця купили Об'єкт,
+що вказаний у п.7. цього Договору, послуги вважаються такими, що є надані Виконавцем і прийняті Замовником та підлягають оплаті згідно із цим Договором у день нотаріального
+посвідчення Договору купівлі-продажу (або договору переуступки або відступлення майнових прав) Об’єкту нерухомості, що вказаний у п.7 цього Договору.`,
+                  size: 24,
+                  bold: false,
+               })
+            ],
+            alignment: AlignmentType.JUSTIFIED,
+            // spacing: { after: spacingAfterRP },
+            indent: { firstLine: indentFirst },
+         }),
+
+
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: "6. Інші умови:",
+                  size: 24,
+                  bold: true,
+               }),
+            ],
+            alignment: AlignmentType.CENTER,
+            // spacing: { after: spacingAfter },
+         }),
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: `6.1. Договір вступає в силу з моменту його підписання і діє до моменту повного виконання сторонами своїх зобов’язань по ньому,
+що підтверджується Актом здавання-приймання виконаних робіт.`,
+                  size: 24,
+                  bold: false,
+               })
+            ],
+            alignment: AlignmentType.JUSTIFIED,
+            // spacing: { after: spacingAfter },
+            indent: { firstLine: indentFirst },
+         }),
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: `6.2. Усі зміни та доповнення до цього Договору здійснюються тільки у письмовій формі за згодою сторін.`,
+                  size: 24,
+                  bold: false,
+               })
+            ],
+            alignment: AlignmentType.JUSTIFIED,
+            // spacing: { after: spacingAfter },
+            indent: { firstLine: indentFirst },
+         }),
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: `6.3. Питання, не врегульовані цим Договором, вирішуються згідно із чинним законодавством України.`,
+                  size: 24,
+                  bold: false,
+               })
+            ],
+            alignment: AlignmentType.JUSTIFIED,
+            // spacing: { after: spacingAfter },
+            indent: { firstLine: indentFirst },
+         }),
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: `6.4. Сторони Договору засвідчують, що уклали цей Договір, перебуваючи при здоровому розумі, ясній пам’яті, розуміючи значення своїх дій та правові наслідки
+укладеної угоди, та підтверджують дійсність намірів при його укладенні, а також, що він не носить характеру фіктивного та удаваного правочину і не є правочином зловмисним.`,
+                  size: 24,
+                  bold: false,
+               })
+            ],
+            alignment: AlignmentType.JUSTIFIED,
+            // spacing: { after: spacingAfter },
+            indent: { firstLine: indentFirst },
+         }),
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: `6.5. Відповідно до вимог Закону України "Про захист персональних даних" Замовник дає свою згоду на збір та
+обробку його персональних даних, які необхідні для виконання цього Договору.`,
+                  size: 24,
+                  bold: false,
+               })
+            ],
+            alignment: AlignmentType.JUSTIFIED,
+            // spacing: { after: spacingAfter },
+            indent: { firstLine: indentFirst },
+         }),
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: `6.6. Усі спори та розбіжності між сторонами цього Договору вирішуються шляхом переговорів, або у суді відповідно до вимог чинного законодавства України.`,
+                  size: 24,
+                  bold: false,
+               })
+            ],
+            alignment: AlignmentType.JUSTIFIED,
+            // spacing: { after: spacingAfter },
+            indent: { firstLine: indentFirst },
+         }),
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: `6.7. Договір укладений у двох примірниках на двох сторінках. Кожний примірник Договору має однакову юридичну силу.`,
+                  size: 24,
+                  bold: false,
+               })
+            ],
+            alignment: AlignmentType.JUSTIFIED,
+            spacing: { after: spacingAfterRP },
+            indent: { firstLine: indentFirst },
+         }),
+
+
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: "7. Об'єкти нерухомості, показані Замовнику Виконавцем, згідно п.2 даного Договору:",
+                  size: 24,
+                  bold: true,
+               }),
+            ],
+            alignment: AlignmentType.CENTER,
+            spacing: { after: spacingAfterRP },
+         }),
+
+         new Table({
+            width: {
+               size: 100,
+               type: WidthType.PERCENTAGE,
+            },
+            style: {
+               // size: 24,
+            },
+            rows: [
+               new TableRow({
+                  children: [
+                     tableOneCell('№', 5, 22, true),
+                     tableOneCell('Об’єкти нерухомості', 18, 22, true),
+                     tableOneCell('Місцезнаходження', 30, 22, true),
+                     tableOneCell('Дата', 17, 22, true),
+                     tableOneCell('Підпис Виконавця', 15, 22, true),
+                     tableOneCell('Підпис Замовника', 15, 22, true),
+                  ],
+               }),
+               new TableRow({
+                  children: [
+                     tableOneCell('1', 5, 22),
+                     tableOneCell(correctTextZtoN(dataDealZs.estateName), 18, 22),
+                     tableOneCell(dataDealZs.estateAdress, 30, 22),
+                     tableOneCell(dataDealZs.dateZS, 17, 22),
+                     tableOneCell('', 15, 22),
+                     tableOneCell('', 15, 22),
+                  ],
+               })
+            ],
+         }),
+
+         new Paragraph({
+            children: [
+               new TextRun({
+                  text: `У присутності: (_____________) ____________________________________________________`,
+                  size: 24,
+                  italics: true,
+               }),
+               new TextRun({
+                  text: `         (підпис)                                                  (прізвище, ім’я, по-батькові)             `,
+                  size: 18,
+                  italics: true,
+               })
+            ],
+            alignment: AlignmentType.CENTER,
+            // VerticalAlign: AlignmentType.TOP,
+            spacing: { before: spacingAfterRP * 3, after: spacingAfterRP * 3 },
+            // indent: { firstLine: indentFirst },
+         }),
+
+
+         new Table({
+            width: {
+               size: 100,
+               type: WidthType.PERCENTAGE,
+            },
+            style: {
+               // size: 24,
+            },
+            rows: [
+               new TableRow({
+                  children: [
+                     tableOneCell('ВИКОНАВЕЦЬ:', 50, 24, true, 'left', 'none'),
+                     tableOneCell('ЗАМОВНИК:', 50, 24, true, 'left', 'none'),
+                  ],
+               }),
+               new TableRow({
+                  children: [
+                     new TableCell({
+                        children: [
+                           new Paragraph({
+                              children: [
+                                 new TextRun({
+                                    text: `${dataDealZs.nameFOP}`,
+                                    size: 24,
+                                    bold: true
+                                 }),
+                                 new TextRun({
+                                    text: `(агентство нерухомості)`,
+                                    size: 24,
+                                    bold: false,
+                                    break: 1
+                                 }),
+                              ],
+                              alignment: AlignmentType.LEFT,
+                           })
+                        ],
+                        verticalAlign: VerticalAlign.CENTER,
+                        width: {
+                           size: 50,
+                           type: WidthType.PERCENTAGE,
+                        },
+                        margins: {
+                           top: convertInchesToTwip(0.05),
+                           bottom: convertInchesToTwip(0.05),
+                           left: convertInchesToTwip(0.05),
+                           right: convertInchesToTwip(0.05)
+                        },
+                        borders: {
+                           top: { style: BorderStyle.NIL },
+                           right: { style: BorderStyle.NIL },
+                           bottom: { style: BorderStyle.NIL },
+                           left: { style: BorderStyle.NIL },
+                        },
+                     }),
+                     tableOneCell(`ПІБ:   ${dataDealZs.customerPIB}`, 50, 24, true, 'left', 'none'),
+                  ],
+               }),
+
+
+               new TableRow({
+                  children: [
+                     new TableCell({
+                        children: [
+                           new Paragraph({
+                              children: [
+                                 new TextRun({
+                                    text: `РНОКПП 3227803770`,
+                                    size: 24,
+                                    bold: true
+                                 }),
+                                 new TextRun({
+                                    text: `Адреса: 79021, м.Львів, Залізничний р-н, вул.Сяйво, буд.19, кв.113`,
+                                    size: 24,
+                                    bold: false,
+                                    break: 1
+                                 }),
+                                 new TextRun({
+                                    text: `Виписка з державного реєстру: №2 405 000 0000 001355 від 04.04.2018р.`,
+                                    size: 24,
+                                    bold: false,
+                                    break: 1
+                                 }),
+                              ],
+                              alignment: AlignmentType.LEFT,
+                           })
+                        ],
+                        verticalAlign: VerticalAlign.CENTER,
+                        width: {
+                           size: 50,
+                           type: WidthType.PERCENTAGE,
+                        },
+                        margins: {
+                           top: convertInchesToTwip(0.05),
+                           bottom: convertInchesToTwip(0.05),
+                           left: convertInchesToTwip(0.05),
+                           right: convertInchesToTwip(0.05)
+                        },
+                        borders: {
+                           top: { style: BorderStyle.NIL },
+                           right: { style: BorderStyle.NIL },
+                           bottom: { style: BorderStyle.NIL },
+                           left: { style: BorderStyle.NIL },
+                        },
+                     }),
+                     new TableCell({
+                        children: [
+                           new Paragraph({
+                              children: [
+                                 new TextRun({
+                                    text: `ІПН:   ${dataDealZs.cIPN}`,
+                                    size: 24,
+                                    bold: true
+                                 }),
+                                 new TextRun({
+                                    text: `Паспорт (серія та номер):   ${dataDealZs.cPassUkr}`,
+                                    size: 24,
+                                    bold: false,
+                                    break: 1
+                                 }),
+                                 new TextRun({
+                                    text: `Паспорт виданий:   ${dataDealZs.cPassIssued} від ${dataDealZs.cPassDate}`,
+                                    size: 24,
+                                    bold: false,
+                                    break: 1
+                                 }),
+                              ],
+                              alignment: AlignmentType.LEFT,
+                           })
+                        ],
+                        verticalAlign: VerticalAlign.CENTER,
+                        width: {
+                           size: 50,
+                           type: WidthType.PERCENTAGE,
+                        },
+                        margins: {
+                           top: convertInchesToTwip(0.05),
+                           bottom: convertInchesToTwip(0.05),
+                           left: convertInchesToTwip(0.05),
+                           right: convertInchesToTwip(0.05)
+                        },
+                        borders: {
+                           top: { style: BorderStyle.NIL },
+                           right: { style: BorderStyle.NIL },
+                           bottom: { style: BorderStyle.NIL },
+                           left: { style: BorderStyle.NIL },
+                        },
+                     }),
+                     // tableOneCell(`РНОКПП 3227803770`, 50, 24, false, 'left', 'none'),
+                     // tableOneCell(`ІПН:   ${dataDealZs.cIPN}`, 50, 24, false, 'left', 'none'),
+                  ],
+               }),
+               // new TableRow({
+               //    children: [
+               //       tableOneCell(`Адреса: 79021, м.Львів, Залізничний р-н, вул.Сяйво, буд.19, кв.113`, 50, 24, false, 'left', 'none'),
+               //       tableOneCell(`Паспорт (серія та №):   ${dataDealZs.cPassUkr}`, 50, 24, false, 'left', 'none'),
+               //    ],
+               // }),
+               // new TableRow({
+               //    children: [
+               //       tableOneCell(`Виписка з державного реєстру: №2 405 000 0000 001355 від 04.04.2018р.`, 50, 24, false, 'left', 'none'),
+               //       tableOneCell(`Паспорт виданий:   ${dataDealZs.cPassIssued} від ${dataDealZs.cPassDate}`, 50, 24, false, 'left', 'none'),
+               //    ],
+               // }),
+               new TableRow({
+                  children: [
+                     tableOneCell(`Розрахунковий рахунок: UA823052990000026002011003019`, 50, 24, false, 'left', 'none'),
+                     tableOneCell(`Місце реєстрації:   ${dataDealZs.cPlaceRegister}`, 50, 24, false, 'left', 'none'),
+                  ],
+               }),
+               new TableRow({
+                  children: [
+                     tableOneCell(`Назва банку: АТ КБ "ПРИВАТБАНК`, 50, 24, false, 'left', 'none'),
+                     tableOneCell(`тел.:`, 50, 24, false, 'left', 'none'),
+                  ],
+               }),
+               new TableRow({
+                  children: [
+                     tableOneCell(` `, 50, 8, true, 'left', 'none'),
+                     tableOneCell(` `, 50, 8, true, 'left', 'none'),
+                  ],
+               }),
+               new TableRow({
+                  children: [
+                     tableOneCell(`Підпис (__________) ____________________`, 50, 24, true, 'left', 'none'),
+                     tableOneCell(`Підпис (__________) ____________________`, 50, 24, true, 'left', 'none'),
+                  ],
+               }),
+            ],
+         }),
+
+      ]
+   };
+
+   return new Document({
+      sections: [
+         // {
+         //    properties: {
+         //       titlePage: true,
+         //    },
+         // },
+
+         section1
+      ],
+   });
+};
+
 // router.post('/', async (req, res) => {
 export const POST = async (req) => {
-   console.log('generate zs deal my dream');
+   // console.log('generate zs deal my dream');
 
    const reqData = await req.json();
-   console.log(reqData);
+   // console.log(reqData);
 
    try {
       // const { date, kind, checkedObject } = req.body;
+      const { fieldsData, kind, nameFile } = reqData;
       let file_name = '';
       console.log('data req');
 
@@ -2241,8 +3087,12 @@ export const POST = async (req) => {
       // // let new_name_file = new Date().toISOString().replace(/:/g, '-') + '_' + file.originalname;
       // file_name = file_name.replace(/:/g, '-');
 
-
-      let doc = buildDealZS(reqData);
+      let doc = 'some text';
+      if (kind == 'zs') {
+         doc = buildDealZS(fieldsData);
+      } else if (kind == 'rp') {
+         doc = buildDealRP(fieldsData);
+      }
 
       const buff = await new Promise((res, rej) => {
          Packer.toBuffer(doc)
