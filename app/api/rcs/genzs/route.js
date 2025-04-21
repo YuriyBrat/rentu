@@ -991,10 +991,10 @@ function tableOneCell(text, perc, size = '24', bold = false, align = 'center', b
          type: WidthType.PERCENTAGE,
       },
       margins: {
-         top: convertInchesToTwip(0.05),
-         bottom: convertInchesToTwip(0.05),
-         left: convertInchesToTwip(0.05),
-         right: convertInchesToTwip(0.05)
+         top: convertInchesToTwip(0.03),
+         bottom: convertInchesToTwip(0.03),
+         left: convertInchesToTwip(0.03),
+         right: convertInchesToTwip(0.03)
       },
       borders: {
          top: { style: bord },
@@ -2283,6 +2283,42 @@ ${dataDealZs.RP_Customer != '' ? `Договором про надання по�
 function buildDealRP(dataDealZs) {
    const forex = Number(dataDealZs.zsForex.replace(",", "."));
 
+   let idFOP = 1;
+
+   if (dataDealZs.nameFOP != '') {
+      let fopName = dataDealZs.nameFOP.toUpperCase().replaceAll(' ', '');
+      console.log('fopName '+fopName);
+      
+      if (fopName == 'ФОПРАЧУННАТАЛІЯТАРАСІВНА') {
+         idFOP = 2;
+      }
+   }
+
+   const dataFOP = {
+      1: {
+         fopAdress: '79021, м.Львів, Залізничний р-н, вул.Сяйво, буд.19, кв.113',
+         fopIPN: '3227803770',
+         fopReestr: '№2405 000 0000 001355 від 04.04.2018р.',
+
+         fopIban: 'UA823052990000026002011003019',
+         fopBank: 'АТ КБ "ПРИВАТБАНК',
+         fopMFO: '325321',
+         fopPhone: '',
+         fopEmail: ''
+      },
+      2: {
+         fopAdress: `80271, Львівська обл., Червоноградський р-н, с.Корчин, вул. Возз'єднання, 2є`, // степана коваля, 
+         fopIPN: '3641105207',
+         fopReestr: '№201035 000 0000 501757 від 13.02.2024 р.',
+
+         fopIban: 'UA043220010000026005340056048',
+         fopBank: `АТ УНІВЕРСАЛ БАНК`,
+         fopMFO: '322001',
+         fopPhone: '+30960086375',
+         fopEmail: 'nata.rachun@gmail.com'
+      }
+   }
+
    let section1 = {
       properties: {
          type: SectionType.NEXT_PAGE,
@@ -2302,7 +2338,7 @@ function buildDealRP(dataDealZs) {
                new Paragraph({
                   children: [
                      new TextRun({
-                        text: `Виконавець (${dataDealZs.nameFOP}): ____________    Замовник: ________________________`,
+                        text: `Виконавець (${dataDealZs.nameFOP}): ____________   Замовник: _____________________`,
                         size: 24,
                         bold: false,
                      }),
@@ -2899,10 +2935,10 @@ function buildDealRP(dataDealZs) {
                            type: WidthType.PERCENTAGE,
                         },
                         margins: {
-                           top: convertInchesToTwip(0.05),
-                           bottom: convertInchesToTwip(0.05),
-                           left: convertInchesToTwip(0.05),
-                           right: convertInchesToTwip(0.05)
+                           top: convertInchesToTwip(0.03),
+                           bottom: convertInchesToTwip(0.03),
+                           left: convertInchesToTwip(0.03),
+                           right: convertInchesToTwip(0.03)
                         },
                         borders: {
                            top: { style: BorderStyle.NIL },
@@ -2923,18 +2959,24 @@ function buildDealRP(dataDealZs) {
                            new Paragraph({
                               children: [
                                  new TextRun({
-                                    text: `РНОКПП 3227803770`,
+                                    text: `РНОКПП ${dataFOP[idFOP].fopIPN}`,
                                     size: 24,
                                     bold: true
                                  }),
                                  new TextRun({
-                                    text: `Адреса: 79021, м.Львів, Залізничний р-н, вул.Сяйво, буд.19, кв.113`,
+                                    text: `Адреса: ${dataFOP[idFOP].fopAdress}`,
                                     size: 24,
                                     bold: false,
                                     break: 1
                                  }),
                                  new TextRun({
-                                    text: `Виписка з державного реєстру: №2 405 000 0000 001355 від 04.04.2018р.`,
+                                    text: `Виписка з державного реєстру:`,
+                                    size: 24,
+                                    bold: false,
+                                    break: 1
+                                 }),
+                                 new TextRun({
+                                    text: `${dataFOP[idFOP].fopReestr}`,
                                     size: 24,
                                     bold: false,
                                     break: 1
@@ -2949,10 +2991,10 @@ function buildDealRP(dataDealZs) {
                            type: WidthType.PERCENTAGE,
                         },
                         margins: {
-                           top: convertInchesToTwip(0.05),
-                           bottom: convertInchesToTwip(0.05),
-                           left: convertInchesToTwip(0.05),
-                           right: convertInchesToTwip(0.05)
+                           top: convertInchesToTwip(0.03),
+                           bottom: convertInchesToTwip(0.03),
+                           left: convertInchesToTwip(0.03),
+                           right: convertInchesToTwip(0.03)
                         },
                         borders: {
                            top: { style: BorderStyle.NIL },
@@ -2992,10 +3034,10 @@ function buildDealRP(dataDealZs) {
                            type: WidthType.PERCENTAGE,
                         },
                         margins: {
-                           top: convertInchesToTwip(0.05),
-                           bottom: convertInchesToTwip(0.05),
-                           left: convertInchesToTwip(0.05),
-                           right: convertInchesToTwip(0.05)
+                           top: convertInchesToTwip(0.03),
+                           bottom: convertInchesToTwip(0.03),
+                           left: convertInchesToTwip(0.03),
+                           right: convertInchesToTwip(0.03)
                         },
                         borders: {
                            top: { style: BorderStyle.NIL },
@@ -3008,34 +3050,23 @@ function buildDealRP(dataDealZs) {
                      // tableOneCell(`ІПН:   ${dataDealZs.cIPN}`, 50, 24, false, 'left', 'none'),
                   ],
                }),
-               // new TableRow({
-               //    children: [
-               //       tableOneCell(`Адреса: 79021, м.Львів, Залізничний р-н, вул.Сяйво, буд.19, кв.113`, 50, 24, false, 'left', 'none'),
-               //       tableOneCell(`Паспорт (серія та №):   ${dataDealZs.cPassUkr}`, 50, 24, false, 'left', 'none'),
-               //    ],
-               // }),
-               // new TableRow({
-               //    children: [
-               //       tableOneCell(`Виписка з державного реєстру: №2 405 000 0000 001355 від 04.04.2018р.`, 50, 24, false, 'left', 'none'),
-               //       tableOneCell(`Паспорт виданий:   ${dataDealZs.cPassIssued} від ${dataDealZs.cPassDate}`, 50, 24, false, 'left', 'none'),
-               //    ],
-               // }),
+
                new TableRow({
                   children: [
-                     tableOneCell(`Розрахунковий рахунок: UA823052990000026002011003019`, 50, 24, false, 'left', 'none'),
+                     tableOneCell(`Розрахунковий рахунок: ${dataFOP[idFOP].fopIban}`, 50, 24, false, 'left', 'none'),
                      tableOneCell(`Місце реєстрації:   ${dataDealZs.cPlaceRegister}`, 50, 24, false, 'left', 'none'),
                   ],
                }),
                new TableRow({
                   children: [
-                     tableOneCell(`Назва банку: АТ КБ "ПРИВАТБАНК`, 50, 24, false, 'left', 'none'),
+                     tableOneCell(`Назва банку: ${dataFOP[idFOP].fopBank}`, 50, 24, false, 'left', 'none'),
                      tableOneCell(`тел.:`, 50, 24, false, 'left', 'none'),
                   ],
                }),
                new TableRow({
                   children: [
-                     tableOneCell(` `, 50, 8, true, 'left', 'none'),
-                     tableOneCell(` `, 50, 8, true, 'left', 'none'),
+                     tableOneCell(` `, 50, 4, true, 'left', 'none'),
+                     tableOneCell(` `, 50, 4, true, 'left', 'none'),
                   ],
                }),
                new TableRow({
@@ -3052,12 +3083,6 @@ function buildDealRP(dataDealZs) {
 
    return new Document({
       sections: [
-         // {
-         //    properties: {
-         //       titlePage: true,
-         //    },
-         // },
-
          section1
       ],
    });
