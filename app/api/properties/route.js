@@ -87,6 +87,7 @@ export const POST = async (request) => {
       // Upload image(s) to Cloudaniry
       const imageUploadPromises = [];
       for (const image of images) {
+         
          const imageBuffer = await image.arrayBuffer();
          const imageArray = Array.from(new Uint8Array(imageBuffer));
          const imageData = Buffer.from(imageArray);

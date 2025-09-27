@@ -23,7 +23,7 @@ function getMyFormatDate(date, type = 'DD-MM-YYYY') { // '12.01.2022'
    let new_date = `${dd}.${mm}.${yyyy}`;
    switch (type) {
       case 'DD-MM-YYYY': {
-         new_date = `${dd}.${mm}.${yyyy}`;
+         new_date = `${dd}-${mm}-${yyyy}`;
       };
          break;
       case 'DD.MM.YYYY': {
@@ -35,7 +35,7 @@ function getMyFormatDate(date, type = 'DD-MM-YYYY') { // '12.01.2022'
       };
          break;
       case 'DD-MM-YY': {
-         new_date = `${dd}.${mm}.${yy}`;
+         new_date = `${dd}-${mm}-${yy}`;
       };
          break;
       case 'DD.MM.YY': {
@@ -47,7 +47,7 @@ function getMyFormatDate(date, type = 'DD-MM-YYYY') { // '12.01.2022'
       };
          break;
       case 'DD-MM': {
-         new_date = `${dd}.${mm}`;
+         new_date = `${dd}-${mm}`;
       };
          break;
       case 'DD.MM': {
@@ -56,6 +56,13 @@ function getMyFormatDate(date, type = 'DD-MM-YYYY') { // '12.01.2022'
          break;
       case 'DD/MM': {
          new_date = `${dd}/${mm}`;
+      };
+         break;
+
+      case 'YYYY-MM-DDTHH-MM': {
+         let HH = String(dt.getHours()).padStart(2, 0);
+         let MM = String(dt.getMinutes()).padStart(2, 0);
+         new_date = `${yyyy}-${mm}-${dd}T${HH}:${MM}`;
       };
          break;
       default: { console.log('What error in date.hook getMyFormatDate func') }

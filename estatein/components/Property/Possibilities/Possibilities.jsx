@@ -50,6 +50,7 @@ const Possibilities = () => {
         <Box mb={2}>
           <StarIcon />
         </Box>
+        
         <Typography variant="h3" color="text.secondary" mb={2}>
           Discover a World of Possibilites
         </Typography>

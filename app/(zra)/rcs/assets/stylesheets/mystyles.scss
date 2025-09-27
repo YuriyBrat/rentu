@@ -9,6 +9,10 @@ $colorOrange: #f85a40;
    border: 1px solid $colorOrange
 }
 
+// Висота блоку для плавної появи у Формі об'єкту для різних скрінів
+$hFormShowFull: 500px;
+$hFormShowSmall: 1000px;
+
 .myform {
    opacity: 70%;
    input {
@@ -30,6 +34,7 @@ $colorOrange: #f85a40;
    background: lighten($color: $colorOrange, $amount: 20%);
    height: 38px;
    border-radius: 4px;
+   transition: transform 300ms, top 300ms;
 
    &:hover {  @extend %btn-hover };
    &:active {
@@ -41,6 +46,7 @@ $colorOrange: #f85a40;
    background: $colorOrange;
    height: 38px;
    border-radius: 4px;
+   transition: transform 300ms, top 300ms;
 
    transform: translateY(7px);
 
@@ -52,12 +58,11 @@ $colorOrange: #f85a40;
 
 .myform2 {
    opacity: 60%;
-   
+   height: 0;
+   animation: myform2 1s forwards;
+
    input {
       text-align: center;
-      // opacity: 70%;
-      // color: aliceblue;
-      // border: 1px solid $colorOrange;
    }
 
    .btn-send {
@@ -69,9 +74,41 @@ $colorOrange: #f85a40;
          transform: translateY(4px);
       }
    }
+};
+.myform2-none {
+   opacity: 60%;
+   height: $hFormShowFull;
+   animation: myform2-none 1s forwards;
 }
 
+@keyframes myform2 {
+   0% {opacity: 0; height: 0;}
+   100% {opacity: 60%; height: $hFormShowFull;}
+ }
+ @keyframes myform2-none {
+   0% {opacity: 60%; height: $hFormShowFull;}
+   100% {opacity: 0; height: 0;}
+ }
 
+ @media screen and (max-width: 768px) {
+   .myform2-none {
+      opacity: 60%;
+      height: $hFormShowSmall;
+      animation: myform2-none 1s forwards;
+   }
+   
+   @keyframes myform2 {
+      0% {opacity: 0; height: 0;}
+      100% {opacity: 60%; height: $hFormShowSmall;}
+    }
+    @keyframes myform2-none {
+      0% {opacity: 60%; height: $hFormShowSmall;}
+      100% {opacity: 0; height: 0;}
+    }
+ }
+
+
+ 
 .mytext1 {
    // font-size: 42px;
    font-size: 3vw;

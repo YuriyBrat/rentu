@@ -20,9 +20,9 @@ const comfortaa = Comfortaa({
 // import 'photoswipe/dist/photoswipe.css';
 
 export const metadata = {
-   title: 'Власникам',
-   description: 'Продавай ефективно',
-   keywods: 'продаж, продати квартиру, продаж нерухомості'
+   title: 'Rentu',
+   description: 'Орендуй квартиру',
+   keywods: 'оренда, здати в оренду, найм житла, оренда нерухомості, оренда квартири'
 }
 
 const MainLayout = ({ children }) => {

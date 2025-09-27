@@ -72,8 +72,8 @@ export const PriceRange = [
   },
   {
     id: 1,
-    value: "Above $$200 000",
-    label: "Above $$200 000",
+    value: "Above $200 000",
+    label: "Above $200 000",
   },
   {
     id: 2,

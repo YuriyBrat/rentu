@@ -1,16 +1,17 @@
 import { Schema, model, models } from "mongoose";
 
 const LeadPropertySchema = new Schema({
-   type_estate: {
-      type: String,
-      // required: [true, 'Leadname is required']
-   },
+   type_estate: String,
+   type_deal: String, // типу чи продаж оренда подобова оренда
+   ip: String,
 
+   title: String,
    // owner: {
    //    type: Schema.Types.ObjectId,
    //    ref: 'User',
    //    required: true,
    // },
+   location_text: String,
    location: {
       city: String,
       street: String,
@@ -33,7 +34,7 @@ const LeadPropertySchema = new Schema({
    balconies: Number,
 
    height_wall: Number,
-   height_unit: String,
+   // height_unit: String, // вказуємо лише у см
 
    type_using: String,
    type_commerce: String,
@@ -46,11 +47,22 @@ const LeadPropertySchema = new Schema({
 
    description: String,
 
-   // amenities: [
-   //    {
-   //       type: String,
-   //    },
-   // ],
+   images: [
+      {
+         type: String,
+      },
+   ],
+
+   advantages: [
+      {
+         type: String,
+      },
+   ],
+
+
+   leadname: String,
+   phone: String,
+   email: String,
 
 },
    {

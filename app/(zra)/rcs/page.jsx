@@ -29,11 +29,14 @@ import './assets/stylesheets/mystyles.scss'
 // import './assets/javascripts/main.js'
 
 import { sendMessageTelegram } from "@/hooks/telegram.js";
-import { Button } from "@mui/material";
+import { checkPhone, checkFieldsByOptions } from "@/hooks/valid.hook.js";
+import { cutLetters } from "@/hooks/text.hook.js";
 
 const HomeZra = () => {
   // const refPreLoader = useRef();
   const [phone, setPhone] = useState('098 688 0919');
+
+  const [loadingProp, setLoadingProp] = useState(false);
 
   // Animation on scroll function and init
   function aos_init() {
@@ -66,9 +69,11 @@ const HomeZra = () => {
   //creating IP state
   const [ip, setIP] = useState("");
   const getApi = async () => {
+
     const res = await axios.get("https://api.ipify.org/?format=json");
     // console.log(res.data.ip);
     setIP(res.data.ip);
+
   };
 
   // обнулена форма
@@ -82,6 +87,10 @@ const HomeZra = () => {
 
   const fieldsPropZero = {
     type_estate: 'квартира',
+    type_deal: 'продаж',
+    ip: '',
+    title: '',
+    location_text: '',
     location: {
       city: '',
       street: '',
@@ -99,14 +108,12 @@ const HomeZra = () => {
     floor: '',
     floors: '',
 
-    city: '',
-
     type_building: '',
     type_walls: '',
     balconies: '',
 
-    height_wall: '',
-    height_unit: '',
+    height_wall: '', //вказуємо лише у см
+    // height_unit: '',
 
     type_using: '',
     type_commerce: '',
@@ -119,6 +126,14 @@ const HomeZra = () => {
     currency: '',
 
     description: '',
+
+    images: [],
+
+    advantages: ['', '', '', '', '', ''],
+
+    leadname: '',
+    phone: '',
+    email: ''
   }
 
   const [fields, setFields] = useState(fieldsZero);
@@ -395,94 +410,6 @@ const HomeZra = () => {
     }
   };
 
-  // ф-я перевірки номеру телефону і вирізки усіх символів крім цифр
-  const checkPhone = str => {
-    let newstr = "";
-    let errCount = 0;
-    let errText = "";
-    try {
-      str = str.trim();
-      for (let i = 0; i < str.length; i++) {
-        let s = str[i];
-        switch (true) {
-          case (i == 0 && (s == "+" || s == 0)): newstr += s; break;
-          // case (i == 0): newstr += parseInt(s); break;
-          default: {
-            if (Number.isInteger(Number(s))) {
-              newstr += s
-            }
-          }
-        }
-      }
-    } catch (error) {
-      return newstr
-    }
-
-
-    // 2 step. Check correct number
-    const lenNum = newstr.length;
-    if (lenNum > 0) {
-      const sFirst = str[0].toString();
-      const sSec = str[1].toString();
-      switch (lenNum) {
-        case 9: {
-          if (sFirst !== "0" && sFirst !== "+") {
-            newstr = "0" + newstr
-          } else {
-            errCount++;
-            errText = "Будь ласка, виправте неправильний номер телефону"
-          }
-        };
-          break;
-        case 10: {
-          if (sFirst !== "0" && sFirst !== "+") {
-            errCount++;
-            errText = "Будь ласка, виправте неправильний номер телефону"
-          } else if (sFirst == "+" && sSec != "0") {
-            newstr = "0" + newstr.substring(1); //cut + and add 0
-          }
-        };
-          break;
-        case 11: {
-          if (sFirst == "8" && sSec == "0") {
-            newstr = newstr.substring(1); //cut 8
-          } else if (sFirst == "3" && sSec == "0") {
-            newstr = newstr.substring(1); //cut 3
-          } else if (sFirst == "+" && sSec == "0") {
-            newstr = newstr.substring(1); //cut +
-          } else {
-            errCount++;
-            errText = "Будь ласка, виправте неправильний номер телефону"
-          }
-        };
-          break;
-        case 12: {
-          if (newstr.substring(0, 3) == "380") {
-            newstr = "+" + newstr
-          } else if (newstr.substring(0, 3) == "+80" || newstr.substring(0, 3) == "+30" || newstr.substring(0, 3) == "+38") {
-            newstr = "+380" + newstr.substring(3);
-          } else {
-            errCount++;
-            errText = "Будь ласка, виправте неправильний номер телефону"
-          }
-        };
-          break;
-        case 13: {
-          if (newstr.substring(0, 4) != "+380") {
-            errCount++;
-            errText = "Будь ласка, виправте неправильний номер телефону"
-          }
-        };
-          break;
-        default: {
-          errCount++;
-          errText = "Будь ласка, виправте неправильний номер телефону"
-        }
-      }
-    }
-    // console.log('Перевірений номер телефону ' + newstr);
-    return { newstr, errCount, errText }
-  }
 
   const handleChange = (e) => {
     let { name, value } = e.target;
@@ -514,6 +441,19 @@ const HomeZra = () => {
   const handleChangeProp = (e) => {
     let { name, value } = e.target;
 
+    if (name == 'advantages') {
+      const order = e.target.dataset.order;
+
+      fieldsProp[name][order] = value;
+      const valArr = fieldsProp[name];
+      setFieldsProp((prevFields) => ({
+        ...prevFields,
+        [name]: valArr
+      }));
+      return
+    }
+
+
     if (name.includes('.')) {
       const [outerKey, innerKey] = name.split('.');
 
@@ -525,13 +465,34 @@ const HomeZra = () => {
 
         },
       }));
+
     } else {
       // Not nested
+
+      if (name == 'rooms' || name.includes('square') || name == 'floor' || name == 'floors' || name == 'balconies' || name == 'height_wall' || name == 'cost') {
+        value = cutLetters(value);
+      }
+
       setFieldsProp((prevFields) => ({
         ...prevFields,
         [name]: value,
       }));
     }
+  };
+
+  const handleImageChange = (e) => {
+    const { files } = e.target;
+    // Clone images array
+    const updatedImages = [...fieldsProp.images];
+    // Add new files to the array
+    for (const file of files) {
+      updatedImages.push(file);
+    }
+    // Update state with array of images
+    setFieldsProp((prevFields) => ({
+      ...prevFields,
+      images: updatedImages,
+    }));
   };
 
   const handleSubmit = async (e) => {
@@ -560,12 +521,16 @@ const HomeZra = () => {
 
 
     const formData = { ...fields, ip }
+    // const dataSend = new FormData();
+    // dataSend.append('title', 'my ways to do')
+    // console.log('dataSend  ' + dataSend.get('title'));
 
     try {
       const res = await fetch('/api/leads', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          // 'Content-Type': 'multipart/form-data',
         },
         body: JSON.stringify(formData)
       });
@@ -583,54 +548,85 @@ const HomeZra = () => {
     }
   };
 
+
+
   const handleSubmitProp = async (e) => {
 
     e.preventDefault();
 
 
-    // 1 STEP. Check phone number
+    const { newstr, errCount, errText } = checkPhone(fieldsProp.phone);
 
-    // const { newstr, errCount, errText } = checkPhone(fields.phone);
+    if (errCount > 0) {
+      toast.error(errText);
+      return
+    } else if (fieldsProp.phone.length < 9) {
+      toast.error('Будь ласка,  вкажіть номер телефону');
+      return
+    } else {
+      fieldsProp.phone = newstr
 
-    // if (errCount > 0) {
-    //   toast.error(errText);
-    //   return
-    // } else if (fields.phone.length < 9) {
-    //   toast.error('Будь ласка,  вкажіть номер телефону');
-    //   return
-    // } else {
-    //   fields.phone = newstr
+      // Формуємо смс для телеграм і відправляємо ))
+      // Символи переносу строки %0A   або  "\r\n" або \n
+      // const messageToSend = `Отримано заявку із сайту для Продавців. %0A Ім'я: ${fieldsProp.name}
+      // %0A Телефон: ${fieldsProp.phone} %0A Емейл: ${fieldsProp.email} %0A Побажання: ${fieldsProp.notes}`;
 
-    //   // Формуємо смс для телеграм і відправляємо ))
-    //   // Символи переносу строки %0A   або  "\r\n" або \n
-    //   const messageToSend = `Отримано заявку із сайту для Продавців. %0A Ім'я: ${fields.name}
-    //   %0A Телефон: ${fields.phone} %0A Емейл: ${fields.email} %0A Побажання: ${fields.notes}`;
+      //! await sendMessageTelegram(messageToSend);
+    };
 
-    //   //! await sendMessageTelegram(messageToSend);
-    // }
+    const { fieldsPropNew, errCount2, errText2 } = checkFieldsByOptions(fieldsProp);
+    setFieldsProp(fieldsPropNew)
 
+    if (errCount2 > 0) {
+      toast.error(errText2);
+      // return // все одно грузимо з помилками бо єтелефон
+    }
 
-    // const formData = { ...fields, ip }
 
     try {
+      setLoadingProp(true)
+
+      setFieldsProp(prev => ({
+        ...prev, ip
+      }));
+
+      const formData = new FormData(); //
+      // formData.append('fieldsProp', fieldsProp)
+      for (let key in fieldsProp) {
+        if (key == 'images') {
+          for (let i = 0; i < fieldsProp[key].length; i++) {
+            formData.append('images', fieldsProp[key][i])
+          }
+        } else if (key == 'advantages') {
+          for (let i = 0; i < fieldsProp[key].length; i++) {
+            formData.append('advantages', fieldsProp[key][i])
+          }
+        } else {
+          formData.append(key, fieldsProp[key])
+        }
+      }
+
       const res = await fetch('/api/rcs/leadprop', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(fieldsProp)
+        // headers: {
+        //   // 'Content-Type': 'application/json'
+        //   'Content-Type': 'multipart/form-data',
+        // },
+        body: formData // new FormData(fieldsProp)               // JSON.stringify(fieldsProp)
       });
       // const resData = await res.json();
       if (res.status === 200) {
         toast.success('Дякуємо за звернення! Очікуйте дзвінка');
+        setFieldsProp(fieldsPropZero)
       } else {
-        toast.error('Помилка надсилання даних...')
+        toast.error('Помилка 1 надсилання даних...')
       }
     } catch (error) {
       // console.log(error);
-      toast.error('Помилка надсилання даних...')
+      toast.error('Помилка 2 надсилання даних...')
     } finally {
-      setFieldsProp(fieldsPropZero)
+      setLoadingProp(false)
+      // setFieldsProp(fieldsPropZero)
     }
   };
 
@@ -1063,9 +1059,10 @@ const HomeZra = () => {
               {showEstateForm ? <>Сховати форму для сайту</> : <>Отримати сайт зараз</>}
             </button>
           </div>
-
+          {/* showEstateForm && */}
           {
-            showEstateForm && <form className="row g-1 col-xl-6 col-lg-8 col-sm-10 col-10   m-auto myform2"
+
+            <form className={showEstateForm ? `row g-1 col-xl-6 col-lg-8 col-sm-10 col-10 m-auto myform2` : 'row g-1 col-xl-6 col-lg-8 col-sm-10 col-10 m-auto myform2-none'}
               // action='/api/leads'
               // method='POST'
               // encType='multipart/form-data'
@@ -1075,386 +1072,312 @@ const HomeZra = () => {
               {/* <div className="col-md-8">
       <div className="triangle-house mx-auto"></div>
     </div> */}
-
-              <div className="col-md-3 mb-2">
-                <button
-                  // type="submit"
-                  className={`col-12 ${typeEstate == 'flat' ? 'btn-estate-set' : 'btn-estate'}`}
-                  onClick={chooseEstate}
-                >
-                  {/* <FaPaperPlane className="mx-auto" /> */}
-                  <span>Квартира...</span>
-                </button>
-              </div>
-              <div className="col-md-3">
-                <button
-                  // type="submit"
-                  className={`col-12 ${typeEstate == 'house' ? 'btn-estate-set' : 'btn-estate'}`}
-                  onClick={chooseEstate}
-                >
-                  {/* <FaPaperPlane className="mx-auto" /> */}
-                  <span>Будинок...</span>
-                </button>
-              </div>
-              <div className="col-md-3">
-                <button
-                  // type="submit"
-                  className={`col-12 ${typeEstate == 'land' ? 'btn-estate-set' : 'btn-estate'}`}
-                  onClick={chooseEstate}
-                >
-                  {/* <FaPaperPlane className="mx-auto" /> */}
-                  <span>Ділянка...</span>
-                </button>
-              </div>
-              <div className="col-md-3">
-                <button
-                  // type="submit"
-                  className={`col-12 ${typeEstate == 'commerce' ? 'btn-estate-set' : 'btn-estate'}`}
-                  onClick={chooseEstate}
-                >
-                  {/* <FaPaperPlane className="mx-auto" /> */}
-                  <span>Комерція...</span>
-                </button>
-              </div>
-
-
-              <div className="col-md-5">
-                {/* <label for="inputAddress" className="form-label">Address</label> */}
-                <input type="text" className="form-control" id="inputName" placeholder="Населений пункт..."
-                  name='location.city'
-                  value={fieldsProp.location.city}
-                  onChange={handleChangeProp}
-                />
-              </div>
-
-              <div className="col-md-5">
-                {/* <label for="inputAddress" className="form-label">Address</label> */}
-                <input type="text" className="form-control" id="inputName" placeholder="Вулиця..."
-                  name='location.street'
-                  value={fieldsProp.location.street}
-                  onChange={handleChangeProp}
-                />
-              </div>
-
-              <div className="col-md-2">
-                {/* <label for="inputAddress" className="form-label">Address</label> */}
-                <input type="text" className="form-control" id="inputName" placeholder="№..."
-                  name='location.number'
-                  value={fieldsProp.location.number}
-                  onChange={handleChangeProp}
-                />
-              </div>
-
               {
-                typeEstate == "commerce" && <>
-                  <div className="col-md-4">
-                    {/* <label for="inputAddress" className="form-label">Address</label> */}
-                    <input type="text" list="type_using" className="form-control" id="inputName" placeholder="Використання..."
-                      name='type_using'
-                      value={fieldsProp.type_using}
-                      onChange={handleChangeProp}
-                    />
-                    <datalist id="type_using">
-                      <option data-id="0"></option>
-                      <option data-id="104">Офіс</option>
-                      <option data-id="1">Кафе, ресторан</option>
-                      <option data-id="2">Магазин</option>
-                      <option data-id="3">Склад</option>
-                      <option data-id="4">Готель</option>
-                      <option data-id="105">Виробництво</option>
-                      <option data-id="7">Коворкінг</option>
-                      <option data-id="8">Медичне</option>
-                      <option data-id="9">Інше</option>
-                    </datalist>
-                  </div>
-                  <div className="col-md-4">
-                    {/* <label for="inputEmail4" className="form-label">Email</label> */}
-                    <input type="text" list="type_estate" className="form-control" id="inputPhonel4" placeholder="Тип будівлі..."
-                      name='type_building'
-                      value={fieldsProp.type_building}
-                      onChange={handleChangeProp}
-                    />
-                    <datalist id="type_estate">
-                      <option data-id="0"></option>
-                      <option data-id="27">Фасадне з окремим входом</option>
-                      <option data-id="16">Торгово-розважальний центр</option>
-                      <option data-id="14">Бізнес-центр</option>
-                      <option data-id="18">Багатофункціональний комплекс</option>
-                      <option data-id="26">Окрема будівля</option>
-                      <option data-id="15">Торговий центр</option>
-                      <option data-id="34">База відпочинку</option>
-                      <option data-id="19">Житловий комплекс</option>
-                      <option data-id="28">Житловий фонд</option>
-                      <option data-id="31">Кіоск</option>
-                      <option data-id="17">Логістичний комплекс</option>
-                      <option data-id="33">Майновий комплекс</option>
-                      <option data-id="29">Нежитловий фонд</option>
-                      <option data-id="30">Павільйон</option>
-                      <option data-id="32">Ангар</option>
-                      <option data-id="13">Новобудова 2000-2010р</option>
-                      <option data-id="14">Новобудова 2010-2020р</option>
-                      <option data-id="15">Новобудова від 2020р</option>
-                    </datalist>
-                  </div>
-                  <div className="col-md-4">
-                    {/* <label for="inputEmail4" className="form-label">Email</label> */}
-                    <input type="text" list="subtype_estate" className="form-control" id="inputPhonel4" placeholder="Підтип..."
-                      name='type_commerce'
-                      value={fieldsProp.type_commerce}
-                      onChange={handleChangeProp}
-                    />
-                    <datalist id="subtype_estate">
-                      <option data-id="0"></option>
-                      <option data-id="2">Автомийка</option>
-                      <option data-id="3">АЗС</option>
-                      <option data-id="1">Аптека</option>
-                      <option data-id="5">Перукарня</option>
-                      <option data-id="6">Салон краси</option>
-                      <option data-id="4">СТО</option>
-                    </datalist>
-                  </div>
-                </>
-              }
-
-              {typeEstate == "land" ? <></> : <>
-                <div className="col-md-2">
-                  {/* <label for="inputAddress" className="form-label">Address</label> */}
-                  <input type="text" className="form-control" id="inputName" placeholder="Кімнат"
-                    name='rooms'
-                    value={fieldsProp.rooms}
-                    onChange={handleChangeProp}
-                  />
-                </div>
-                <div className="col-md-2">
-                  <input type="text" className="form-control" id="inputName" placeholder="Заг. пл."
-                    name='square_tot'
-                    value={fieldsProp.square_tot}
-                    onChange={handleChangeProp}
-                  />
-                </div>
-                {
-                  typeEstate == "flat" || typeEstate == "house" ? <>
-
-                    <div className="col-md-2">
-                      <input type="text" className="form-control" id="inputName" placeholder="Житлова"
-                        name='square_liv'
-                        value={fieldsProp.square_liv}
-                        onChange={handleChangeProp}
-                      />
+                loadingProp ?
+                  <div class="text-center mt-5">
+                    <div class="spinner-grow text-light" role="status">
+                      <span class="sr-only">Loading...</span>
                     </div>
-                    <div className="col-md-2">
-                      <input type="text" className="form-control" id="inputName" placeholder="Пл. кухні"
-                        name='square_kit'
-                        value={fieldsProp.square_kit}
-                        onChange={handleChangeProp}
-                      />
+                    <div class="spinner-border text-light" role="status">
+                      <span class="sr-only">Loading...</span>
                     </div>
-                  </>
-                    :
-                    <>
-                      <div className="col-md-2">
-                        {/* <label for="inputAddress" className="form-label">Address</label> */}
-                        <input type="text" className="form-control" id="inputName" placeholder="Пл.ділянк."
-                          name='square_area'
-                          value={fieldsProp.square_area}
-                          onChange={handleChangeProp}
-                        />
-                      </div>
-                      <div className="col-md-2">
-                        {/* <label for="inputAddress" className="form-label">Address</label> */}
-                        <input type="text" list="area_unit" className="form-control" id="inputName" placeholder="Соток/га"
-                          name='area_unit'
-                          value={fieldsProp.area_unit}
-                          onChange={handleChangeProp}
-                        />
-                        <datalist id="area_unit">
-                          <option data-id="0"></option>
-                          <option data-id="1">Соток</option>
-                          <option data-id="2">Га</option>
-                        </datalist>
-                      </div>
-                    </>
-                }
-              </>}
-
-
-              {typeEstate === "flat" || typeEstate == "commerce" ? <>
-                <div className="col-md-2">
-                  {/* <label for="inputAddress" className="form-label">Address</label> */}
-                  <input type="text" className="form-control" id="inputName" placeholder="Поверх"
-                    name='floor'
-                    value={fieldsProp.floor}
-                    onChange={handleChangeProp}
-                  />
-                </div>
-                <div className="col-md-2">
-                  {/* <label for="inputAddress" className="form-label">Address</label> */}
-                  <input type="text" className="form-control" id="inputName" placeholder="Поверхів"
-                    name='floors'
-                    value={fieldsProp.floors}
-                    onChange={handleChangeProp}
-                  />
-                </div></>
-                : (
-                  typeEstate == "house" ? <>
-                    <div className="col-md-2">
-                      {/* <label for="inputAddress" className="form-label">Address</label> */}
-                      <input type="text" className="form-control" id="inputName" placeholder="Пл.ділянк."
-                        name='square_area'
-                        value={fieldsProp.square_area}
-                        onChange={handleChangeProp}
-                      />
+                    <div class="spinner-grow text-light" role="status">
+                      <span class="sr-only">Loading...</span>
                     </div>
-                    <div className="col-md-2">
-                      {/* <label for="inputAddress" className="form-label">Address</label> */}
-                      <input type="text" list="area_unit" className="form-control" id="inputName" placeholder="Соток/га"
-                        name='area_unit'
-                        value={fieldsProp.area_unit}
-                        onChange={handleChangeProp}
-                      />
-                      <datalist id="area_unit">
-                        <option data-id="0"></option>
-                        <option data-id="1">Соток</option>
-                        <option data-id="2">Га</option>
-                      </datalist>
-                    </div></>
-                    : <></>
-                )
-              }
-
-
-
-              {
-                typeEstate == "flat" ? <>
-                  <div className="col-md-4">
-                    {/* <label for="inputEmail4" className="form-label">Email</label> */}
-                    <input type="text" list="type_estate" className="form-control" id="inputPhonel4" placeholder="Тип будівлі..."
-                      name='type_building'
-                      value={fieldsProp.type_building}
-                      onChange={handleChangeProp}
-                    />
-                    <datalist id="type_estate">
-                      <option data-id="0"></option>
-                      <option data-id="104">Австрійський</option>
-                      <option data-id="1">Австрійський люкс</option>
-                      <option data-id="2">Брежнєвка</option>
-                      <option data-id="3">Будівля старого Львова</option>
-                      <option data-id="4">Готелька</option>
-                      <option data-id="105">Гуртожиток</option>
-                      <option data-id="7">Особняк</option>
-                      <option data-id="8">Польський</option>
-                      <option data-id="9">Польський люкс</option>
-                      <option data-id="10">Сталінка</option>
-                      <option data-id="11">Хрущовка</option>
-                      <option data-id="12">Чешка</option>
-                      <option data-id="13">Новобудова 2000-2010р</option>
-                      <option data-id="14">Новобудова 2010-2020р</option>
-                      <option data-id="15">Новобудова від 2020р</option>
-                    </datalist>
                   </div>
-
-                  <div className="col-md-2">
-                    {/* <label for="inputPassword4" className="form-label">Password</label> */}
-                    <input type="text" list="type_walls" className="form-control" id="inputEmail4" placeholder="Які стіни"
-                      name='type_walls'
-                      value={fieldsProp.type_walls}
-                      onChange={handleChangeProp}
-                    />
-                    <datalist id="type_walls">
-                      <option value=""></option>
-                      <option data-id="104">Цегла</option>
-                      <option data-id="1">Панель</option>
-                      <option data-id="2">Блок</option>
-                      <option data-id="3">Бетон</option>
-                      <option data-id="4">Дерево</option>
-                    </datalist>
-                  </div>
-                  <div className="col-md-2">
-                    {/* <label for="inputPassword4" className="form-label">Password</label> */}
-                    <input type="text" className="form-control" id="inputEmail4" placeholder="Ск.балк."
-                      name='balconies'
-                      value={fieldsProp.balconies}
-                      onChange={handleChangeProp}
-                    />
-                  </div>
-                </>
                   :
-                  typeEstate == "house"
-                    ?
-                    <>
-                      <div className="col-md-4">
-                        {/* <label for="inputEmail4" className="form-label">Email</label> */}
-                        <input type="text" list="type_estate" className="form-control" id="inputPhonel4" placeholder="Тип будівлі..."
-                          name='type_house'
-                          value={fieldsProp.type_house}
+                  <>
+                    <div className="col-md-3 mb-2">
+                      <button
+                        // type="submit"
+                        className={`col-12 ${typeEstate == 'flat' ? 'btn-estate-set' : 'btn-estate'}`}
+                        onClick={chooseEstate}
+                      >
+                        {/* <FaPaperPlane className="mx-auto" /> */}
+                        <span>Квартира...</span>
+                      </button>
+                    </div>
+                    <div className="col-md-3">
+                      <button
+                        // type="submit"
+                        className={`col-12 ${typeEstate == 'house' ? 'btn-estate-set' : 'btn-estate'}`}
+                        onClick={chooseEstate}
+                      >
+                        {/* <FaPaperPlane className="mx-auto" /> */}
+                        <span>Будинок...</span>
+                      </button>
+                    </div>
+                    <div className="col-md-3">
+                      <button
+                        // type="submit"
+                        className={`col-12 ${typeEstate == 'land' ? 'btn-estate-set' : 'btn-estate'}`}
+                        onClick={chooseEstate}
+                      >
+                        {/* <FaPaperPlane className="mx-auto" /> */}
+                        <span>Ділянка...</span>
+                      </button>
+                    </div>
+                    <div className="col-md-3">
+                      <button
+                        // type="submit"
+                        className={`col-12 ${typeEstate == 'commerce' ? 'btn-estate-set' : 'btn-estate'}`}
+                        onClick={chooseEstate}
+                      >
+                        {/* <FaPaperPlane className="mx-auto" /> */}
+                        <span>Комерція...</span>
+                      </button>
+                    </div>
+
+                    <div className="col-md-12">
+                      {/* <label for="inputAddress" className="form-label">Address</label> */}
+                      <input type="text" className="form-control" id="inputName" placeholder="Титульна назва Об'єкту..."
+                        name='title'
+                        value={fieldsProp.title}
+                        onChange={handleChangeProp}
+                      />
+                    </div>
+
+
+                    <div className="col-md-12">
+                      <input type="text" className="form-control" id="inputName" placeholder="Адреса ..."
+                        name='location_text'
+                        value={fieldsProp.location_text}
+                        onChange={handleChangeProp}
+                      />
+                    </div>
+
+                    {/* <div className="col-md-5">
+                    <input type="text" className="form-control" id="inputName" placeholder="Населений пункт..."
+                      name='location.city'
+                      value={fieldsProp.location.city}
+                      onChange={handleChangeProp}
+                    />
+                  </div>
+
+                  <div className="col-md-5">
+                    <input type="text" className="form-control" id="inputName" placeholder="Вулиця..."
+                      name='location.street'
+                      value={fieldsProp.location.street}
+                      onChange={handleChangeProp}
+                    />
+                  </div>
+
+                  <div className="col-md-2">
+                    <input type="text" className="form-control" id="inputName" placeholder="№..."
+                      name='location.number'
+                      value={fieldsProp.location.number}
+                      onChange={handleChangeProp}
+                    />
+                  </div> */}
+
+                    {
+                      typeEstate == "commerce" && <>
+                        <div className="col-md-4">
+                          {/* <label for="inputAddress" className="form-label">Address</label> */}
+                          <input type="text" list="type_using" className="form-control" id="inputName" placeholder="Використання..."
+                            name='type_using'
+                            value={fieldsProp.type_using}
+                            onChange={handleChangeProp}
+                          />
+                          <datalist id="type_using">
+                            <option data-id="0"></option>
+                            <option data-id="104">Офіс</option>
+                            <option data-id="1">Кафе, ресторан</option>
+                            <option data-id="2">Магазин</option>
+                            <option data-id="3">Склад</option>
+                            <option data-id="4">Готель</option>
+                            <option data-id="105">Виробництво</option>
+                            <option data-id="7">Коворкінг</option>
+                            <option data-id="8">Медичне</option>
+                            <option data-id="9">Інше</option>
+                          </datalist>
+                        </div>
+                        <div className="col-md-4">
+                          {/* <label for="inputEmail4" className="form-label">Email</label> */}
+                          <input type="text" list="type_estate" className="form-control" id="inputPhonel4" placeholder="Тип будівлі..."
+                            name='type_building'
+                            value={fieldsProp.type_building}
+                            onChange={handleChangeProp}
+                          />
+                          <datalist id="type_estate">
+                            <option data-id="0"></option>
+                            <option data-id="27">Фасадне з окремим входом</option>
+                            <option data-id="16">Торгово-розважальний центр</option>
+                            <option data-id="14">Бізнес-центр</option>
+                            <option data-id="18">Багатофункціональний комплекс</option>
+                            <option data-id="26">Окрема будівля</option>
+                            <option data-id="15">Торговий центр</option>
+                            <option data-id="34">База відпочинку</option>
+                            <option data-id="19">Житловий комплекс</option>
+                            <option data-id="28">Житловий фонд</option>
+                            <option data-id="31">Кіоск</option>
+                            <option data-id="17">Логістичний комплекс</option>
+                            <option data-id="33">Майновий комплекс</option>
+                            <option data-id="29">Нежитловий фонд</option>
+                            <option data-id="30">Павільйон</option>
+                            <option data-id="32">Ангар</option>
+                            <option data-id="13">Новобудова 2000-2010р</option>
+                            <option data-id="14">Новобудова 2010-2020р</option>
+                            <option data-id="15">Новобудова від 2020р</option>
+                          </datalist>
+                        </div>
+                        <div className="col-md-4">
+                          {/* <label for="inputEmail4" className="form-label">Email</label> */}
+                          <input type="text" list="subtype_estate" className="form-control" id="inputPhonel4" placeholder="Підтип..."
+                            name='type_commerce'
+                            value={fieldsProp.type_commerce}
+                            onChange={handleChangeProp}
+                          />
+                          <datalist id="subtype_estate">
+                            <option data-id="0"></option>
+                            <option data-id="2">Автомийка</option>
+                            <option data-id="3">АЗС</option>
+                            <option data-id="1">Аптека</option>
+                            <option data-id="5">Перукарня</option>
+                            <option data-id="6">Салон краси</option>
+                            <option data-id="4">СТО</option>
+                          </datalist>
+                        </div>
+                      </>
+                    }
+
+                    {typeEstate == "land" ? <></> : <>
+                      <div className="col-md-2">
+                        {/* <label for="inputAddress" className="form-label">Address</label> */}
+                        <input type="text" className="form-control" id="inputName" placeholder="Кімнат"
+                          name='rooms'
+                          value={fieldsProp.rooms}
                           onChange={handleChangeProp}
                         />
-                        <datalist id="type_estate">
-                          <option data-id="0"></option>
-                          <option data-id="20">Будинок</option>
-                          <option data-id="112">Дача</option>
-                          <option data-id="21">Котедж</option>
-                          <option data-id="22">Особняк</option>
-                          <option data-id="23">Садиба</option>
-                          <option data-id="24">Таунхаус</option>
-                          <option data-id="25">Частина будинку</option>
-                        </datalist>
                       </div>
-
-
-
-
                       <div className="col-md-2">
-                        {/* <label for="inputPassword4" className="form-label">Password</label> */}
-                        <input type="text" className="form-control" id="inputEmail4" placeholder="Поверхів"
+                        <input type="text" className="form-control" id="inputName" placeholder="Заг. пл."
+                          name='square_tot'
+                          value={fieldsProp.square_tot}
+                          onChange={handleChangeProp}
+                        />
+                      </div>
+                      {
+                        typeEstate == "flat" || typeEstate == "house" ? <>
+
+                          <div className="col-md-2">
+                            <input type="text" className="form-control" id="inputName" placeholder="Житлова"
+                              name='square_liv'
+                              value={fieldsProp.square_liv}
+                              onChange={handleChangeProp}
+                            />
+                          </div>
+                          <div className="col-md-2">
+                            <input type="text" className="form-control" id="inputName" placeholder="Пл. кухні"
+                              name='square_kit'
+                              value={fieldsProp.square_kit}
+                              onChange={handleChangeProp}
+                            />
+                          </div>
+                        </>
+                          :
+                          <>
+                            <div className="col-md-2">
+                              {/* <label for="inputAddress" className="form-label">Address</label> */}
+                              <input type="text" className="form-control" id="inputName" placeholder="Пл.ділянк."
+                                name='square_area'
+                                value={fieldsProp.square_area}
+                                onChange={handleChangeProp}
+                              />
+                            </div>
+                            <div className="col-md-2">
+                              {/* <label for="inputAddress" className="form-label">Address</label> */}
+                              <input type="text" list="area_unit" className="form-control" id="inputName" placeholder="Соток/га"
+                                name='area_unit'
+                                value={fieldsProp.area_unit}
+                                onChange={handleChangeProp}
+                              />
+                              <datalist id="area_unit">
+                                <option data-id="0"></option>
+                                <option data-id="1">Соток</option>
+                                <option data-id="2">Га</option>
+                              </datalist>
+                            </div>
+                          </>
+                      }
+                    </>}
+
+
+                    {typeEstate === "flat" || typeEstate == "commerce" ? <>
+                      <div className="col-md-2">
+                        {/* <label for="inputAddress" className="form-label">Address</label> */}
+                        <input type="text" className="form-control" id="inputName" placeholder="Поверх"
+                          name='floor'
+                          value={fieldsProp.floor}
+                          onChange={handleChangeProp}
+                        />
+                      </div>
+                      <div className="col-md-2">
+                        {/* <label for="inputAddress" className="form-label">Address</label> */}
+                        <input type="text" className="form-control" id="inputName" placeholder="Поверхів"
                           name='floors'
                           value={fieldsProp.floors}
                           onChange={handleChangeProp}
                         />
-                      </div>
-                      <div className="col-md-2">
-                        {/* <label for="inputPassword4" className="form-label">Password</label> */}
-                        <input type="text" list="type_walls" className="form-control" id="inputEmail4" placeholder="Які стіни"
-                          name='type_walls'
-                          value={fieldsProp.type_walls}
-                          onChange={handleChangeProp}
-                        />
-                        <datalist id="type_walls">
-                          <option value=""></option>
-                          <option data-id="104">Цегла</option>
-                          <option data-id="1">Панель</option>
-                          <option data-id="2">Блок</option>
-                          <option data-id="3">Бетон</option>
-                          <option data-id="4">Дерево</option>
-                        </datalist>
-                      </div>
-                    </>
+                      </div></>
+                      : (
+                        typeEstate == "house" ? <>
+                          <div className="col-md-2">
+                            {/* <label for="inputAddress" className="form-label">Address</label> */}
+                            <input type="text" className="form-control" id="inputName" placeholder="Пл.ділянк."
+                              name='square_area'
+                              value={fieldsProp.square_area}
+                              onChange={handleChangeProp}
+                            />
+                          </div>
+                          <div className="col-md-2">
+                            {/* <label for="inputAddress" className="form-label">Address</label> */}
+                            <input type="text" list="area_unit" className="form-control" id="inputName" placeholder="Соток/га"
+                              name='area_unit'
+                              value={fieldsProp.area_unit}
+                              onChange={handleChangeProp}
+                            />
+                            <datalist id="area_unit">
+                              <option data-id="0"></option>
+                              <option data-id="1">Соток</option>
+                              <option data-id="2">Га</option>
+                            </datalist>
+                          </div></>
+                          : <></>
+                      )
+                    }
 
-                    :
-                    typeEstate == "commerce"
-                      ? <>
 
 
-                        <div className="col-md-2">
-                          <input type="text" className="form-control" id="inputName" placeholder="Висот.ст."
-                            name='height_wall'
-                            value={fieldsProp.height_wall}
+                    {
+                      typeEstate == "flat" ? <>
+                        <div className="col-md-4">
+                          {/* <label for="inputEmail4" className="form-label">Email</label> */}
+                          <input type="text" list="type_estate" className="form-control" id="inputPhonel4" placeholder="Тип будівлі..."
+                            name='type_building'
+                            value={fieldsProp.type_building}
                             onChange={handleChangeProp}
                           />
-                        </div>
-                        <div className="col-md-2">
-                          {/* <label for="inputAddress" className="form-label">Address</label> */}
-                          <input type="text" list="height_unit" className="form-control" id="inputName" placeholder="См/м"
-                            name='height_unit'
-                            value={fieldsProp.height_unit}
-                            onChange={handleChangeProp}
-                          />
-                          <datalist id="height_unit">
+                          <datalist id="type_estate">
                             <option data-id="0"></option>
-                            <option data-id="1">См</option>
-                            <option data-id="2">М</option>
+                            <option data-id="104">Австрійський</option>
+                            <option data-id="1">Австрійський люкс</option>
+                            <option data-id="2">Брежнєвка</option>
+                            <option data-id="3">Будівля старого Львова</option>
+                            <option data-id="4">Готелька</option>
+                            <option data-id="105">Гуртожиток</option>
+                            <option data-id="7">Особняк</option>
+                            <option data-id="8">Польський</option>
+                            <option data-id="9">Польський люкс</option>
+                            <option data-id="10">Сталінка</option>
+                            <option data-id="11">Хрущовка</option>
+                            <option data-id="12">Чешка</option>
+                            <option data-id="13">Новобудова 2000-2010р</option>
+                            <option data-id="14">Новобудова 2010-2020р</option>
+                            <option data-id="15">Новобудова від 2020р</option>
                           </datalist>
                         </div>
+
                         <div className="col-md-2">
                           {/* <label for="inputPassword4" className="form-label">Password</label> */}
                           <input type="text" list="type_walls" className="form-control" id="inputEmail4" placeholder="Які стіни"
@@ -1472,145 +1395,328 @@ const HomeZra = () => {
                           </datalist>
                         </div>
                         <div className="col-md-2">
-                          <input type="text" className="form-control" id="inputName" placeholder="Корисн.пл"
-                            name='square_use'
-                            value={fieldsProp.square_use}
+                          {/* <label for="inputPassword4" className="form-label">Password</label> */}
+                          <input type="text" className="form-control" id="inputEmail4" placeholder="Ск.балк."
+                            name='balconies'
+                            value={fieldsProp.balconies}
                             onChange={handleChangeProp}
                           />
                         </div>
                       </>
-                      : <></>
-              }
-
-              {
-                typeEstate == "land" ? <>
-                  <div className="col-md-4">
-                    {/* <label for="inputEmail4" className="form-label">Email</label> */}
-                    <input type="text" list="type_area" className="form-control" id="inputPhonel4" placeholder="Призначення ділянки..."
-                      name='purpose_area'
-                      value={fieldsProp.purpose_area}
-                      onChange={handleChangeProp}
-                    />
-                    <datalist id="type_area">
-                      <option data-id="0"></option>
-                      <option data-id="111">багатоквартирного</option>
-                      <option data-id="109">комерційного</option>
-                      <option data-id="106">під житлову забудову</option>
-                      <option data-id="110">промислового</option>
-                      <option data-id="108">сільськогосподарського</option>
-                      <option data-id="107">садівництво</option>
-                    </datalist>
-                  </div>
-                  <div className="col-md-2">
-                    {/* <label for="inputAddress" className="form-label">Address</label> */}
-                    <input type="text" className="form-control" id="inputName" placeholder="Пл.ділянк."
-                      name='square_area'
-                      value={fieldsProp.square_area}
-                      onChange={handleChangeProp}
-                    />
-                  </div>
-                  <div className="col-md-2">
-                    {/* <label for="inputAddress" className="form-label">Address</label> */}
-                    <input type="text" list="area_unit" className="form-control" id="inputName" placeholder="Соток/га"
-                      name='area_unit'
-                      value={fieldsProp.area_unit}
-                      onChange={handleChangeProp}
-                    />
-                    <datalist id="area_unit">
-                      <option data-id="0"></option>
-                      <option data-id="1">Соток</option>
-                      <option data-id="2">Га</option>
-                    </datalist>
-                  </div>
-                </> : <></>
-              }
-
-
-              <div className="col-md-2">
-                {/* <label for="inputPassword4" className="form-label">Password</label> */}
-                <input type="text" className="form-control" id="inputEmail4" placeholder="Вартість..."
-                  name='cost'
-                  value={fieldsProp.cost}
-                  onChange={handleChangeProp}
-                />
-              </div>
-              <div className="col-md-2">
-                {/* <label for="inputAddress" className="form-label">Address</label> */}
-                <input type="text" list="currency" className="form-control" id="inputName" placeholder="Валюта"
-                  name='currency'
-                  value={fieldsProp.currency}
-                  onChange={handleChangeProp}
-                />
-                <datalist id="currency">
-                  <option value=""></option>
-                  <option data-id="1">Дол</option>
-                  <option data-id="2">Грн</option>
-                  <option data-id="3">Євро</option>
-                </datalist>
-              </div>
+                        :
+                        typeEstate == "house"
+                          ?
+                          <>
+                            <div className="col-md-4">
+                              {/* <label for="inputEmail4" className="form-label">Email</label> */}
+                              <input type="text" list="type_estate" className="form-control" id="inputPhonel4" placeholder="Тип будівлі..."
+                                name='type_house'
+                                value={fieldsProp.type_house}
+                                onChange={handleChangeProp}
+                              />
+                              <datalist id="type_estate">
+                                <option data-id="0"></option>
+                                <option data-id="20">Будинок</option>
+                                <option data-id="112">Дача</option>
+                                <option data-id="21">Котедж</option>
+                                <option data-id="22">Особняк</option>
+                                <option data-id="23">Садиба</option>
+                                <option data-id="24">Таунхаус</option>
+                                <option data-id="25">Частина будинку</option>
+                              </datalist>
+                            </div>
 
 
 
-              <div className="col-md-12 h-75">
-                {/* <label for="inputAddress" className="form-label">Address</label> */}
-                <textarea type="text" className="form-control" id="inputNotes" placeholder="Опис об'єкту нерухомості..."
-                  name='description'
-                  value={fieldsProp.description}
-                  onChange={handleChangeProp}
-                />
-              </div>
 
+                            <div className="col-md-2">
+                              {/* <label for="inputPassword4" className="form-label">Password</label> */}
+                              <input type="text" className="form-control" id="inputEmail4" placeholder="Поверхів"
+                                name='floors'
+                                value={fieldsProp.floors}
+                                onChange={handleChangeProp}
+                              />
+                            </div>
+                            <div className="col-md-2">
+                              {/* <label for="inputPassword4" className="form-label">Password</label> */}
+                              <input type="text" list="type_walls" className="form-control" id="inputEmail4" placeholder="Які стіни"
+                                name='type_walls'
+                                value={fieldsProp.type_walls}
+                                onChange={handleChangeProp}
+                              />
+                              <datalist id="type_walls">
+                                <option value=""></option>
+                                <option data-id="104">Цегла</option>
+                                <option data-id="1">Панель</option>
+                                <option data-id="2">Блок</option>
+                                <option data-id="3">Бетон</option>
+                                <option data-id="4">Дерево</option>
+                              </datalist>
+                            </div>
+                          </>
 
-
-              <div className="col-md-5">
-                {/* <label for="inputAddress" className="form-label">Address</label> */}
-                <input type="text" className="form-control" id="inputName" placeholder="Як до Вас звертатись?"
-                  name='name'
-                  value={fields.name}
-                  onChange={handleChange}
-                />
-              </div>
-              <div className="col-md-3">
-                {/* <label for="inputEmail4" className="form-label">Email</label> */}
-                <input type="text" className="form-control" id="inputPhonel4" placeholder="Телефон..."
-                  name='phone'
-                  value={fields.phone}
-                  onChange={handleChange}
-                />
-              </div>
-              <div className="col-md-4">
-                {/* <label for="inputPassword4" className="form-label">Password</label> */}
-                <input type="text" className="form-control" id="inputEmail4" placeholder="Емейл..."
-                  name='email'
-                  value={fields.email}
-                  onChange={handleChange}
-                />
-              </div>
-
-
-              <div className="col-md-12">
-                {/* <label for="inputAddress" className="form-label">Address</label> */}
-                <button
-                  type="submit"
-                  className="btn-send btn col-12"
-                >
-                  {/* <FaPaperPlane className="mx-auto" /> */}
-                  {
-                    typeEstate === "flat" ?
-                      <span>Перейти на сайт Вашої квартири</span>
-                      :
-                      typeEstate === "house" ?
-                        <span>Перейти на сайт Вашого будинку</span>
-                        : typeEstate === "land" ?
-                          <span>Перейти на сайт Вашої ділянки</span>
                           :
-                          typeEstate === "commerce" ?
-                            <span>Перейти на сайт Вашої комерційної нерухомості</span>
-                            : <span>Перейти на сайт Вашого об'єкту нерухомості</span>
-                  }
-                </button>
-              </div>
+                          typeEstate == "commerce"
+                            ? <>
 
+
+                              <div className="col-md-2">
+                                <input type="text" className="form-control" id="inputName" placeholder="Висот.ст."
+                                  name='height_wall'
+                                  value={fieldsProp.height_wall}
+                                  onChange={handleChangeProp}
+                                />
+                              </div>
+                              <div className="col-md-2">
+                                {/* <label for="inputAddress" className="form-label">Address</label> */}
+                                <input type="text" list="height_unit" className="form-control" id="inputName" placeholder="См/м"
+                                  name='height_unit'
+                                  value={fieldsProp.height_unit}
+                                  onChange={handleChangeProp}
+                                />
+                                <datalist id="height_unit">
+                                  <option data-id="0"></option>
+                                  <option data-id="1">См</option>
+                                  <option data-id="2">М</option>
+                                </datalist>
+                              </div>
+                              <div className="col-md-2">
+                                {/* <label for="inputPassword4" className="form-label">Password</label> */}
+                                <input type="text" list="type_walls" className="form-control" id="inputEmail4" placeholder="Які стіни"
+                                  name='type_walls'
+                                  value={fieldsProp.type_walls}
+                                  onChange={handleChangeProp}
+                                />
+                                <datalist id="type_walls">
+                                  <option value=""></option>
+                                  <option data-id="104">Цегла</option>
+                                  <option data-id="1">Панель</option>
+                                  <option data-id="2">Блок</option>
+                                  <option data-id="3">Бетон</option>
+                                  <option data-id="4">Дерево</option>
+                                </datalist>
+                              </div>
+                              <div className="col-md-2">
+                                <input type="text" className="form-control" id="inputName" placeholder="Корисн.пл"
+                                  name='square_use'
+                                  value={fieldsProp.square_use}
+                                  onChange={handleChangeProp}
+                                />
+                              </div>
+                            </>
+                            : <></>
+                    }
+
+                    {
+                      typeEstate == "land" ? <>
+                        <div className="col-md-4">
+                          {/* <label for="inputEmail4" className="form-label">Email</label> */}
+                          <input type="text" list="type_area" className="form-control" id="inputPhonel4" placeholder="Призначення ділянки..."
+                            name='purpose_area'
+                            value={fieldsProp.purpose_area}
+                            onChange={handleChangeProp}
+                          />
+                          <datalist id="type_area">
+                            <option data-id="0"></option>
+                            <option data-id="111">багатоквартирного</option>
+                            <option data-id="109">комерційного</option>
+                            <option data-id="106">під житлову забудову</option>
+                            <option data-id="110">промислового</option>
+                            <option data-id="108">сільськогосподарського</option>
+                            <option data-id="107">садівництво</option>
+                          </datalist>
+                        </div>
+                        <div className="col-md-2">
+                          {/* <label for="inputAddress" className="form-label">Address</label> */}
+                          <input type="text" className="form-control" id="inputName" placeholder="Пл.ділянк."
+                            name='square_area'
+                            value={fieldsProp.square_area}
+                            onChange={handleChangeProp}
+                          />
+                        </div>
+                        <div className="col-md-2">
+                          {/* <label for="inputAddress" className="form-label">Address</label> */}
+                          <input type="text" list="area_unit" className="form-control" id="inputName" placeholder="Соток/га"
+                            name='area_unit'
+                            value={fieldsProp.area_unit}
+                            onChange={handleChangeProp}
+                          />
+                          <datalist id="area_unit">
+                            <option data-id="0"></option>
+                            <option data-id="1">Соток</option>
+                            <option data-id="2">Га</option>
+                          </datalist>
+                        </div>
+                      </> : <></>
+                    }
+
+
+                    <div className="col-md-2">
+                      {/* <label for="inputPassword4" className="form-label">Password</label> */}
+                      <input type="text" className="form-control" id="inputEmail4" placeholder="Вартість..."
+                        name='cost'
+                        value={fieldsProp.cost}
+                        onChange={handleChangeProp}
+                      />
+                    </div>
+                    <div className="col-md-2">
+                      {/* <label for="inputAddress" className="form-label">Address</label> */}
+                      <input type="text" list="currency" className="form-control" id="inputName" placeholder="Валюта"
+                        name='currency'
+                        value={fieldsProp.currency}
+                        onChange={handleChangeProp}
+                      />
+                      <datalist id="currency">
+                        <option value=""></option>
+                        <option data-id="1">Дол</option>
+                        <option data-id="2">Грн</option>
+                        <option data-id="3">Євро</option>
+                      </datalist>
+                    </div>
+
+
+                    {/* h-75 */}
+                    <div className="col-md-12">
+                      {/* <label for="inputAddress" className="form-label">Address</label> */}
+                      <textarea type="text" className="form-control" id="inputNotes" placeholder="Опис об'єкту нерухомості..."
+                        name='description'
+                        value={fieldsProp.description}
+                        onChange={handleChangeProp}
+                      />
+                    </div>
+
+                    <div className='col-md-12'>
+                      <label
+                        htmlFor='images'
+                        className='block text-gray-100 mb-2 font-bold text-center'
+                      >
+                        Загрузіть фотографії (Виберіть від 1 до 15)
+                      </label>
+                      <input
+                        type='file'
+                        id='images'
+                        name='images'
+                        className='border rounded w-full py-2 px-3'
+                        accept='image/*'
+                        multiple
+                        onChange={handleImageChange}
+                      // required
+                      />
+                    </div>
+
+
+
+
+                    <div className='col-md-12'>
+                      <label
+                        className='block text-gray-100 mb-2 font-bold text-center'
+                      >
+                        Напишіть явні ПЕРЕВАГИ Об'єкту (Вкажіть від 1 до 6)
+                      </label>
+                    </div>
+                    <div className="col-md-4">
+                      <input type="text" className="form-control" placeholder="Перевага 1"
+                        name='advantages'
+                        data-order={0}
+                        value={fieldsProp.advantages[0]}
+                        onChange={handleChangeProp}
+                      />
+                    </div>
+                    <div className="col-md-4">
+                      <input type="text" className="form-control" placeholder="Перевага 2"
+                        name='advantages'
+                        data-order={1}
+                        value={fieldsProp.advantages[1]}
+                        onChange={handleChangeProp}
+                      />
+                    </div>
+                    <div className="col-md-4">
+                      <input type="text" className="form-control" placeholder="Перевага 3"
+                        name='advantages'
+                        data-order={2}
+                        value={fieldsProp.advantages[2]}
+                        onChange={handleChangeProp}
+                      />
+                    </div>
+                    <div className="col-md-4">
+                      <input type="text" className="form-control" placeholder="Перевага 4"
+                        name='advantages'
+                        data-order={3}
+                        value={fieldsProp.advantages[3]}
+                        onChange={handleChangeProp}
+                      />
+                    </div>
+                    <div className="col-md-4">
+                      <input type="text" className="form-control" placeholder="Перевага 5"
+                        name='advantages'
+                        data-order={4}
+                        value={fieldsProp.advantages[4]}
+                        onChange={handleChangeProp}
+                      />
+                    </div>
+                    <div className="col-md-4">
+                      <input type="text" className="form-control" placeholder="Перевага 6"
+                        name='advantages'
+                        data-order={5}
+                        value={fieldsProp.advantages[5]}
+                        onChange={handleChangeProp}
+                      />
+                    </div>
+
+
+
+                    <hr className="hr hr-blurry" />
+
+                    <div className="col-md-5">
+                      {/* <label for="inputAddress" className="form-label">Address</label> */}
+                      <input type="text" className="form-control" id="inputName" placeholder="Як до Вас звертатись?"
+                        name='leadname'
+                        value={fieldsProp.leadname}
+                        onChange={handleChangeProp}
+                      />
+                    </div>
+                    <div className="col-md-3">
+                      {/* <label for="inputEmail4" className="form-label">Email</label> */}
+                      <input type="text" className="form-control" id="inputPhonel4" placeholder="Телефон..."
+                        name='phone'
+                        value={fieldsProp.phone}
+                        onChange={handleChangeProp}
+                      />
+                    </div>
+                    <div className="col-md-4">
+                      {/* <label for="inputPassword4" className="form-label">Password</label> */}
+                      <input type="text" className="form-control" id="inputEmail4" placeholder="Емейл..."
+                        name='email'
+                        value={fieldsProp.email}
+                        onChange={handleChangeProp}
+                      />
+                    </div>
+
+
+                    <div className="col-md-12">
+                      {/* <label for="inputAddress" className="form-label">Address</label> */}
+                      <button
+                        type="submit"
+                        className="btn-send btn col-12"
+                      >
+                        {/* <FaPaperPlane className="mx-auto" /> */}
+                        {
+                          typeEstate === "flat" ?
+                            <span>Перейти на сайт Вашої квартири</span>
+                            :
+                            typeEstate === "house" ?
+                              <span>Перейти на сайт Вашого будинку</span>
+                              : typeEstate === "land" ?
+                                <span>Перейти на сайт Вашої ділянки</span>
+                                :
+                                typeEstate === "commerce" ?
+                                  <span>Перейти на сайт Вашої комерційної нерухомості</span>
+                                  : <span>Перейти на сайт Вашого об'єкту нерухомості</span>
+                        }
+                      </button>
+                    </div>
+                  </>
+              }
             </form>
 
 
@@ -2229,7 +2335,7 @@ const HomeZra = () => {
             Designed by <a href="#">ProMax Studio</a>
           </div>
         </div>
-      </ footer>
+      </ footer >
       <a
         href="#"
         className="scroll-top d-flex align-items-center justify-content-center"

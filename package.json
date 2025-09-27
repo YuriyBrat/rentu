@@ -1,6 +1,6 @@
 {
-  "name": "rentu",
-  "version": "0.1.0",
+  "name": "karamax",
+  "version": "2.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -19,7 +19,9 @@
     "debug": "^4.4.0",
     "docx": "^9.3.0",
     "file-saver": "^2.0.5",
+    "framer-motion": "^12.23.12",
     "install": "^0.13.0",
+    "lucide-react": "^0.536.0",
     "mapbox-gl": "^3.5.2",
     "mongodb": "^6.7.0",
     "mongoos": "^0.0.1-security",

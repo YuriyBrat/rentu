@@ -138,6 +138,7 @@ const HauseCarousel = () => {
           ))}
         </Swiper>
       </Stack>
+
       <Stack direction="row" justifyContent="center" mt={{ xs: 2, md: 5 }}>
         <Box
           padding="10px"
@@ -161,6 +162,8 @@ const HauseCarousel = () => {
           </Stack>
         </Box>
       </Stack>
+
+
     </Stack>
   );
 };

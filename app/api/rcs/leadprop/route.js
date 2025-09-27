@@ -7,13 +7,14 @@ import cloudinary from '@/config/cloudinary';
 
 //  export const dynamic = 'force-dynamic'; //! хз чи треба хз що за фігня
 
+
 // GET /api/rcs/leadprops
 export const GET = async (req) => {
    try {
       await connectDB();
 
       const page = req.nextUrl.searchParams.get('page') || 1;
-      const pageSize = req.nextUrl.searchParams.get('pageSize') || 10;
+      const pageSize = req.nextUrl.searchParams.get('pageSize') || 20;
 
       const skip = (page - 1) * pageSize;
 
@@ -41,27 +42,52 @@ export const POST = async (req) => {
 
    try {
       await connectDB();
+      // const reqData = await req.json();
 
-      //       const formData = await request.formData();
-      // console.log(formData);
-      const reqData = await req.json();
+      const formData = await req.formData();
 
-      // const leadData = {
-      //    leadname: reqData.name,
-      //    phone: reqData.phone,
-      //    email: reqData.email,
-      //    notes: reqData.notes,
-      //    // notes: formData.get('notes'),
-      //    ip: reqData.ip
-      // };
+      let reqObject = {};
+      for (let [name, value] of formData) {
+         if (name != 'images' && name != 'advantages') {
+            reqObject[name] = value
+         }
+      }
 
-      console.log(reqData);
+      // Upload image(s) to Cloudaniry
+      let advantages = [];
+      try {
+         advantages = formData.getAll('advantages');
+         const images = formData.getAll('images').filter(image => image.name !== '');
+         const imageUploadPromises = [];
+         for (const image of images) {
 
+            const imageBuffer = await image.arrayBuffer();
+            const imageArray = Array.from(new Uint8Array(imageBuffer));
+            const imageData = Buffer.from(imageArray);
 
-      const newLeadProperty = new LeadProperty(reqData);
+            // Convert the image data to base64
+            const imageBase64 = imageData.toString('base64');
+
+            // Upload request to upload to Cloudaniry
+            const result = await cloudinary.uploader.upload(
+               `data:image/png;base64,${imageBase64}`, {
+               folder: 'Propertypulse/test'
+            }
+            );
+
+            imageUploadPromises.push(result.secure_url) // adress of images
+            // Wait for all images to upload
+            const uploadedImages = await Promise.all(imageUploadPromises);
+            reqObject['images'] = uploadedImages;
+         }
+      } catch (error) {
+         console.log('Error in saving images ' + error);
+      }
+      reqObject = { ...reqObject, advantages };
+      const newLeadProperty = new LeadProperty(reqObject);
       await newLeadProperty.save();
 
-      // console.log(propertyData)
+      // console.log(reqObject)
       // return Response.redirect(`${process.env.NEXTAUTH_URL}/properties/${newProperty._id}`)
 
       return new Response(JSON.stringify({ message: 'Success' }),

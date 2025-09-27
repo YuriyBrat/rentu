@@ -49,7 +49,6 @@ const Image = (
   const content = (
     <Box
       component={LazyLoadImage}
-      //
       alt={alt}
       src={src}
       afterLoad={afterLoad}
@@ -61,7 +60,7 @@ const Image = (
       wrapperProps={wrapperProps}
       scrollPosition={scrollPosition}
       visibleByDefault={visibleByDefault}
-      effect={disabledEffect ? undefined : effect}
+      // effect={disabledEffect ? undefined : effect}
       useIntersectionObserver={useIntersectionObserver}
       wrapperClassName={wrapperClassName || "component-image-wrapper"}
       placeholderSrc={

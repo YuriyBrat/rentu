@@ -5,8 +5,8 @@ import '@/assets/styles/globals.css';
 // import 'photoswipe/dist/photoswipe.css';
 
 export const metadata = {
-   title: 'Власникам',
-   description: 'Продавай ефективно',
+   title: 'Karamax',
+   description: 'Продавай квартири',
    keywods: 'продаж, продати квартиру, продаж нерухомості'
 };
 
