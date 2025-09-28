@@ -3,7 +3,7 @@
 import { useRouter, useParams, useSearchParams, usePathname } from 'next/navigation';
 import { useEffect, useState } from "react";
 import AppLayout from "@/estatein/components/app-layoout";
-import SiteLayout from "@/krm/layout-site";
+import SiteLayout from "@/krm/Layout-Site";
 import { LayoutContainer } from "@/krm/container";
 import {
    Box, Grid, Stack, Typography,

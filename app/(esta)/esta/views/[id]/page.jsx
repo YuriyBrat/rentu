@@ -2,8 +2,8 @@
 
 import { useRouter, useParams, useSearchParams, usePathname } from 'next/navigation';
 import { useEffect, useState } from "react";
-import AppLayout from "@/estatein/components/app-layoout";
-import SiteLayout from "@/krm/layout-site";
+// import AppLayout from "@/estatein/components/app-layoout";
+// import SiteLayout from "@/krm/layout-site";
 import KrmLayout from '@/krm/Layout-Krm';
 
 import { LayoutContainer } from "@/krm/container";
