@@ -10,7 +10,9 @@ export const metadata = {
    keywods: 'продаж, продати квартиру, продаж нерухомості'
 };
 
+
 import MuiThemeProvider from "@/estatein/theme";
+import "@/assets/styles/globals.css";
 
 const MainLayout = ({ children }) => {
    return (
@@ -19,8 +21,8 @@ const MainLayout = ({ children }) => {
       <html lang="en">
          <head>
 
-            <link href="assets/images/favicon.png" rel="icon" />
-            <link href="assets/images/apple-touch-icon.png" rel="apple-touch-icon" />
+            {/* <link href="assets/images/favicon.png" rel="icon" /> */}
+            {/* <link href="assets/images/apple-touch-icon.png" rel="apple-touch-icon" /> */}
          </head>
 
 

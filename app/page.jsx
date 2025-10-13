@@ -3,8 +3,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 
 import { styled, useTheme, Box, Typography, Container, Card, CardHeader, Grid, Stack, Divider } from '@mui/material';
 
-// import PropertyCard from './PropertyCard';
-import ViewCard from '@/krm/ViewCard';
 import MainCard from '@/krm/MainCard';
 import VisitSection from '@/krm/VisionSection';
 import ViewOrder from '@/krm/ViewOrder';
@@ -15,6 +13,7 @@ import Spinner from '@/components/Spinner';
 import useWindowSize from '@/estatein/hooks/useWindowSize';
 import { LayoutContainer } from '@/krm/container';
 import KrmLayout from '@/krm/Layout-Krm';
+
 import CustomerReviews from '@/krm/CustomerReviews/CustomerReviews';
 
 

@@ -26,6 +26,8 @@ import LoginIcon from "@mui/icons-material/Login";
 import MobileMenu from "./mobile-menu";
 import { LayoutContainer } from "../../container";
 
+import Image from 'next/image';
+
 const StyledLinkTage = styled(Box)(({ theme }) => ({
   padding: "12px 20px",
   fontWeight: 500,
@@ -103,7 +105,12 @@ const AppHeader = () => {
             {/* Logo */}
             <Box display="flex" alignItems="center">
               <StyledLogo component="a">
-                <img src="/krm/logo-krm.png" alt="logo" />
+                <Image
+                  width={120}
+                  height={40}
+                  className="w-full h-auto"
+                  src="/krm/logo-krm.png"
+                  alt="logo" />
               </StyledLogo>
             </Box>
 
