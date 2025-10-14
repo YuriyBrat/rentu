@@ -27,7 +27,7 @@
     "mongoos": "^0.0.1-security",
     "mongoose": "^8.4.1",
     "next": "14.2.3",
-    "next-auth": "^4.24.7",
+    "next-auth": "^4.24.11",
     "node-openssl-cert": "^0.1.42",
     "npm": "^11.1.0",
     "openssl": "^2.0.0",
