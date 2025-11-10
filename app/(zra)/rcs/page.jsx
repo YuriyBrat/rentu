@@ -1588,7 +1588,7 @@ const HomeZra = () => {
                     <div className='col-md-12'>
                       <label
                         htmlFor='images'
-                        className='block text-gray-100 mb-2 font-bold text-center'
+                        className='block text-dark mb-2 font-bold text-center'
                       >
                         Загрузіть фотографії (Виберіть від 1 до 15)
                       </label>
@@ -1609,7 +1609,7 @@ const HomeZra = () => {
 
                     <div className='col-md-12'>
                       <label
-                        className='block text-gray-100 mb-2 font-bold text-center'
+                        className='block text-dark mb-2 font-bold text-center'
                       >
                         Напишіть явні ПЕРЕВАГИ Об'єкту (Вкажіть від 1 до 6)
                       </label>

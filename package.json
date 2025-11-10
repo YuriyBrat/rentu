@@ -43,6 +43,7 @@
     "react-share": "^5.1.0",
     "react-spinners": "^0.13.8",
     "react-toastify": "^10.0.5",
+    "recharts": "^3.2.1",
     "sass": "^1.80.4",
     "supports-color": "^10.0.0",
     "swiper": "^11.2.3",

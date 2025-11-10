@@ -566,7 +566,7 @@ const genWord = () => {
                   <Divider>ГЕНЕРАЦІЯ ДОГОВОРІВ</Divider>
                </Grid> */}
 
-               <Grid item xs={12} mt={1} pb={2} sx={{ background: bgDiv}}>
+               <Grid item xs={12} mt={1} pb={2} sx={{ background: bgDiv }}>
                   <Stack spacing={0} direction="row"
                      sx={{
                         justifyContent: "center",
@@ -587,7 +587,7 @@ const genWord = () => {
                   </Stack>
                </Grid>
 
-               <Grid item xs={12} pb={2} sx={{ background: bgDiv}}>
+               <Grid item xs={12} pb={2} sx={{ background: bgDiv }}>
                   <Stack spacing={1} direction="row"
                      sx={{
                         justifyContent: "center",
