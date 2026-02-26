@@ -53,17 +53,17 @@ const StyledLogo = styled(Box)(() => ({
 }));
 
 export const headerNav = [
-  { title: "Головна", href: "/esta/" },
-  { title: "Об'єкти продажу", href: "/esta/views" },
-  { title: "Заявки на купівлю", href: "/esta/orders" },
+  { title: "Головна", href: "/" },
+  { title: "Об'єкти продажу", href: "/views" },
+  { title: "Заявки на купівлю", href: "/orders" },
   { title: "Презентація продажу", href: "/rcs" },
-  { title: "Каталог послуг", href: "/esta/views/444/#math" },
+  { title: "Каталог послуг", href: "/service1" },
 ];
 
 const AppHeader = () => {
   const theme = useTheme();
   const [pathName, setPathName] = useState("");
-  const [phone] = useState("067 9850 9115");
+  const [phone] = useState("067 9850 911");
 
   // Popover
   const [anchorEl, setAnchorEl] = useState(null);
