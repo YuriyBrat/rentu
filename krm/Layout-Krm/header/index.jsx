@@ -56,7 +56,7 @@ export const headerNav = [
   { title: "Головна", href: "/" },
   { title: "Об'єкти продажу", href: "/views" },
   { title: "Заявки на купівлю", href: "/orders" },
-  { title: "Презентація продажу", href: "/rcs" },
+  // { title: "Презентація продажу", href: "/rcs" },
   { title: "Каталог послуг", href: "/service1" },
 ];
 
