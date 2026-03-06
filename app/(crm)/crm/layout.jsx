@@ -1,11 +1,13 @@
 'use client';
-import { useSession, SessionProvider } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
+
+import { SessionProvider, useSession } from 'next-auth/react';
+import { useRouter, usePathname } from 'next/navigation';
 import { useEffect } from 'react';
-import CRMLayout from './CRMLayout';
+
+import CRMLayout from './CRMLayout1';
 import { CRMThemeProvider } from './context/CRMThemeContext';
 
-export default function RootLayout({ children }) {
+export default function Layout({ children }) {
    return (
       <SessionProvider>
          <CRMAuthWrapper>{children}</CRMAuthWrapper>
@@ -14,14 +16,23 @@ export default function RootLayout({ children }) {
 }
 
 function CRMAuthWrapper({ children }) {
-   const { data: session, status } = useSession();
+   const { status } = useSession();
    const router = useRouter();
+   const pathname = usePathname();
 
    useEffect(() => {
-      if (status === 'unauthenticated') router.push('/login');
-   }, [status, router]);
+      // ✅ не ганяємо редіректом, якщо вже на /login
+      if (status === 'unauthenticated' && pathname !== '/login') {
+         router.push('/login');
+      }
+   }, [status, router, pathname]);
 
-   if (status === 'loading') return <p>Завантаження...</p>;
+   if (status === 'loading') {
+      return <p style={{ padding: 24 }}>Завантаження...</p>;
+   }
+
+   // ✅ Якщо не авторизований — нічого не рендеримо (щоб не мигало)
+   if (status === 'unauthenticated') return null;
 
    return (
       <CRMThemeProvider>

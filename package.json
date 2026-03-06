@@ -15,6 +15,7 @@
     "@mui/icons-material": "^6.4.6",
     "@mui/material": "^6.4.4",
     "aos": "^2.3.4",
+    "browser-image-compression": "^2.0.2",
     "cloudinary": "^2.2.0",
     "debug": "^4.4.0",
     "docx": "^9.3.0",

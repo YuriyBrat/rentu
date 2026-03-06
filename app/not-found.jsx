@@ -3,7 +3,7 @@ import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 
 const NotFound = () => {
-  
+
   return (
     <AppLayout>
       <Box
@@ -14,7 +14,7 @@ const NotFound = () => {
         minHeight="40dvh"
       >
         <Typography variant="h1" color="#ffffff">
-          404
+          404!!!
         </Typography>
         <Typography color="#ffffff" variant="h6">
           Page Not Found!!!
