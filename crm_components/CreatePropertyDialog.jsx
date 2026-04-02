@@ -2,7 +2,7 @@
 
 import { Dialog, DialogTitle, DialogContent, IconButton, Box } from '@mui/material';
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
-import PropertyForm from './PropertyForm';
+import PropertyForm from './PropertyForm4';
 
 export default function CreatePropertyDialog({ open, onClose, onSubmit }) {
    return (

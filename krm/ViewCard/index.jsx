@@ -26,7 +26,7 @@ import 'swiper/css/navigation';
 // import required modules
 import { Navigation } from 'swiper/modules';
 
-import { checkFieldFront } from '@/hooks/text.hook';
+import { checkFieldFront, getCurrencySymbol } from '@/hooks/text.hook';
 
 
 
@@ -56,6 +56,12 @@ const ViewCard = memo(({ prop }) => {
       borderRadius: '8px',
    }));
 
+   const galleryImages =
+      prop?.images?.length > 0
+         ? prop.images
+         : prop?.mainImage
+            ? [prop.mainImage]
+            : ['/background/bg1.jpg'];
 
 
    return (
@@ -80,7 +86,7 @@ const ViewCard = memo(({ prop }) => {
                {/* Ціна */}
                <Box sx={{ position: 'absolute', top: '-13px', right: '20px' }}>
                   <Typography variant="subtitle1" color="text.secondary">
-                     {prop.cost} {checkFieldFront(prop.currency, 'currency')}
+                     {prop.cost} {getCurrencySymbol(prop.currency)}
                   </Typography>
                </Box>
 
@@ -102,7 +108,7 @@ const ViewCard = memo(({ prop }) => {
                      style={{ width: '100%' }}
                      className={"mySwiper"}
                   >
-                     {(prop?.images?.length > 0 ? prop.images : ['/background/bg1.jpg']).map((img, idx) => (
+                     {galleryImages.map((img, idx) => (
                         <SwiperSlide key={idx}>
                            <Box
                               sx={{

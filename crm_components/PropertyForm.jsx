@@ -119,7 +119,7 @@ const fieldSx = {
 function emptyFields(type_estate = 'flat') {
    return {
       type_estate,
-      type_deal: 'Продаж',
+      type_deal: 'продаж',
       ip: '',
 
       title: '',
@@ -334,9 +334,9 @@ export default function PropertyForm({ onCancel, onSubmit }) {
       <Box component="form" onSubmit={handleSubmit}>
          {/* TYPE SELECT */}
          <Stack spacing={1.2} sx={{ mb: 2 }}>
-            <Typography sx={{ color: '#fff', fontWeight: 900 }}>
+            {/* <Typography sx={{ color: '#fff', fontWeight: 900 }}>
                Тип об’єкта
-            </Typography>
+            </Typography> */}
 
             <ToggleButtonGroup
                exclusive
@@ -372,7 +372,7 @@ export default function PropertyForm({ onCancel, onSubmit }) {
                ))}
             </ToggleButtonGroup>
 
-            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+            {/* <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                <Chip
                   icon={<BoltRoundedIcon />}
                   label="Black + Purple neon"
@@ -383,7 +383,7 @@ export default function PropertyForm({ onCancel, onSubmit }) {
                      color: '#fff',
                   }}
                />
-            </Stack>
+            </Stack> */}
          </Stack>
 
          <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)', mb: 2 }} />
@@ -795,7 +795,7 @@ export default function PropertyForm({ onCancel, onSubmit }) {
             )}
 
             {/* PRICE */}
-            <Grid item xs={12} md={3}>
+            <Grid item xs={12} md={2}>
                <TextField
                   label="Вартість"
                   value={fields.cost}
@@ -805,7 +805,7 @@ export default function PropertyForm({ onCancel, onSubmit }) {
                />
             </Grid>
 
-            <Grid item xs={12} md={3}>
+            <Grid item xs={12} md={2}>
                <TextField
                   select
                   label="Валюта"

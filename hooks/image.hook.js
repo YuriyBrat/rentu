@@ -13,8 +13,16 @@ function getSrcImage(image) {
    // console.log(srcImage);
 
    return srcImage
-}
+};
+const getBestImageUrl = (img) => {
+   img?.brandedUrl ||
+      img?.processedUrl ||
+      img?.url ||
+      '';
+};
+
 
 module.exports = {
-   getSrcImage
+   getSrcImage,
+   getBestImageUrl
 }

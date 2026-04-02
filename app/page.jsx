@@ -8,7 +8,7 @@ import VisitSection from '@/krm/VisionSection';
 import ViewOrder from '@/krm/ViewOrder';
 import { dataOrders } from '@/krm/ViewOrder';
 
-import Spinner from '@/components/Spinner';
+import Spinner from '@/krm/Spinner';
 // import Pagination from './Pagination';
 import useWindowSize from '@/estatein/hooks/useWindowSize';
 import { LayoutContainer } from '@/krm/container';

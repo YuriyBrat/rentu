@@ -82,10 +82,22 @@ function cutLetters(str) {
    return newstr;
 };
 
+function getCurrencySymbol(currency) {
+   const map = {
+      USD: '$',
+      UAH: '₴',
+      EUR: '€',
+   };
+
+   return map[currency] || currency || '';
+};
+
 
 module.exports = {
    checkFieldFront,
    buildTitle,
    cutNumbers,
-   cutLetters
+   cutLetters,
+
+   getCurrencySymbol,
 }

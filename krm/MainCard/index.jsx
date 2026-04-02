@@ -201,7 +201,7 @@ const MainCard = memo(({ prop }) => {
                   paddingX: '0px',
                   // borderRadius: '15px'
                }}>
-                  <Link href={'/esta/views/' + prop?._id}>
+                  <Link href={'/views/' + prop?._id}>
                      Опис
                   </Link>
 

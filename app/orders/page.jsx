@@ -8,7 +8,7 @@ import {
 
 import { LocationOn, FormatListBulleted } from '@mui/icons-material';
 
-import Spinner from '@/components/Spinner';
+import Spinner from '@/krm/Spinner';
 import { LayoutContainer } from '@/krm/container';
 import KrmLayout from '@/krm/Layout-Krm';
 import ViewOrder from '@/krm/ViewOrder';

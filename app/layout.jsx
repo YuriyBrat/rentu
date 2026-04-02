@@ -1,5 +1,5 @@
 import React from "react";
-import '@/assets/styles/globals.css';
+// import '@/assets/styles/globals.css';
 // import { ToastContainer } from 'react-toastify';
 // import 'react-toastify/dist/ReactToastify.css';
 // import 'photoswipe/dist/photoswipe.css';
@@ -12,7 +12,7 @@ export const metadata = {
 
 
 import MuiThemeProvider from "@/estatein/theme";
-import "@/assets/styles/globals.css";
+// import "@/assets/styles/globals.css";
 
 const MainLayout = ({ children }) => {
    return (

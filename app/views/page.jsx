@@ -8,7 +8,7 @@ import {
 
 // import PropertyCard from './PropertyCard';
 import ViewCard from '@/krm/ViewCard';
-import Spinner from '@/components/Spinner';
+import Spinner from '@/krm/Spinner';
 // import Pagination from './Pagination';
 
 import { LayoutContainer } from '@/krm/container';
@@ -33,63 +33,13 @@ import {
 } from "@/estatein/_moc_data/search";
 
 
-const demoProps = [
-//    {
-//    _id: '9090921',
-//    cost: '75000',
-//    currency: '$',
-//    title: 'Продаж красивої квартири з видом на парк з панорамню лоджією',
-//    rooms: 1,
-//    square_tot: 75,
-//    square_liv: 40,
-//    square_kit: 10,
-//    floor: 5,
-//    floors: 10,
-
-//    images: ['/esta/assets/home/carousel-img.png', '/esta/assets/home/carousel-img1.png', '/esta/assets/home/carousel-img2.png']
-// },
-// {
-//    _id: '90909255',
-//    cost: '200000',
-//    currency: '$',
-//    title: 'Продаж дизайнерського будинку',
-//    rooms: 5,
-//    square_tot: 120,
-//    square_liv: 40,
-//    square_kit: 10,
-//    floor: 2,
-//    floors: 2,
-
-//    images: ['/esta/assets/home/carousel-img.png']
-// },
-// {
-//    _id: '9090977',
-//    cost: '40000',
-//    currency: '$',
-//    title: 'Продаж компактної 1к квартири',
-//    rooms: 1,
-//    square_tot: 45,
-//    square_liv: 29,
-//    square_kit: 6,
-//    floor: 1,
-//    floors: 5,
-
-//    images: []
-// }
-]
-
-
 const ViewsProp = () => {
-   const [leadprops, setLeadprops] = useState([]);
+   // const [leadprops, setLeadprops] = useState([]);
+   const [properties, setProperties] = useState([]);
    const [loading, setLoading] = useState(false);
    const [page, setPage] = useState(1);
    const [pageSize, setPageSize] = useState(5);
    const [totalItems, setTotalItems] = useState(0);
-
-
-   // const handlePageChange = newPage => {
-   //    setPage(newPage)
-   // }
 
 
 
@@ -98,20 +48,28 @@ const ViewsProp = () => {
       const fetchLeadProps = async () => {
          try {
             // const res = await fetch(`/api/rcs/leadprop?page=${page}&pageSize=${pageSize}`);
-            const res = await fetch(`/api/rcs/leadprop`);
+            // const res = await fetch(`/api/rcs/leadprop`);
 
-            if (!res.ok) {
-               throw new Error('Failed to get properties')
-            };
+            // if (!res.ok) {
+            //    throw new Error('Failed to get properties')
+            // };
+
+            // const data = await res.json();
+            // const { leadprops, total } = data;
+            // if (leadprops) {
+            //    leadprops.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+            // }
+            // setLeadprops(leadprops);
+            // setTotalItems(total)
+            // setLeadprops(prev => demoProps.concat(prev))
+
+            const res = await fetch('/api/properties/sale?page=1&pageSize=50', {
+               cache: 'no-store',
+            });
 
             const data = await res.json();
-            const { leadprops, total } = data;
-            if (leadprops) {
-               leadprops.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-            }
-            setLeadprops(leadprops);
-            setTotalItems(total)
-            setLeadprops(prev => demoProps.concat(prev))
+            setProperties(data.properties || []);
+            setTotalItems(data.total || 0);
          } catch (error) {
             console.log(error);
          } finally {
@@ -178,127 +136,108 @@ const ViewsProp = () => {
       },
    }));
 
-   return loading ? (<Spinner />) : (
-      <>
-         {/* <div>Total is {totalItems}</div> */}
-         {/* {
-            leadprops.map(prop => (
-               <div key={prop?._id} >{prop?.location?.city}</div>
-            ))
-         } */}
-         <KrmLayout>
-            <LayoutContainer>
+   return loading ?
+      // (<Spinner />) 
+      (
+         <Container maxWidth="xl" sx={{ py: 6 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'center' }}>
+               <CircularProgress />
+            </Box>
+         </Container>
+      )
+      : (
+         <>
+            <KrmLayout>
+               <LayoutContainer>
 
-               <Stack mt={10}>
-                  <StyledWrapperBox>
-                     <Stack
-                        direction={{ xs: "column", md: "row" }}
-                        justifyContent={{
-                           xs: "center",
-                           md: "center",
-                           lg: "center",
-                           xl: "space-between",
-                        }}
-                        gap={1.5}
-                        flexWrap="wrap"
-                     >
-                        <CustomMultiSelect
-                           data={districtSearch}
-                           icon="carbon:location"
-                           placeholder="Райони Львова"
-                        />
+                  <Stack mt={10}>
+                     <StyledWrapperBox>
+                        <Stack
+                           direction={{ xs: "column", md: "row" }}
+                           justifyContent={{
+                              xs: "center",
+                              md: "center",
+                              lg: "center",
+                              xl: "space-between",
+                           }}
+                           gap={1.5}
+                           flexWrap="wrap"
+                        >
+                           <CustomMultiSelect
+                              data={districtSearch}
+                              icon="carbon:location"
+                              placeholder="Райони Львова"
+                           />
 
-                        <CustomMultiSelect
-                           icon="ic:outline-bed"
-                           data={roomsSearch}
-                           placeholder="К-сть кімнат"
-                        // defaultChecked={selectedRooms}
-                        // onChange={setSelectedRooms}
-                        />
-                        <CustomBetweenSelect
-                           data={PropertySize}
-                           icon="bi:box"
-                           symbol="м²"
-                           min="0"
-                           max="1000"
-                           placeholder="Площа загальна"
-                        />
-                        <CustomMultiSelect
-                           data={typeHouseSearch}
-                           icon="ic:outline-maps-home-work"
-                           placeholder="Тип будинку"
-                        />
+                           <CustomMultiSelect
+                              icon="ic:outline-bed"
+                              data={roomsSearch}
+                              placeholder="К-сть кімнат"
+                           // defaultChecked={selectedRooms}
+                           // onChange={setSelectedRooms}
+                           />
+                           <CustomBetweenSelect
+                              data={PropertySize}
+                              icon="bi:box"
+                              symbol="м²"
+                              min="0"
+                              max="1000"
+                              placeholder="Площа загальна"
+                           />
+                           <CustomMultiSelect
+                              data={typeHouseSearch}
+                              icon="ic:outline-maps-home-work"
+                              placeholder="Тип будинку"
+                           />
 
-                        {/* <Iconify icon="ic:outline-bed" fontSize='small' sx={{ color: "text.secondary" }} /> */}
-                        <CustomBetweenSelect
-                           data={PriceRange}
-                           icon="material-symbols:price-change-outline"
-                           symbol="$"
-                           min="0"
-                           max="1000000"
-                           step = {1000}
-                           placeholder="Вартість"
-                        />
-                     </Stack>
-                  </StyledWrapperBox>
-               </Stack>
-
-
-
-               <Box mt={2} mb={2}>
-                  <StarIcon />
-               </Box>
-
-
-               {
-                  leadprops.length === 0
-                     ?
-                     <Typography variant="h3" color="text.secondary" mb={2}>Об'єктів не знайдено</Typography>
-                     : (
-                        // <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        // <Container >
-                        <Grid container spacing={1} p={1} >
-                           {/* <Grid id="description" item xs={12} md={6}></Grid> */}
-                           {
-                              leadprops.map(prop => (
-                                 <ViewCard prop={prop} key={prop._id} />
-                              ))
-                           }
-                           {/* </Container> */}
-                        </Grid>
-                     )
-               }
+                           {/* <Iconify icon="ic:outline-bed" fontSize='small' sx={{ color: "text.secondary" }} /> */}
+                           <CustomBetweenSelect
+                              data={PriceRange}
+                              icon="material-symbols:price-change-outline"
+                              symbol="$"
+                              min="0"
+                              max="1000000"
+                              step={1000}
+                              placeholder="Вартість"
+                           />
+                        </Stack>
+                     </StyledWrapperBox>
+                  </Stack>
 
 
 
+                  <Box mt={2} mb={2}>
+                     <StarIcon />
+                  </Box>
 
 
-            </LayoutContainer>
-         </KrmLayout>
-      </>
-      // <section className="px-4 py-6">
-      //    <div className="container-xl lg:container m-auto">
-      //       {
-      //          properties.length === 0
-      //             ?
-      //             <p>No properties found</p>
-      //             : (
-      //                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      //                   {
-      //                      properties.map(property => (
-      //                         <PropertyCard key={property._id} property={property} />
-      //                      ))
-      //                   }
-      //                </div>
-      //             )
-      //       }
+                  {
+                     properties.length === 0
+                        ?
+                        <Typography variant="h3" color="text.secondary" mb={2}>Об'єктів не знайдено</Typography>
+                        : (
+                           // <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                           // <Container >
+                           <Grid container spacing={1} p={1} >
+                              {/* <Grid id="description" item xs={12} md={6}></Grid> */}
+                              {
+                                 properties.map(prop => (
+                                    <ViewCard prop={prop} key={prop._id} />
+                                 ))
+                              }
+                              {/* </Container> */}
+                           </Grid>
+                        )
+                  }
 
-      //       <Pagination page={page} pageSize={pageSize} totalItems={totalItems}
-      //          onPageChange={handlePageChange}
-      //       />
-      //    </div>
-      // </section>
-   )
+
+
+
+
+               </LayoutContainer>
+            </KrmLayout>
+         </>
+      )
 }
 
 export default ViewsProp;
