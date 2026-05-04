@@ -29,6 +29,7 @@ const stageColors = {
    ps: { bg: '#60a5fa', color: '#111', label: 'ПС' },               // синій
    rs: { bg: '#2dd4bf', color: '#111', label: 'РС' },               // бірюзовий
    ds: { bg: '#fb923c', color: '#111', label: 'ДС' },               // помаранчевий
+   pzs: { bg: '#f472b6', color: '#111', label: 'ПЗС' },             // рожевий
    zs: { bg: '#4ade80', color: '#111', label: 'ЗС' },               // зелений
    pers: { bg: '#a78bfa', color: '#111', label: 'ПЕРС' },           // фіолетовий
 };

@@ -18,9 +18,9 @@ const ACTUALITY_STATUSES = [
   'Актуальний. Продзвін',
   'Актуальний. Проблемний',
   'Актуальний. Оглянутий! Не в роботі',
-  'Неактуальний. Проданий мною',
-  'Неактуальний. Проданий не мною',
-  'Неактуальний. Знятий з продажу',
+  'Неактуальний. Реалізований мною',
+  'Неактуальний. Реалізований не мною',
+  'Неактуальний. Знятий з реалізації',
   'Неактуальний. Невідома причина',
   'Зупинений. Завдаток мій',
   'Зупинений. Завдаток не мій',
@@ -111,6 +111,20 @@ const OwnerSchema = new Schema(
   { _id: false }
 );
 
+const RentStorySchema = new Schema(
+  {
+    rentedAt: { type: Date, default: null }, // дата здачі
+    // rentedBy: {
+    //   type: String,
+    //   enum: ['employee', 'owner', 'competitor', 'other', ''],
+    //   default: '',
+    // }, // ким здано
+    rentedBy: { type: String, trim: true, default: '' }, // ким здано (текст)
+    note: { type: String, trim: true, default: '' }, // нотатка
+  },
+  { _id: false }
+);
+
 const RentOptionsSchema = new Schema(
   {
     price: { type: Number, default: null },
@@ -121,6 +135,7 @@ const RentOptionsSchema = new Schema(
       default: "USD",
     },
 
+    rentTitle: { type: String, trim: true, default: '' },
     availableFrom: { type: Date, default: null }, // дата доступності / звільнення
 
     adText: { type: String, trim: true, default: "" }, // текст для реклами
@@ -141,9 +156,51 @@ const RentOptionsSchema = new Schema(
       default: [],
     }, // техніка
 
+    rentStory: {
+      type: RentStorySchema,
+      default: () => ({}),
+    },
+
     lastActualizedAt: { type: Date, default: null },
   },
   { _id: false }
+);
+
+const AdvertisingLinkSchema = new Schema(
+  {
+    platform: {
+      type: String,
+      enum: ['olx', 'dimria', 'rieltor', 'facebook', 'instagram', 'site', 'other'],
+      default: 'other',
+    },
+    title: { type: String, trim: true, default: '' },
+    url: { type: String, trim: true, default: '' },
+
+    status: {
+      type: String,
+      enum: ['active', 'paused', 'archived', 'problem'],
+      default: 'active',
+    },
+
+    note: { type: String, trim: true, default: '' },
+
+    createdByEmployee: {
+      type: Schema.Types.ObjectId,
+      ref: 'Employee',
+      default: null,
+    },
+
+    sourceType: {
+      type: String,
+      enum: ['ours', 'competitor', 'owner'],
+      default: 'ours',
+      index: true,
+    },
+
+    createdAt: { type: Date, default: Date.now },
+    lastCheckedAt: { type: Date, default: null },
+  },
+  { _id: true }
 );
 
 
@@ -222,8 +279,41 @@ const PropertySchema = new Schema(
 
     sourceLeadId: { type: Schema.Types.ObjectId, ref: "LeadProperty", index: true },
 
-
+    assignee: { type: Schema.Types.ObjectId, ref: 'Employee', required: false, index: true },
+    createdByEmployee: {
+      type: Schema.Types.ObjectId, ref: 'Employee', required: false, index: true,
+    },
     // =========================
+
+    source: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+
+    strategyApprovedBy: {
+      type: Schema.Types.ObjectId,
+      ref: 'Employee',
+      default: null,
+      index: true,
+    },
+
+    strategyApprovedAt: {
+      type: Date,
+      default: null,
+    },
+
+    businessScore: {
+      finance: { type: Number, min: 1, max: 5, default: null },
+      liquidity: { type: Number, min: 1, max: 5, default: null },
+      loyalty: { type: Number, min: 1, max: 5, default: null },
+      motivation: { type: Number, min: 1, max: 5, default: null },
+      problemFree: { type: Number, min: 1, max: 5, default: null },
+      adAttractiveness: { type: Number, min: 1, max: 5, default: null },
+      adHistory: { type: Number, min: 1, max: 5, default: null },
+      adStrategy: { type: Number, min: 1, max: 5, default: null },
+    },
+
     // нові поля для оренди
     // =========================
 
@@ -247,6 +337,67 @@ const PropertySchema = new Schema(
       type: [OwnerSchema],
       default: [],
     },
+
+
+    workHistory: [
+      {
+        type: {
+          type: String,
+          enum: ['note', 'call', 'message', 'meeting', 'review', 'showing'],
+          default: 'note',
+        },
+        tone: {
+          type: String,
+          enum: ['positive', 'negative', 'info', 'important'],
+          default: 'info',
+        },
+        text: {
+          type: String,
+          trim: true,
+          default: '',
+        },
+        createdByEmployee: {
+          type: Schema.Types.ObjectId,
+          ref: 'Employee',
+          default: null,
+        },
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+
+    advertisingTexts: [
+      {
+        title: { type: String, trim: true, default: '' },
+        text: { type: String, trim: true, default: '' },
+        note: { type: String, trim: true, default: '' },
+        result: { type: String, trim: true, default: '' },
+
+        status: {
+          type: String,
+          enum: ['draft', 'active', 'tested', 'winner', 'weak', 'archived'],
+          default: 'draft',
+        },
+        createdByEmployee: {
+          type: Schema.Types.ObjectId,
+          ref: 'Employee',
+          default: null,
+        },
+
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+
+    advertisingLinks: {
+      type: [AdvertisingLinkSchema],
+      default: [],
+    },
+
   },
   { timestamps: true }
 );

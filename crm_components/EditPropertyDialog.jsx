@@ -4,7 +4,14 @@ import { Dialog, DialogTitle, DialogContent, IconButton, Box } from '@mui/materi
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import PropertyForm from './PropertyForm5';
 
-export default function CreatePropertyDialog({ open, onClose, onSubmit, employees = [], }) {
+export default function EditPropertyDialog({
+   open,
+   onClose,
+   onSubmit,
+   item,
+   employees = [],
+}) {
+
    return (
       <Dialog
          open={open}
@@ -33,7 +40,7 @@ export default function CreatePropertyDialog({ open, onClose, onSubmit, employee
                borderBottom: '1px solid rgba(255,255,255,0.06)',
             }}
          >
-            Додати об’єкт
+            Редагувати об’єкт
             <IconButton onClick={onClose} sx={{ color: 'rgba(255,255,255,0.8)' }}>
                <CloseRoundedIcon />
             </IconButton>
@@ -41,12 +48,13 @@ export default function CreatePropertyDialog({ open, onClose, onSubmit, employee
 
          <DialogContent sx={{ p: 2.5 }}>
             <Box sx={{ mt: 0.5 }}>
-               {/* <PropertyForm onCancel={onClose} onSubmit={onSubmit} /> */}
                <PropertyForm
+                  key={item?._id}
                   onCancel={onClose}
                   onSubmit={onSubmit}
+                  initialData={item}
                   employees={employees}
-                  mode="create"
+                  mode="edit"
                />
             </Box>
          </DialogContent>

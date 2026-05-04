@@ -36,7 +36,28 @@ function getMainImage(item) {
 function getOwner(item) {
    const owners = item?.owners || [];
    return owners.find((x) => x?.isPrimary) || owners[0] || null;
+};
+
+
+function getEmployeeName(employee) {
+   if (!employee) return '—';
+   return (
+      employee.fullName ||
+      [employee.surname, employee.name].filter(Boolean).join(' ') ||
+      employee.name ||
+      employee.email ||
+      '—'
+   );
 }
+
+//
+function getRentedByLabel(value) {
+   if (value === 'employee') return 'Працівник';
+   if (value === 'owner') return 'Власник';
+   if (value === 'competitor') return 'Конкурент';
+   if (value === 'other') return 'Інше';
+   return 'value';
+};
 
 function getStatusMeta(statusRent) {
    if (statusRent === 'rentActual') {
@@ -118,7 +139,7 @@ function MetaPill({ icon, label, value }) {
    );
 }
 
-export default function RentRowCard({ item }) {
+export default function RentRowCard({ item, onEdit }) {
    const [open, setOpen] = useState(false);
 
    const image = getMainImage(item);
@@ -138,6 +159,11 @@ export default function RentRowCard({ item }) {
    }, [item]);
 
    const ownerPhone = owner?.phones?.[0] || '';
+
+   const rentTitle = item?.rentOptions?.rentTitle || item?.displayTitle || item?.title || 'Без назви';
+   const assigneeName = getEmployeeName(item?.assignee);
+   const createdByName = getEmployeeName(item?.createdByEmployee);
+   const rentStory = item?.rentOptions?.rentStory || {};
 
    return (
       <Box
@@ -186,7 +212,7 @@ export default function RentRowCard({ item }) {
                      <Box
                         component="img"
                         src={image.url}
-                        alt={item?.title || 'rent'}
+                        alt={rentTitle}
                         sx={{
                            width: '100%',
                            height: '100%',
@@ -255,7 +281,7 @@ export default function RentRowCard({ item }) {
                            }}
                            noWrap
                         >
-                           {item?.title || 'Без назви'}
+                           {rentTitle}
                         </Typography>
 
                         <Typography
@@ -313,10 +339,15 @@ export default function RentRowCard({ item }) {
                         label="Актуальність"
                         value={formatDate(item?.rentOptions?.lastActualizedAt)}
                      />
-                     <MetaPill
+                     {/* <MetaPill
                         icon={<PhoneRoundedIcon sx={{ fontSize: 16 }} />}
                         label="Контакт"
                         value={owner?.name || ownerPhone || '—'}
+                     /> */}
+                     <MetaPill
+                        icon={<InfoOutlinedIcon sx={{ fontSize: 16 }} />}
+                        label="Відповідальний"
+                        value={assigneeName}
                      />
                   </Stack>
 
@@ -359,6 +390,7 @@ export default function RentRowCard({ item }) {
                   </Button>
 
                   <Button
+                     onClick={() => onEdit?.(item)}
                      sx={{
                         borderRadius: 3,
                         color: '#0b0b12',
@@ -492,6 +524,63 @@ export default function RentRowCard({ item }) {
                                  {formatDate(item?.rentOptions?.lastActualizedAt)}
                               </Typography>
                            </Stack>
+
+
+                           <Box
+                              sx={{
+                                 p: 1.2,
+                                 borderRadius: 3,
+                                 bgcolor: 'rgba(255,255,255,0.03)',
+                                 border: '1px solid rgba(255,255,255,0.06)',
+                              }}
+                           >
+                              <Typography sx={{ color: '#fff', fontWeight: 850, mb: 0.8 }}>
+                                 Відповідальні
+                              </Typography>
+
+                              <Stack spacing={0.7}>
+                                 <Typography sx={{ color: 'rgba(255,255,255,0.72)' }}>
+                                    <b style={{ color: '#fff' }}>Відповідальний:</b> {assigneeName}
+                                 </Typography>
+
+                                 <Typography sx={{ color: 'rgba(255,255,255,0.72)' }}>
+                                    <b style={{ color: '#fff' }}>Хто вніс:</b> {createdByName}
+                                 </Typography>
+                              </Stack>
+                           </Box>
+
+
+
+                           {!!(rentStory?.rentedAt || rentStory?.rentedBy || rentStory?.note) && (
+                              <Box
+                                 sx={{
+                                    p: 1.2,
+                                    borderRadius: 3,
+                                    bgcolor: 'rgba(255,255,255,0.03)',
+                                    border: '1px solid rgba(255,255,255,0.06)',
+                                 }}
+                              >
+                                 <Typography sx={{ color: '#fff', fontWeight: 850, mb: 0.8 }}>
+                                    Історія здачі
+                                 </Typography>
+
+                                 <Stack spacing={0.7}>
+                                    <Typography sx={{ color: 'rgba(255,255,255,0.72)' }}>
+                                       <b style={{ color: '#fff' }}>Дата здачі:</b> {formatDate(rentStory?.rentedAt)}
+                                    </Typography>
+
+                                    <Typography sx={{ color: 'rgba(255,255,255,0.72)' }}>
+                                       <b style={{ color: '#fff' }}>Ким здано:</b> {getRentedByLabel(rentStory?.rentedBy)}
+                                    </Typography>
+
+                                    {!!rentStory?.note && (
+                                       <Typography sx={{ color: 'rgba(255,255,255,0.72)' }}>
+                                          <b style={{ color: '#fff' }}>Нотатка:</b> {rentStory.note}
+                                       </Typography>
+                                    )}
+                                 </Stack>
+                              </Box>
+                           )}
                         </Box>
 
                         {!!(item?.rentOptions?.conditions || []).length && (

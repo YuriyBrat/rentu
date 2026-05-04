@@ -11,12 +11,16 @@ import {
    CircularProgress,
    Alert,
    Chip,
+   Dialog
 } from '@mui/material';
 
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import HomeWorkRoundedIcon from '@mui/icons-material/HomeWorkRounded';
 
 import RentRowCard from '@/crm_components/rent/RentRowCard';
+import EditPropertyDialog from '@/crm_components/EditPropertyDialog';
+import { updateProperty } from '@/utils/crm/propertyApi';
+
 
 const STATUS_OPTIONS = [
    { value: 'all', label: 'Усі статуси' },
@@ -95,34 +99,57 @@ export default function RentPage() {
    const [status, setStatus] = useState('all');
    const [type, setType] = useState('all');
 
+   const [employees, setEmployees] = useState([]);
+   const [editingItem, setEditingItem] = useState(null);
+
+   const loadEmployees = async () => {
+      try {
+         // setEmployeesLoading(true);
+
+         const res = await fetch('/api/crm/employees', {
+            cache: 'no-store',
+         });
+
+         if (!res.ok) throw new Error('Не вдалося завантажити працівників');
+
+         const data = await res.json();
+         setEmployees(Array.isArray(data?.items) ? data.items : []);
+      } catch (e) {
+         console.error(e);
+      } finally {
+         // setEmployeesLoading(false);
+      }
+   };
+
+   const loadItems = async (ignore) => {
+      setLoading(true);
+      setError('');
+
+      try {
+         const res = await fetch('/api/crm/properties?mode=rent', {
+            cache: 'no-store',
+         });
+
+         if (!res.ok) {
+            throw new Error('Не вдалося завантажити базу оренди');
+         }
+
+         const data = await res.json();
+         if (!ignore) {
+            setItems(Array.isArray(data?.items) ? data.items : []);
+         }
+      } catch (e) {
+         if (!ignore) setError(e?.message || 'Помилка завантаження');
+      } finally {
+         if (!ignore) setLoading(false);
+      }
+   };
+
    useEffect(() => {
       let ignore = false;
 
-      const load = async () => {
-         setLoading(true);
-         setError('');
-
-         try {
-            const res = await fetch('/api/crm/properties?mode=rent', {
-               cache: 'no-store',
-            });
-
-            if (!res.ok) {
-               throw new Error('Не вдалося завантажити базу оренди');
-            }
-
-            const data = await res.json();
-            if (!ignore) {
-               setItems(Array.isArray(data?.items) ? data.items : []);
-            }
-         } catch (e) {
-            if (!ignore) setError(e?.message || 'Помилка завантаження');
-         } finally {
-            if (!ignore) setLoading(false);
-         }
-      };
-
-      load();
+      loadItems(ignore);
+      loadEmployees();
       return () => {
          ignore = true;
       };
@@ -313,11 +340,37 @@ export default function RentPage() {
             {!loading && !error && (
                <Stack spacing={1.2}>
                   {filtered.map((item) => (
-                     <RentRowCard key={item._id} item={item} />
+                     <RentRowCard key={item._id} item={item} onEdit={(row) => setEditingItem(row)} />
                   ))}
                </Stack>
             )}
          </Stack>
+
+
+
+
+
+         {/* <Dialog
+            open={!!editingItem}
+            onClose={() => setEditingItem(null)}
+            fullWidth
+            maxWidth="xl"
+         > */}
+         {editingItem && (
+            <EditPropertyDialog
+               open={!!editingItem}
+               item={editingItem}
+               employees={employees}
+               onClose={() => setEditingItem(null)}
+               onSubmit={async (payload) => {
+                  await updateProperty(editingItem._id, payload);
+                  setEditingItem(null);
+                  await loadItems();
+               }}
+            />
+
+         )}
+         {/* </Dialog> */}
       </Box>
    );
 }

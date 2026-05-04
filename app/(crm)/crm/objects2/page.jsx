@@ -1,13 +1,30 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Box, Typography, Grid, Button, TextField, Stack } from '@mui/material';
+import {
+   Box,
+   Typography,
+   Button,
+   TextField,
+   Stack,
+   Chip,
+   Collapse,
+   Divider,
+   IconButton,
+   Tooltip,
+   Grid,
+} from '@mui/material';
+
 import AddIcon from '@mui/icons-material/Add';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 
 import CreatePropertyDialog from '@/crm_components/CreatePropertyDialog';
 
-import PropertyCard from '@/crm_components/PropertyCard4';
+// import PropertyCard from '@/crm_components/PropertyCard4';
+import ObjectWorkRowCard from './ObjectWorkRowCard2';
+
+import EditPropertyDialog from '@/crm_components/EditPropertyDialog';
+import { createProperty, updateProperty } from '@/utils/crm/propertyApi';
 
 const MAX_FILES = 25;
 
@@ -18,6 +35,7 @@ export default function ObjectsPage() {
    const [loading, setLoading] = useState(false);
 
    const [editingItem, setEditingItem] = useState(null);
+   const [employees, setEmployees] = useState([]);
 
    const load = async (query = '') => {
       setLoading(true);
@@ -27,6 +45,19 @@ export default function ObjectsPage() {
          setItems(data.items || []);
       } finally {
          setLoading(false);
+      }
+   };
+
+   const loadEmployees = async () => {
+      try {
+         const res = await fetch('/api/crm/employees', { cache: 'no-store' });
+         if (!res.ok) throw new Error('Не вдалося завантажити працівників');
+
+         const data = await res.json();
+         setEmployees(Array.isArray(data?.items) ? data.items : []);
+      } catch (e) {
+         console.error(e);
+         setEmployees([]);
       }
    };
 
@@ -63,7 +94,8 @@ export default function ObjectsPage() {
    ];
 
    useEffect(() => {
-      load('');
+      load();
+      loadEmployees();
    }, []);
 
    // простий debounce
@@ -125,6 +157,19 @@ export default function ObjectsPage() {
 
    //       fd.set('description', payload.description || '');
 
+   //       // =========================
+   //       // НОВЕ: оренда
+   //       // =========================
+   //       fd.set('statusRent', payload.statusRent || 'rentNo');
+   //       fd.set('rentOptions', JSON.stringify(payload.rentOptions || {}));
+
+   //       // =========================
+   //       // НОВЕ: власники / контакти
+   //       // =========================
+   //       fd.set('owners', JSON.stringify(payload.owners || []));
+
+   //       // старі поля можна вже прибрати,
+   //       // або залишити тимчасово для сумісності
    //       if (payload.leadname) fd.set('leadname', payload.leadname);
    //       if (payload.phone) fd.set('phone', payload.phone);
    //       if (payload.email) fd.set('email', payload.email);
@@ -158,6 +203,10 @@ export default function ObjectsPage() {
    //          )
    //       );
 
+   //       console.log('CREATE FD statusRent:', payload.statusRent);
+   //       console.log('CREATE FD owners:', payload.owners);
+   //       console.log('CREATE FD rentOptions:', payload.rentOptions);
+
    //       const res = await fetch('/api/crm/properties', {
    //          method: 'POST',
    //          body: fd,
@@ -176,119 +225,9 @@ export default function ObjectsPage() {
    //    }
    // };
 
-
    const handleCreate = async (payload) => {
       try {
-         const fd = new FormData();
-
-         fd.set('title', payload.title || '');
-
-         fd.set('type_estate', payload.type_estate || '');
-         fd.set('type_deal', payload.type_deal || '');
-         fd.set('location_text', payload.location_text || '');
-
-         fd.set('location.city', payload.location?.city || '');
-         fd.set('location.street', payload.location?.street || '');
-         fd.set('location.number', payload.location?.number || '');
-
-         fd.set('isPublic', String(!!payload.isPublic));
-         fd.set('actualityGroup', payload.actualityGroup || 'active');
-         fd.set('actualityStatus', payload.actualityStatus || 'Продзвін');
-         fd.set('actualityNote', payload.actualityNote || '');
-
-         const num = (k, v) => {
-            if (v === undefined || v === null || v === '') return;
-            fd.set(k, String(v));
-         };
-
-         num('rooms', payload.rooms);
-         num('square_tot', payload.square_tot);
-         num('square_liv', payload.square_liv);
-         num('square_kit', payload.square_kit);
-         num('square_area', payload.square_area);
-         num('square_use', payload.square_use);
-
-         if (payload.area_unit) fd.set('area_unit', payload.area_unit);
-
-         num('floor', payload.floor);
-         num('floors', payload.floors);
-
-         if (payload.type_building) fd.set('type_building', payload.type_building);
-         if (payload.type_walls) fd.set('type_walls', payload.type_walls);
-
-         num('balconies', payload.balconies);
-         num('height_wall', payload.height_wall);
-
-         if (payload.type_using) fd.set('type_using', payload.type_using);
-         if (payload.type_commerce) fd.set('type_commerce', payload.type_commerce);
-         if (payload.type_house) fd.set('type_house', payload.type_house);
-         if (payload.purpose_area) fd.set('purpose_area', payload.purpose_area);
-
-         num('cost', payload.cost);
-         fd.set('currency', payload.currency || 'USD');
-
-         fd.set('description', payload.description || '');
-
-         // =========================
-         // НОВЕ: оренда
-         // =========================
-         fd.set('statusRent', payload.statusRent || 'rentNo');
-         fd.set('rentOptions', JSON.stringify(payload.rentOptions || {}));
-
-         // =========================
-         // НОВЕ: власники / контакти
-         // =========================
-         fd.set('owners', JSON.stringify(payload.owners || []));
-
-         // старі поля можна вже прибрати,
-         // або залишити тимчасово для сумісності
-         if (payload.leadname) fd.set('leadname', payload.leadname);
-         if (payload.phone) fd.set('phone', payload.phone);
-         if (payload.email) fd.set('email', payload.email);
-
-         (payload.advantages || []).forEach((x) => {
-            const v = String(x || '').trim();
-            if (v) fd.append('advantages', v);
-         });
-
-         (payload.disadvantages || []).forEach((x) => {
-            const v = String(x || '').trim();
-            if (v) fd.append('disadvantages', v);
-         });
-
-         // files
-         (payload.images || []).slice(0, MAX_FILES).forEach((img) => {
-            if (img?.file) fd.append('images', img.file);
-         });
-
-         // meta for files
-         fd.set(
-            'imagesMeta',
-            JSON.stringify(
-               (payload.images || []).slice(0, MAX_FILES).map((img, index) => ({
-                  originalName: img?.file?.name || '',
-                  isMain: !!img?.isMain,
-                  stage: img?.stage || 'draft',
-                  order: index,
-                  sortOrder: index,
-               }))
-            )
-         );
-
-         console.log('CREATE FD statusRent:', payload.statusRent);
-         console.log('CREATE FD owners:', payload.owners);
-         console.log('CREATE FD rentOptions:', payload.rentOptions);
-
-         const res = await fetch('/api/crm/properties', {
-            method: 'POST',
-            body: fd,
-         });
-
-         if (!res.ok) {
-            const txt = await res.text();
-            throw new Error(txt || 'Помилка створення');
-         }
-
+         await createProperty(payload);
          setOpenCreate(false);
          await load(q);
       } catch (e) {
@@ -297,7 +236,18 @@ export default function ObjectsPage() {
       }
    };
 
+   const handleUpdate = async (payload) => {
+      if (!editingItem?._id) return;
 
+      try {
+         await updateProperty(editingItem._id, payload);
+         setEditingItem(null);
+         await load(q);
+      } catch (e) {
+         console.error(e);
+         alert(e?.message || 'Помилка оновлення');
+      }
+   };
 
    const handleDelete = async (property) => {
       const ok = window.confirm(`Видалити об'єкт "${property.title}"? Фото теж будуть видалені.`);
@@ -368,12 +318,7 @@ export default function ObjectsPage() {
             </Stack>
          </Stack>
 
-         <Grid container spacing={3}>
-            {/* {properties.map((p) => (
-               <Grid item xs={12} md={6} lg={4} key={p._id}>
-                  <PropertyCard property={p} onMore={() => { }} />
-               </Grid>
-            ))} */}
+         {/* <Grid container spacing={3}>
             {items.map((p) => (
                <Grid item xs={12} md={6} lg={4} key={p._id}>
                   <PropertyCard
@@ -384,14 +329,40 @@ export default function ObjectsPage() {
                   />
                </Grid>
             ))}
+         </Grid> */}
 
-         </Grid>
+         <Stack spacing={1.15}>
+            {items.map((p) => (
+               <ObjectWorkRowCard
+                  key={p._id}
+                  item={p}
+                  onDelete={handleDelete}
+                  onEdit={(item) => setEditingItem(item)}
+                  onView={(item) => console.log('view', item)}
+                  onRefresh={() => load()}
+               />
+            ))}
+         </Stack>
+
+
 
          <CreatePropertyDialog
             open={openCreate}
             onClose={() => setOpenCreate(false)}
             onSubmit={handleCreate}
+            employees={employees}
          />
+
+         {editingItem && (
+            <EditPropertyDialog
+               key={editingItem._id}
+               open={!!editingItem}
+               item={editingItem}
+               employees={employees}
+               onClose={() => setEditingItem(null)}
+               onSubmit={handleUpdate}
+            />
+         )}
       </Box>
    );
 }

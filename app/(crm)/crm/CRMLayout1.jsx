@@ -44,6 +44,15 @@ import PersonSearchRoundedIcon from '@mui/icons-material/PersonSearchRounded';
 import ManageAccountsRoundedIcon from '@mui/icons-material/ManageAccountsRounded';
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 
+// для наводок варіанти
+import TipsAndUpdatesIcon from '@mui/icons-material/TipsAndUpdates';
+import TravelExploreIcon from '@mui/icons-material/TravelExplore';
+import RadarIcon from '@mui/icons-material/Radar';
+
+// для воронок варіанти
+import FilterAltIcon from '@mui/icons-material/FilterAlt';
+import FilterListIcon from '@mui/icons-material/FilterList';
+
 import { useCRMTheme } from './context/CRMThemeContext';
 
 export default function CRMLayout({ children }) {
@@ -71,10 +80,12 @@ export default function CRMLayout({ children }) {
       // { label: 'Дашборд', path: '/crm', icon: <DashboardIcon /> },
       { label: "Об'єкти", path: '/crm/objects', icon: <HomeWorkIcon /> },
       // { label: 'Клієнти', path: '/crm/clients', icon: <PeopleIcon />, badge: 3 },
+      { label: 'Воронки', path: '/crm/pipeline', icon: <FilterListIcon />, badge: 5 },
       { label: 'Ліди', path: '/crm/leads3', icon: <PersonSearchRoundedIcon />, badge: 15 },
       // { label: 'Угоди', path: '/crm/deals', icon: <AssignmentIcon /> },
       { label: 'Оренда', path: '/crm/rent', icon: <HomeWorkRoundedIcon /> },
       // { label: 'Завдання', path: '/crm/tasks', icon: <TaskIcon />, badge: 2 },
+      { label: 'Наводки', path: '/crm/navodky4', icon: <RadarIcon /> },
       { label: 'Персонал', path: '/crm/employees', icon: <GroupsRoundedIcon /> },
       // { label: 'Аналітика', path: '/crm/analytics', icon: <BarChartIcon /> },
    ];

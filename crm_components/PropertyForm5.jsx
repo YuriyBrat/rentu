@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
    Box,
    Stack,
@@ -74,6 +74,7 @@ const BUILDING_FLAT = [
    'Сталінка',
    'Хрущовка',
    'Чешка',
+   'Малосімейка',
    'Новобудова 2000-2010',
    'Новобудова 2010-2020',
    'Новобудова від 2020',
@@ -105,15 +106,28 @@ const ACTUALITY_STATUSES = [
    'Актуальний. Продзвін',
    'Актуальний. Проблемний',
    'Актуальний. Оглянутий! Не в роботі',
-   'Неактуальний. Проданий мною',
-   'Неактуальний. Проданий не мною',
-   'Неактуальний. Знятий з продажу',
+   'Неактуальний. Реалізований мною',
+   'Неактуальний. Реалізований не мною',
+   'Неактуальний. Знятий з реалізації',
    'Неактуальний. Невідома причина',
    'Зупинений. Завдаток мій',
    'Зупинений. Завдаток не мій',
    'Зупинений. Виявлена причина власників',
    'Зупинений. Невиявлена причина власників',
 ];
+
+const BUSINESS_SCORE_FIELDS = [
+   { key: 'finance', label: 'Прибутковість' },
+   { key: 'liquidity', label: 'Ліквідність' },
+   { key: 'loyalty', label: 'Лояльність' },
+   { key: 'motivation', label: 'Мотивація' },
+   { key: 'problemFree', label: 'Непроблемність' },
+   { key: 'adAttractiveness', label: 'Рекламна привабливість' },
+   { key: 'adHistory', label: 'Історія реклами' },
+   { key: 'adStrategy', label: 'Стратегія реклами' },
+];
+
+
 
 const fieldSx = {
    '& .MuiOutlinedInput-root': {
@@ -231,6 +245,7 @@ function emptyRentOptions() {
    return {
       price: '',
       currency: 'USD',
+      rentTitle: '',
       availableFrom: '',
       adText: '',
       notes: '',
@@ -238,6 +253,11 @@ function emptyRentOptions() {
       furniture: [''],
       appliances: [''],
       lastActualizedAt: '',
+      rentStory: {
+         rentedAt: '',
+         rentedBy: '',
+         note: '',
+      },
    };
 }
 
@@ -288,15 +308,106 @@ function emptyFields(type_estate = 'flat', type_deal = 'продаж') {
       advantages: [],
       disadvantages: [],
 
+      assignee: '',
+      createdByEmployee: '',
+
       statusRent: 'rentNo',
       rentOptions: emptyRentOptions(),
 
       owners: [emptyOwner(true)],
+
+      businessScore: {
+         finance: '',
+         liquidity: '',
+         loyalty: '',
+         motivation: '',
+         problemFree: '',
+         adAttractiveness: '',
+         adHistory: '',
+         adStrategy: '',
+      },
+
+      source: '',
+      strategyApprovedBy: '',
+      strategyApprovedAt: '',
+   };
+};
+
+function normalizeFormData(data) {
+   if (!data) return emptyFields('flat', 'продаж');
+
+   return {
+      ...emptyFields(data.type_estate || 'flat', data.type_deal || 'продаж'),
+      ...data,
+      location: {
+         city: '',
+         street: '',
+         number: '',
+         flat: '',
+         ...(data.location || {}),
+      },
+      rentOptions: {
+         ...emptyRentOptions(),
+         ...(data.rentOptions || {}),
+         rentStory: {
+            rentedAt: '',
+            rentedBy: '',
+            note: '',
+            ...(data.rentOptions?.rentStory || {}),
+         },
+      },
+      owners: data.owners?.length ? data.owners : [emptyOwner(true)],
+      advantages: data.advantages || [],
+      disadvantages: data.disadvantages || [],
+      images: data.images || [],
+      assignee: data.assignee?._id || data.assignee || '',
+      createdByEmployee:
+         data.createdByEmployee?._id || data.createdByEmployee || '',
+
+      businessScore: {
+         finance: '',
+         liquidity: '',
+         loyalty: '',
+         motivation: '',
+         problemFree: '',
+         adAttractiveness: '',
+         adHistory: '',
+         adStrategy: '',
+         ...(data.businessScore || {}),
+      },
+      source: data.source || '',
+      strategyApprovedBy: data.strategyApprovedBy?._id || data.strategyApprovedBy || '',
+      strategyApprovedAt: data.strategyApprovedAt
+         ? String(data.strategyApprovedAt).slice(0, 10)
+         : '',
+
+
+      images: (data.images || []).map((img, idx) => ({
+         ...img,
+         preview:
+            img.preview ||
+            img.url ||
+            img.variants?.preview ||
+            img.processedUrl ||
+            img.brandedUrl ||
+            '',
+         isMain: !!img.isMain,
+         stage: img.stage || 'draft',
+         sortOrder: img.sortOrder ?? idx,
+      })),
    };
 }
 
-export default function PropertyForm({ onCancel, onSubmit }) {
-   const [fields, setFields] = useState(() => emptyFields('flat', 'продаж'));
+export default function PropertyForm({
+   onCancel,
+   onSubmit,
+   initialData = null,
+   mode = 'create',
+   employees = [],
+}) {
+   // const [fields, setFields] = useState(() => emptyFields('flat', 'продаж'));
+   const [fields, setFields] = useState(() => normalizeFormData(initialData));
+
    const [loading, setLoading] = useState(false);
 
    const [imgMeta, setImgMeta] = useState([]);
@@ -344,16 +455,6 @@ export default function PropertyForm({ onCancel, onSubmit }) {
    };
 
 
-
-   // const handleTypeChange = (_e, next) => {
-   //    if (!next) return;
-   //    setFields((p) => ({
-   //       ...emptyFields(next, p.type_deal),
-   //       type_estate: next,
-   //       type_deal: p.type_deal,
-   //    }));
-   // };
-
    const handleTypeChange = (_e, next) => {
       if (!next) return;
 
@@ -389,6 +490,9 @@ export default function PropertyForm({ onCancel, onSubmit }) {
             images: p.images || [],
             advantages: p.advantages || [],
             disadvantages: p.disadvantages || [],
+
+            assignee: p.assignee,
+            createdByEmployee: p.createdByEmployee,
          };
       });
    };
@@ -475,74 +579,6 @@ export default function PropertyForm({ onCancel, onSubmit }) {
       const kb = bytes / 1024;
       return `${kb.toFixed(0)} KB`;
    };
-
-   // const handleImages = async (e) => {
-   //    const picked = Array.from(e.target.files || []).slice(0, MAX_FILES);
-
-   //    setImgWarn('');
-   //    setImgMeta([]);
-
-   //    if (!picked.length) {
-   //       set('images', []);
-   //       return;
-   //    }
-
-   //    e.target.value = '';
-
-   //    const options = {
-   //       maxSizeMB: 1.2,
-   //       maxWidthOrHeight: 2560,
-   //       useWebWorker: true,
-   //       initialQuality: 0.8,
-   //    };
-
-   //    const compressedFiles = [];
-   //    const meta = [];
-   //    const tooBig = [];
-
-   //    for (const file of picked) {
-   //       const before = file.size;
-
-   //       let outFile = file;
-   //       let after = before;
-
-   //       try {
-   //          if (file.type?.startsWith('image/')) {
-   //             outFile = await imageCompression(file, options);
-   //             after = outFile.size;
-   //          }
-   //       } catch (_err) {
-   //          outFile = file;
-   //          after = before;
-   //       }
-
-   //       const ok = after <= MAX_BYTES;
-
-   //       meta.push({
-   //          name: file.name,
-   //          before,
-   //          after,
-   //          ok,
-   //          reason: ok ? '' : `> ${formatBytes(MAX_BYTES)}`,
-   //       });
-
-   //       if (ok) {
-   //          compressedFiles.push(outFile);
-   //       } else {
-   //          tooBig.push(file.name);
-   //       }
-   //    }
-
-   //    setImgMeta(meta);
-
-   //    if (tooBig.length) {
-   //       setImgWarn(
-   //          `Деякі фото все ще завеликі (>10MB) навіть після стиску і НЕ будуть завантажені: ${tooBig.join(', ')}`
-   //       );
-   //    }
-
-   //    set('images', compressedFiles);
-   // };
 
    const handleImages = async (e) => {
       const picked = Array.from(e.target.files || []);
@@ -667,6 +703,9 @@ export default function PropertyForm({ onCancel, onSubmit }) {
             height_wall: fields.height_wall ? Number(fields.height_wall) : undefined,
             cost: fields.cost ? Number(fields.cost) : undefined,
 
+            assignee: fields.assignee || '',
+            createdByEmployee: fields.createdByEmployee || '',
+
             advantages: (fields.advantages || []).map((x) => x?.trim()).filter(Boolean),
             disadvantages: (fields.disadvantages || []).map((x) => x?.trim()).filter(Boolean),
 
@@ -694,11 +733,32 @@ export default function PropertyForm({ onCancel, onSubmit }) {
                      ...fields.rentOptions,
                      price: fields.rentOptions?.price ? Number(fields.rentOptions.price) : undefined,
                      adText: fields.rentOptions?.adText?.trim() || '',
+                     rentTitle: fields.rentOptions?.rentTitle?.trim() || '',
                      notes: fields.rentOptions?.notes?.trim() || '',
                      conditions: (fields.rentOptions?.conditions || []).map((x) => x?.trim()).filter(Boolean),
                      furniture: (fields.rentOptions?.furniture || []).map((x) => x?.trim()).filter(Boolean),
                      appliances: (fields.rentOptions?.appliances || []).map((x) => x?.trim()).filter(Boolean),
+                     rentStory: {
+                        rentedAt: fields.rentOptions?.rentStory?.rentedAt || '',
+                        rentedBy: fields.rentOptions?.rentStory?.rentedBy || '',
+                        note: fields.rentOptions?.rentStory?.note?.trim() || '',
+                     },
                   },
+
+            source: fields.source?.trim() || '',
+            strategyApprovedBy: fields.strategyApprovedBy || '',
+            strategyApprovedAt: fields.strategyApprovedAt || '',
+
+            businessScore: {
+               finance: fields.businessScore?.finance ? Number(fields.businessScore.finance) : undefined,
+               liquidity: fields.businessScore?.liquidity ? Number(fields.businessScore.liquidity) : undefined,
+               loyalty: fields.businessScore?.loyalty ? Number(fields.businessScore.loyalty) : undefined,
+               motivation: fields.businessScore?.motivation ? Number(fields.businessScore.motivation) : undefined,
+               problemFree: fields.businessScore?.problemFree ? Number(fields.businessScore.problemFree) : undefined,
+               adAttractiveness: fields.businessScore?.adAttractiveness ? Number(fields.businessScore.adAttractiveness) : undefined,
+               adHistory: fields.businessScore?.adHistory ? Number(fields.businessScore.adHistory) : undefined,
+               adStrategy: fields.businessScore?.adStrategy ? Number(fields.businessScore.adStrategy) : undefined,
+            },
 
             images: fields.images || [],
          };
@@ -723,6 +783,13 @@ export default function PropertyForm({ onCancel, onSubmit }) {
          setLoading(false);
       }
    };
+
+
+   useEffect(() => {
+      // if (initialData) {
+      setFields(normalizeFormData(initialData));
+      // }
+   }, []); //initialData
 
    return (
       <Box component="form" onSubmit={handleSubmit}>
@@ -1336,184 +1403,11 @@ export default function PropertyForm({ onCancel, onSubmit }) {
                />
             </Grid>
 
-            {/* <Grid item xs={12}>
-               <Stack
-                  direction={{ xs: 'column', sm: 'row' }}
-                  spacing={1.5}
-                  alignItems={{ xs: 'stretch', sm: 'center' }}
-                  sx={{
-                     p: 1.4,
-                     borderRadius: 3,
-                     border: '1px solid rgba(255,255,255,0.06)',
-                     bgcolor: 'rgba(255,255,255,0.02)',
-                  }}
-               >
-                  <Button
-                     component="label"
-                     startIcon={<PhotoCameraRoundedIcon />}
-                     sx={{
-                        borderRadius: 3,
-                        fontWeight: 900,
-                        color: '#fff',
-                        border: '1px solid rgba(139,92,246,0.35)',
-                        background:
-                           'linear-gradient(90deg, rgba(139,92,246,0.22), rgba(168,85,247,0.12))',
-                        '&:hover': {
-                           background:
-                              'linear-gradient(90deg, rgba(139,92,246,0.30), rgba(168,85,247,0.16))',
-                        },
-                     }}
-                  >
-                     Завантажити фото (1–25)
-                     <input hidden type="file" accept="image/*" multiple onChange={handleImages} />
-                  </Button>
-
-                  <Typography sx={{ color: 'rgba(255,255,255,0.70)', fontSize: 12 }}>
-                     Обрано: <b style={{ color: '#fff' }}>{fields.images.length}</b>
-                  </Typography>
-
-                  <Box sx={{ flexGrow: 1 }} />
-
-                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                     {imgMeta.slice(0, 6).map((m, idx) => (
-                        <Chip
-                           key={idx}
-                           label={`${m.name} • ${formatBytes(m.before)} → ${formatBytes(m.after)}`}
-                           size="small"
-                           sx={{
-                              bgcolor: m.ok ? 'rgba(255,255,255,0.04)' : 'rgba(255, 82, 82, 0.10)',
-                              border: m.ok
-                                 ? '1px solid rgba(255,255,255,0.10)'
-                                 : '1px solid rgba(255, 82, 82, 0.28)',
-                              color: 'rgba(255,255,255,0.88)',
-                              maxWidth: 320,
-                           }}
-                        />
-                     ))}
-
-                     {imgMeta.length > 6 && (
-                        <Chip
-                           label={`+${imgMeta.length - 6}`}
-                           size="small"
-                           sx={{
-                              bgcolor: 'rgba(139,92,246,0.18)',
-                              border: '1px solid rgba(139,92,246,0.25)',
-                              color: '#fff',
-                           }}
-                        />
-                     )}
-                  </Stack>
-               </Stack>
-
-               {imgWarn && (
-                  <Alert
-                     severity="warning"
-                     sx={{
-                        mt: 1.2,
-                        bgcolor: 'rgba(255, 193, 7, 0.08)',
-                        border: '1px solid rgba(255, 193, 7, 0.25)',
-                        color: 'rgba(255,255,255,0.9)',
-                        borderRadius: 3,
-                        '& .MuiAlert-icon': { color: 'rgba(255, 193, 7, 0.9)' },
-                     }}
-                  >
-                     {imgWarn}
-                  </Alert>
-               )}
-            </Grid> */}
-
             {/* IMAGES */}
             <Grid item xs={12}>
                <Typography sx={{ color: '#fff', fontWeight: 900, mb: 1 }}>
                   Фото об&apos;єкту
                </Typography>
-
-               {/* <Grid container spacing={1.5}>
-                  <Grid item xs={12} md={4}>
-                     <TextField
-                        select
-                        label="Група нових фото"
-                        value={fields.photoStage}
-                        onChange={(e) => set('photoStage', e.target.value)}
-                        fullWidth
-                        sx={fieldSx}
-                        SelectProps={{ MenuProps: selectMenuProps }}
-                     >
-                        {PHOTO_STAGES.map((x) => (
-                           <MenuItem key={x.value} value={x.value}>
-                              {x.label}
-                           </MenuItem>
-                        ))}
-                     </TextField>
-                  </Grid>
-               </Grid> */}
-
-               {/* <Stack
-                  direction={{ xs: 'column', sm: 'row' }}
-                  spacing={1.5}
-                  alignItems={{ xs: 'stretch', sm: 'center' }}
-                  sx={{
-                     mt: 1.5,
-                     p: 1.4,
-                     borderRadius: 3,
-                     border: '1px solid rgba(255,255,255,0.06)',
-                     bgcolor: 'rgba(255,255,255,0.02)',
-                  }}
-               >
-                  <Button
-                     component="label"
-                     startIcon={<PhotoCameraRoundedIcon />}
-                     sx={{
-                        borderRadius: 3,
-                        fontWeight: 900,
-                        color: '#fff',
-                        border: '1px solid rgba(139,92,246,0.35)',
-                        background: 'linear-gradient(90deg, rgba(139,92,246,0.22), rgba(168,85,247,0.12))',
-                        '&:hover': {
-                           background: 'linear-gradient(90deg, rgba(139,92,246,0.30), rgba(168,85,247,0.16))',
-                        },
-                     }}
-                  >
-                     Завантажити фото (1–25)
-                     <input hidden type="file" accept="image/*" multiple onChange={handleImages} />
-                  </Button>
-
-                  <Typography sx={{ color: 'rgba(255,255,255,0.70)', fontSize: 12 }}>
-                     Обрано: <b style={{ color: '#fff' }}>{fields.images.length}</b> / {MAX_FILES}
-                  </Typography>
-
-                  <Box sx={{ flexGrow: 1 }} />
-
-                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                     {imgMeta.slice(0, 4).map((m, idx) => (
-                        <Chip
-                           key={idx}
-                           label={`${m.name} • ${formatBytes(m.before)} → ${formatBytes(m.after)}`}
-                           size="small"
-                           sx={{
-                              bgcolor: m.ok ? 'rgba(255,255,255,0.04)' : 'rgba(255, 82, 82, 0.10)',
-                              border: m.ok
-                                 ? '1px solid rgba(255,255,255,0.10)'
-                                 : '1px solid rgba(255, 82, 82, 0.28)',
-                              color: 'rgba(255,255,255,0.88)',
-                              maxWidth: 320,
-                           }}
-                        />
-                     ))}
-
-                     {imgMeta.length > 4 && (
-                        <Chip
-                           label={`+${imgMeta.length - 4}`}
-                           size="small"
-                           sx={{
-                              bgcolor: 'rgba(139,92,246,0.18)',
-                              border: '1px solid rgba(139,92,246,0.25)',
-                              color: '#fff',
-                           }}
-                        />
-                     )}
-                  </Stack>
-               </Stack> */}
 
                <Stack
                   direction={{ xs: 'column', sm: 'row' }}
@@ -1642,7 +1536,10 @@ export default function PropertyForm({ onCancel, onSubmit }) {
                {!!fields.images.length && (
                   <Grid container spacing={1.2} sx={{ mt: 1 }}>
                      {fields.images.map((img, idx) => (
-                        <Grid item xs={12} sm={6} md={4} lg={3} xl={2.4} key={`${img.file?.name || 'img'}-${idx}`}>
+                        <Grid item xs={12} sm={6} md={4} lg={3} xl={2.4}
+                           //  key={`${img.file?.name || 'img'}-${idx}`}
+                           key={`${img.public_id || img.url || img.file?.name || 'img'}-${idx}`}
+                        >
                            <Box
                               sx={{
                                  border: img.isMain
@@ -1656,7 +1553,15 @@ export default function PropertyForm({ onCancel, onSubmit }) {
                            >
                               <Box
                                  component="img"
-                                 src={img.preview}
+                                 // src={img.preview}
+                                 src={
+                                    img.preview ||
+                                    img.url ||
+                                    img.variants?.preview ||
+                                    img.processedUrl ||
+                                    img.brandedUrl ||
+                                    '/no-image.png'
+                                 }
                                  alt={`preview-${idx}`}
                                  sx={{
                                     width: '100%',
@@ -1773,6 +1678,7 @@ export default function PropertyForm({ onCancel, onSubmit }) {
 
 
 
+
             <Grid item xs={12}>
                <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)', my: 0.5 }} />
             </Grid>
@@ -1833,6 +1739,132 @@ export default function PropertyForm({ onCancel, onSubmit }) {
                   <MenuItem value="false">Ні, лише CRM</MenuItem>
                </TextField>
             </Grid>
+
+            {/* <Grid item xs={12}>
+               <Typography sx={{ color: '#fff', fontWeight: 900, mb: 1 }}>
+                  Відповідальні
+               </Typography>
+            </Grid> */}
+
+            <Grid item xs={12} md={6}>
+               <TextField
+                  select
+                  label="Відповідальний"
+                  value={fields.assignee}
+                  onChange={(e) => set('assignee', e.target.value)}
+                  fullWidth
+                  sx={fieldSx}
+                  SelectProps={{ MenuProps: selectMenuProps }}
+               >
+                  <MenuItem value="">Не призначено</MenuItem>
+                  {employees.map((emp) => (
+                     <MenuItem key={emp._id} value={emp._id}>
+                        {emp.fullName || [emp.surname, emp.name].filter(Boolean).join(' ') || emp.name}
+                     </MenuItem>
+                  ))}
+               </TextField>
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+               <TextField
+                  select
+                  label="Хто вніс"
+                  value={fields.createdByEmployee}
+                  onChange={(e) => set('createdByEmployee', e.target.value)}
+                  fullWidth
+                  sx={fieldSx}
+                  SelectProps={{ MenuProps: selectMenuProps }}
+                  disabled={mode === 'edit'}
+                  helperText={mode === 'edit' ? 'Історичне поле, краще не змінювати' : ''}
+               >
+                  <MenuItem value="">Не вказано</MenuItem>
+                  {employees.map((emp) => (
+                     <MenuItem key={emp._id} value={emp._id}>
+                        {emp.fullName || [emp.surname, emp.name].filter(Boolean).join(' ') || emp.name}
+                     </MenuItem>
+                  ))}
+               </TextField>
+            </Grid>
+
+
+
+
+            <Grid item xs={12}>
+               <Typography sx={{ color: '#fff', fontWeight: 900, mb: 1 }}>
+                  Бізнес-оцінка
+               </Typography>
+            </Grid>
+
+            {BUSINESS_SCORE_FIELDS.map((field) => (
+               <Grid item xs={12} sm={6} md={3} key={field.key}>
+                  <TextField
+                     select
+                     label={field.label}
+                     value={fields.businessScore?.[field.key] || ''}
+                     onChange={(e) =>
+                        setFields((p) => ({
+                           ...p,
+                           businessScore: {
+                              ...(p.businessScore || {}),
+                              [field.key]: e.target.value,
+                           },
+                        }))
+                     }
+                     fullWidth
+                     sx={fieldSx}
+                  >
+                     <MenuItem value="">—</MenuItem>
+                     {[5, 4, 3, 2, 1].map((n) => (
+                        <MenuItem key={n} value={n}>
+                           {n}
+                        </MenuItem>
+                     ))}
+                  </TextField>
+               </Grid>
+            ))}
+
+            <Grid item xs={12} md={4}>
+               <TextField
+                  label="Джерело"
+                  value={fields.source || ''}
+                  onChange={(e) => set('source', e.target.value)}
+                  fullWidth
+                  sx={fieldSx}
+               />
+            </Grid>
+
+            <Grid item xs={12} md={4}>
+               <TextField
+                  select
+                  label="Хто погодив стратегію"
+                  value={fields.strategyApprovedBy || ''}
+                  onChange={(e) => set('strategyApprovedBy', e.target.value)}
+                  fullWidth
+                  sx={fieldSx}
+               >
+                  <MenuItem value="">—</MenuItem>
+                  {employees.map((emp) => (
+                     <MenuItem key={emp._id} value={emp._id}>
+                        {emp.fullName || [emp.surname, emp.name].filter(Boolean).join(' ') || emp.name}
+                     </MenuItem>
+                  ))}
+               </TextField>
+            </Grid>
+
+            <Grid item xs={12} md={4}>
+               <TextField
+                  type="date"
+                  label="Дата погодження стратегії"
+                  value={fields.strategyApprovedAt || ''}
+                  onChange={(e) => set('strategyApprovedAt', e.target.value)}
+                  fullWidth
+                  sx={fieldSx}
+                  InputLabelProps={{ shrink: true }}
+               />
+            </Grid>
+
+
+
 
             <Grid item xs={12}>
                <TextField

@@ -32,6 +32,7 @@ const STAGE_OPTIONS = [
    { value: 'ps', label: 'ПС' },
    { value: 'rs', label: 'РС' },
    { value: 'ds', label: 'ДС' },
+   { value: 'pzs', label: 'ПЗС' },
    { value: 'zs', label: 'ЗС' },
    { value: 'pers', label: 'ПЕРС' },
 ];

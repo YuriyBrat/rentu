@@ -26,7 +26,18 @@ const LeadHistorySchema = new Schema(
 
       stage: {
          type: String,
-         enum: ['lead', 'hot', 'ps', 'rs', 'ds', 'zs', 'pers'],
+         enum: ['lead', 'hot', 'ps', 'rs', 'ds', 'pzs', 'zs', 'pers'],
+         default: undefined,
+      },
+      fromStage: {
+         type: String,
+         enum: ['lead', 'hot', 'ps', 'rs', 'ds', 'pzs', 'zs', 'pers'],
+         default: undefined,
+      },
+
+      toStage: {
+         type: String,
+         enum: ['lead', 'hot', 'ps', 'rs', 'ds', 'pzs', 'zs', 'pers'],
          default: undefined,
       },
 
@@ -62,6 +73,8 @@ const LeadHistorySchema = new Schema(
    { _id: false }
 );
 
+
+
 const LeadSchema = new Schema(
    {
       name: { type: String, required: true, trim: true },
@@ -85,7 +98,7 @@ const LeadSchema = new Schema(
 
       stage: {
          type: String,
-         enum: ['lead', 'hot', 'ps', 'rs', 'ds', 'zs', 'pers'],
+         enum: ['lead', 'hot', 'ps', 'rs', 'ds', 'pzs', 'zs', 'pers'],
          default: 'lead',
          index: true,
       },

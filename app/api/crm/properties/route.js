@@ -2,6 +2,7 @@ import connectDB from '@/config/database';
 import Property from '@/models/Property';
 import { getSessionUser } from '@/utils/getSessionUser';
 import cloudinary from '@/config/cloudinary';
+import { Types } from 'mongoose';
 
 const MAX_FILES = 25;
 
@@ -170,42 +171,56 @@ export const GET = async (req) => {
 
       if (mode === 'rent') {
          filter.statusRent = { $in: ['rentActual', 'rentPause', 'rentRented'] };
+      };
+      if (mode === 'sale') {
+         filter.type_deal = { $ne: 'оренда' };
       }
 
       if (q) {
          filter.$or = [
             { title: { $regex: q, $options: 'i' } },
+            { 'rentOptions.rentTitle': { $regex: q, $options: 'i' } },
             { location_text: { $regex: q, $options: 'i' } },
             { 'location.city': { $regex: q, $options: 'i' } },
          ];
       }
 
       const total = await Property.countDocuments(filter);
-      // const rawItems = await Property.find(filter)
-      //    .sort({ updatedAt: -1 })
-      //    .skip(skip)
-      //    .limit(pageSize)
-      //    .lean();
-
-      // const items = rawItems.map(mapPropertyListItem);
 
       const rawItems = await Property.find(filter)
+         .populate('assignee', 'name fullName surname phone email avatar')
+         .populate('createdByEmployee', 'name fullName surname')
+         .populate('strategyApprovedBy', 'name fullName surname phone email avatar')
          .sort({ updatedAt: -1 })
          .skip(skip)
          .limit(pageSize)
          .lean();
 
-      const items = rawItems.map((item) => ({
-         ...item,
-         _id: item._id?.toString?.() || item._id,
-      }));
+      // const items = rawItems.map((item) => ({
+      //    ...item,
+      //    _id: item._id?.toString?.() || item._id,
+      // }));
+      const items = rawItems.map((item) => {
+         const rentTitle = item?.rentOptions?.rentTitle?.trim?.() || '';
+         const saleTitle = item?.title?.trim?.() || '';
+         const displayTitle =
+            mode === 'rent'
+               ? (rentTitle || saleTitle || 'Без назви')
+               : (saleTitle || rentTitle || 'Без назви');
+
+         return {
+            ...item,
+            _id: item._id?.toString?.() || item._id,
+            displayTitle,
+         };
+      });
 
       return new Response(JSON.stringify({ total, page, pageSize, items }), {
          status: 200,
       });
    } catch (error) {
       console.log(error);
-      return new Response('Smth wrong', { status: 500 });
+      return new Response('Помилка сервера отримання обєктів', { status: 500 });
    }
 };
 
@@ -255,6 +270,11 @@ export const POST = async (request) => {
          if (!value) return undefined;
          const d = new Date(value);
          return Number.isNaN(d.getTime()) ? undefined : d;
+      };
+
+      const toObjectId = (value) => {
+         if (!value) return undefined;
+         return mongoose.Types.ObjectId.isValid(value) ? value : undefined;
       };
 
       const normalizeStage = (value) => {
@@ -336,6 +356,23 @@ export const POST = async (request) => {
 
       const statusRent = formData.get('statusRent') || 'rentNo';
 
+      const assignee = formData.get('assignee') || '';
+      const createdByEmployee = formData.get('createdByEmployee') || '';
+
+      let businessScore = {};
+      try {
+         businessScore = JSON.parse(formData.get('businessScore') || '{}');
+         if (!businessScore || typeof businessScore !== 'object') businessScore = {};
+      } catch {
+         businessScore = {};
+      }
+
+      const score = (value) => {
+         const n = Number(value);
+         if (!n || Number.isNaN(n)) return null;
+         return Math.min(Math.max(n, 1), 5);
+      };
+
       const propertyData = {
          owner: userId || undefined,
 
@@ -402,22 +439,55 @@ export const POST = async (request) => {
             }))
             .filter((owner) => owner.name || owner.phones.length || owner.emails.length || owner.notes),
 
+         assignee: toObjectId(assignee),
+         createdByEmployee: toObjectId(createdByEmployee) || undefined,
+
          rentOptions: {
             price: toNumber(rentOptions?.price),
             currency: rentOptions?.currency || 'USD',
+            rentTitle: rentOptions?.rentTitle || '',
             availableFrom: toDate(rentOptions?.availableFrom),
             adText: rentOptions?.adText || '',
             notes: rentOptions?.notes || '',
             conditions: Array.isArray(rentOptions?.conditions) ? rentOptions.conditions.filter(Boolean) : [],
             furniture: Array.isArray(rentOptions?.furniture) ? rentOptions.furniture.filter(Boolean) : [],
             appliances: Array.isArray(rentOptions?.appliances) ? rentOptions.appliances.filter(Boolean) : [],
+            rentStory: {
+               rentedAt: toDate(rentOptions?.rentStory?.rentedAt),
+               // rentedBy: ['employee', 'owner', 'competitor', 'other'].includes(rentOptions?.rentStory?.rentedBy)
+               //    ? rentOptions.rentStory.rentedBy
+               //    : '',
+               rentedBy: rentOptions?.rentStory?.rentedBy || '',
+               note: rentOptions?.rentStory?.note || '',
+            },
             lastActualizedAt: toDate(rentOptions?.lastActualizedAt),
          },
+
+         source: formData.get('source') || '',
+         strategyApprovedBy: formData.get('strategyApprovedBy') || null,
+         strategyApprovedAt: formData.get('strategyApprovedAt')
+            ? new Date(formData.get('strategyApprovedAt'))
+            : null,
+
+         businessScore: {
+            finance: score(businessScore.finance),
+            liquidity: score(businessScore.liquidity),
+            loyalty: score(businessScore.loyalty),
+            motivation: score(businessScore.motivation),
+            problemFree: score(businessScore.problemFree),
+            adAttractiveness: score(businessScore.adAttractiveness),
+            adHistory: score(businessScore.adHistory),
+            adStrategy: score(businessScore.adStrategy),
+         },
+
 
          images: [],
       };
 
-      if (!propertyData.title?.trim()) {
+      // if (!propertyData.title?.trim()) {
+      //    return new Response(JSON.stringify({ error: 'title required' }), { status: 400 });
+      // }
+      if (!propertyData.title?.trim() && !propertyData.rentOptions?.rentTitle?.trim()) {
          return new Response(JSON.stringify({ error: 'title required' }), { status: 400 });
       }
 
