@@ -78,7 +78,7 @@ export default function CRMLayout({ children }) {
    // ✅ Пункт "Об'єкти" додано
    const menuItems = [
       // { label: 'Дашборд', path: '/crm', icon: <DashboardIcon /> },
-      { label: "Об'єкти", path: '/crm/objects', icon: <HomeWorkIcon /> },
+      { label: "Об'єкти", path: '/crm/objects3', icon: <HomeWorkIcon /> },
       // { label: 'Клієнти', path: '/crm/clients', icon: <PeopleIcon />, badge: 3 },
       { label: 'Воронки', path: '/crm/pipeline', icon: <FilterListIcon />, badge: 5 },
       { label: 'Ліди', path: '/crm/leads3', icon: <PersonSearchRoundedIcon />, badge: 15 },

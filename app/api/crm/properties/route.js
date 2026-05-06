@@ -191,6 +191,7 @@ export const GET = async (req) => {
          .populate('assignee', 'name fullName surname phone email avatar')
          .populate('createdByEmployee', 'name fullName surname')
          .populate('strategyApprovedBy', 'name fullName surname phone email avatar')
+         .populate('shareLinks.createdByEmployee', 'name fullName surname')
          .sort({ updatedAt: -1 })
          .skip(skip)
          .limit(pageSize)

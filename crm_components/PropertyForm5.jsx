@@ -23,6 +23,8 @@ import RentOptionsSection from './RentOptionsSection2';
 import OwnersSection from './OwnersSection3';
 import DynamicListField from './DynamicListField';
 
+import { BUSINESS_SCORE_OPTIONS } from '../utils/crm/BusinessScore';
+
 const PHOTO_STAGES = [
    { value: 'draft', label: 'Чорнові' },
    { value: 'processed', label: 'Оброблені' },
@@ -1799,7 +1801,8 @@ export default function PropertyForm({
                <Grid item xs={12} sm={6} md={3} key={field.key}>
                   <TextField
                      select
-                     label={field.label}
+                     // label={field.label}
+                     label={BUSINESS_SCORE_OPTIONS[field.key].label}
                      value={fields.businessScore?.[field.key] || ''}
                      onChange={(e) =>
                         setFields((p) => ({
@@ -1814,9 +1817,14 @@ export default function PropertyForm({
                      sx={fieldSx}
                   >
                      <MenuItem value="">—</MenuItem>
-                     {[5, 4, 3, 2, 1].map((n) => (
+                     {/* {[5, 4, 3, 2, 1].map((n) => (
                         <MenuItem key={n} value={n}>
                            {n}
+                        </MenuItem>
+                     ))} */}
+                     {[5, 4, 3, 2, 1].map((n) => (
+                        <MenuItem key={n} value={n}>
+                           {n} — {BUSINESS_SCORE_OPTIONS[field.key].options[n]}
                         </MenuItem>
                      ))}
                   </TextField>

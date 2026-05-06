@@ -204,6 +204,75 @@ const AdvertisingLinkSchema = new Schema(
 );
 
 
+const ShareLinkSchema = new Schema(
+  {
+    type: {
+      type: String,
+      enum: ['client', 'partner'],
+      required: true,
+      index: true,
+    },
+
+    slug: {
+      type: String,
+      trim: true,
+      required: true,
+      index: true,
+    },
+
+    title: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+
+    isActive: {
+      type: Boolean,
+      default: true,
+      index: true,
+    },
+
+    showBrand: {
+      type: Boolean,
+      default: true,
+    },
+
+    showManagerContact: {
+      type: Boolean,
+      default: true,
+    },
+
+    useBrandedPhotos: {
+      type: Boolean,
+      default: true,
+    },
+
+    viewsCount: {
+      type: Number,
+      default: 0,
+    },
+
+    lastViewedAt: {
+      type: Date,
+      default: null,
+    },
+
+    createdByEmployee: {
+      type: Schema.Types.ObjectId,
+      ref: 'Employee',
+      default: null,
+    },
+
+    createdAt: {
+      type: Date,
+      default: Date.now,
+    },
+  },
+  { _id: true }
+);
+
+
+
 const PropertySchema = new Schema(
   {
     owner: { type: Schema.Types.ObjectId, ref: "User" },
@@ -398,11 +467,17 @@ const PropertySchema = new Schema(
       default: [],
     },
 
+
+    shareLinks: {
+      type: [ShareLinkSchema],
+      default: [],
+    },
   },
   { timestamps: true }
 );
 
 PropertySchema.index({ actualityGroup: 1, actualityStatus: 1, updatedAt: -1 });
+PropertySchema.index({ 'shareLinks.slug': 1 });
 
 const Property = models.Property || model("Property", PropertySchema);
 export default Property;

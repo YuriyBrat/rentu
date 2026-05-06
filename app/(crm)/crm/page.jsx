@@ -34,5 +34,5 @@
 import { redirect } from 'next/navigation';
 
 export default function CrmHome() {
-   redirect('/crm/objects');
+   redirect('/crm/objects3');
 }

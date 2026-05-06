@@ -42,8 +42,18 @@ import Popover from '@mui/material/Popover';
 import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
 import CampaignRoundedIcon from '@mui/icons-material/CampaignRounded';
 
+import ShareRoundedIcon from '@mui/icons-material/ShareRounded';
+
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
+import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded';
+import TextSnippetRoundedIcon from '@mui/icons-material/TextSnippetRounded';
+import TelegramIcon from '@mui/icons-material/Telegram';
+
+import { BUSINESS_SCORE_OPTIONS } from '@/utils/crm/BusinessScore';
+
 import ObjectAdvertisingPanel from './ObjectAdvertisingPanel2';
 import ObjectWorkHistoryPanel from './ObjectWorkHistoryPanel';
+
 
 const getFieldSx = (theme, mode) => ({
    '& .MuiOutlinedInput-root': {
@@ -260,7 +270,115 @@ function groupLinksByPlatform(links = []) {
 
 function getLinksBySource(links = [], sourceType) {
    return links.filter((x) => (x.sourceType || 'ours') === sourceType);
+};
+
+function formatDateTime(value) {
+   if (!value) return '—';
+
+   const d = new Date(value);
+   if (Number.isNaN(d.getTime())) return '—';
+
+   return d.toLocaleString('uk-UA', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+   });
 }
+
+
+// function BusinessScoreView({ score = {}, theme, mode }) {
+//    return (
+//       <Stack spacing={0.65}>
+//          {Object.entries(BUSINESS_SCORE_OPTIONS).map(([key, config]) => {
+//             const value = score?.[key];
+//             if (!value) return null;
+
+//             return (
+//                <Box
+//                   key={key}
+//                   sx={{
+//                      p: 0.75,
+//                      borderRadius: 2,
+//                      bgcolor:
+//                         mode === 'light'
+//                            ? 'rgba(124,58,237,0.035)'
+//                            : 'rgba(255,255,255,0.025)',
+//                      border: `1px solid ${theme.border}`,
+//                   }}
+//                >
+//                   <Typography sx={{ color: theme.text, fontWeight: 900, fontSize: 12.5 }}>
+//                      {config.label}: {value}
+//                   </Typography>
+//                   <Typography sx={{ color: theme.textSoft, fontSize: 12 }}>
+//                      {config.options[value]}
+//                   </Typography>
+//                </Box>
+//             );
+//          })}
+//       </Stack>
+//    );
+// };
+
+
+function BusinessScoreView({ score = {}, theme, mode }) {
+   return (
+      <Stack spacing={0.45}>
+         {Object.entries(BUSINESS_SCORE_OPTIONS).map(([key, config]) => {
+            const value = score?.[key];
+            if (!value) return null;
+
+            return (
+               <Box
+                  key={key}
+                  sx={{
+                     px: 0.8,
+                     py: 0.5,
+                     borderRadius: 2,
+                     bgcolor:
+                        mode === 'light'
+                           ? 'rgba(124,58,237,0.035)'
+                           : 'rgba(255,255,255,0.022)',
+                     border: `1px solid ${theme.border}`,
+                     display: 'flex',
+                     alignItems: 'center',
+                     gap: 0.6,
+                     minWidth: 0,
+                  }}
+               >
+                  <Typography
+                     sx={{
+                        color: theme.text,
+                        fontWeight: 950,
+                        fontSize: 12.3,
+                        whiteSpace: 'nowrap',
+                     }}
+                  >
+                     {config.label}: {value}
+                  </Typography>
+
+                  <Typography
+                     sx={{
+                        color: theme.textSoft,
+                        fontSize: 12,
+                        minWidth: 0,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                     }}
+                     title={config.options[value]}
+                  >
+                     — {config.options[value]}
+                  </Typography>
+               </Box>
+            );
+         })}
+      </Stack>
+   );
+};
+
 
 
 
@@ -295,6 +413,12 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
    const [noteText, setNoteText] = useState('');
    const [noteType, setNoteType] = useState('note');
    const [noteTone, setNoteTone] = useState('info');
+
+   const [openShare, setOpenShare] = useState(false);
+   const [shareLoading, setShareLoading] = useState(false);
+
+   const [aiStyle, setAiStyle] = useState('telegram');
+   const [aiLoading, setAiLoading] = useState(false);
 
    const closeLinksMenu = () => {
       setLinksAnchor(null);
@@ -395,38 +519,6 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
          .join(', ') ||
       'Адреса не вказана';
 
-   // const rentStatusLabel = getRentStatusLabel(item?.statusRent);
-   // const hasRent = item?.statusRent && item.statusRent !== 'rentNo';
-
-
-   // const handleAddAdvertisingLink = async () => {
-   //    if (!adUrl.trim()) return;
-
-   //    const res = await fetch(`/api/crm/properties/${item._id}/advertising-links`, {
-   //       method: 'POST',
-   //       headers: { 'Content-Type': 'application/json' },
-   //       body: JSON.stringify({
-   //          platform: adPlatform,
-   //          url: adUrl.trim(),
-   //          title: adTitleLink.trim(),
-   //          note: adNoteLink.trim(),
-   //          status: 'active',
-   //          sourceType: adSourceType,
-   //       }),
-   //    });
-
-   //    if (!res.ok) {
-   //       alert('Не вдалося додати посилання');
-   //       return;
-   //    }
-
-   //    setAdUrl('');
-   //    setAdTitleLink('');
-   //    setAdNoteLink('');
-
-   //    // window.location.reload();
-   //    await onRefresh?.();
-   // };
 
    const handleAddAdvertisingLink = async () => {
       if (!adUrl.trim()) return;
@@ -460,59 +552,6 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
 
       await onRefresh?.();
    };
-
-
-   // const handleAddNote = async () => {
-   //    try {
-   //       const res = await fetch(`/api/crm/properties/${item._id}/add-note`, {
-   //          method: 'POST',
-   //          headers: { 'Content-Type': 'application/json' },
-   //          body: JSON.stringify({
-   //             text: noteText,
-   //             type: noteType,
-   //          }),
-   //       });
-
-   //       if (!res.ok) throw new Error('Помилка');
-
-   //       setNoteText('');
-
-   //       // тут або перезавантажити список
-   //       // або оновити локально (краще поки reload)
-   //       // window.location.reload();
-   //       await onRefresh?.();
-
-   //    } catch (e) {
-   //       console.error(e);
-   //    }
-   // };
-
-
-
-   // const handleAddAdText = async () => {
-   //    try {
-   //       const res = await fetch(`/api/crm/properties/${item._id}/add-ad-text`, {
-   //          method: 'POST',
-   //          headers: { 'Content-Type': 'application/json' },
-   //          body: JSON.stringify({
-   //             title: adTitle,
-   //             text: adText,
-   //             note: adNote,
-   //          }),
-   //       });
-
-   //       if (!res.ok) throw new Error();
-
-   //       setAdTitle('');
-   //       setAdText('');
-   //       setAdNote('');
-
-   //       // window.location.reload();
-   //       await onRefresh?.();
-   //    } catch (e) {
-   //       console.error(e);
-   //    }
-   // };
 
    const handleAddNote = async () => {
       if (!noteText.trim()) return;
@@ -566,6 +605,124 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
       await onRefresh?.();
    };
 
+
+   const getShareUrl = (link) => {
+      if (!link?.slug) return '';
+
+      const base =
+         typeof window !== 'undefined'
+            ? window.location.origin
+            : '';
+
+      return link.type === 'partner'
+         ? `${base}/p/${link.slug}`
+         : `${base}/share/${link.slug}`;
+   };
+
+   const handleCreateShareLink = async (type) => {
+      try {
+         setShareLoading(true);
+
+         const res = await fetch(`/api/crm/properties/${item._id}/share-links`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type }),
+         });
+
+         if (!res.ok) {
+            alert('Не вдалося створити посилання');
+            return;
+         }
+
+         await onRefresh?.();
+      } finally {
+         setShareLoading(false);
+      }
+   };
+
+   const handleCopyShare = async (link) => {
+      const url = getShareUrl(link);
+      if (!url) return;
+
+      await navigator.clipboard.writeText(url);
+   };
+
+
+
+   function buildShareMessage(item, link) {
+      const title = item?.title || 'Об’єкт нерухомості';
+
+      const price = item?.cost
+         ? `${Number(item.cost).toLocaleString('uk-UA')} ${item.currency || ''}`
+         : 'Ціна за запитом';
+
+      const location = item?.location_text || '';
+
+      const area = item?.square_tot ? `${item.square_tot} м²` : '';
+      const floor =
+         item?.floor && item?.floors
+            ? `${item.floor}/${item.floors} поверх`
+            : '';
+
+      const rooms = item?.rooms ? `${item.rooms} кімн.` : '';
+
+      const desc =
+         item?.description?.slice(0, 120)?.trim() || '';
+
+      const url = link ? getShareUrl(link) : '';
+
+      return `🏡 ${title}
+
+📍 ${location}
+📐 ${[area, floor].filter(Boolean).join(' | ')}
+🛏 ${rooms}
+💰 ${price}
+
+${desc ? `✨ ${desc}\n\n` : ''}📸 Деталі та фото:
+${url}`;
+   };
+
+   const generateAI = async (style) => {
+      const res = await fetch(`/api/crm/properties/${item._id}/generate-text`, {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ style }),
+      });
+
+      const data = await res.json();
+
+      if (data?.text) {
+         navigator.clipboard.writeText(data.text);
+      }
+
+      await onRefresh?.();
+   };
+
+   const handleGenerateAIText = async () => {
+      try {
+         setAiLoading(true);
+
+         const res = await fetch(`/api/crm/properties/${item._id}/generate-text`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ style: aiStyle }),
+         });
+
+         const data = await res.json();
+
+         if (!res.ok) {
+            alert(data?.error || 'Не вдалося згенерувати текст');
+            return;
+         }
+
+         setAdText(data.text || '');
+         setAdTitle(`AI текст: ${aiStyle}`);
+      } finally {
+         setAiLoading(false);
+      }
+   };
+
+
    const actionIconSx = {
       color: theme.text,
       border: `1px solid ${theme.border}`,
@@ -584,6 +741,28 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
          bgcolor: mode === 'light' ? 'rgba(239,68,68,0.12)' : 'rgba(255,82,82,0.12)',
       },
    };
+
+   const iconBtn = (theme, type) => ({
+      width: 32,
+      height: 32,
+      borderRadius: 2,
+      border: `1px solid ${theme.border}`,
+      color:
+         type === 'telegram'
+            ? '#38bdf8'
+            : theme.text,
+      bgcolor:
+         type === 'telegram'
+            ? 'rgba(56,189,248,0.12)'
+            : 'rgba(255,255,255,0.04)',
+
+      '&:hover': {
+         bgcolor:
+            type === 'telegram'
+               ? 'rgba(56,189,248,0.22)'
+               : theme.hover,
+      },
+   });
 
 
 
@@ -751,6 +930,12 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
                         </IconButton>
                      </Tooltip>
 
+                     <Tooltip title="Поділитися">
+                        <IconButton onClick={() => setOpenShare(true)} sx={actionIconSx}>
+                           <ShareRoundedIcon />
+                        </IconButton>
+                     </Tooltip>
+
                      <Tooltip title={open ? 'Згорнути' : 'Детальніше'}>
                         <IconButton onClick={() => setOpen((p) => !p)} sx={actionIconSx}>
                            {open ? <ExpandLessRoundedIcon /> : <ExpandMoreRoundedIcon />}
@@ -783,7 +968,8 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
             <Box sx={{ p: 1.35 }}>
 
                <Grid container spacing={1.2} alignItems="stretch">
-                  <Grid item xs={12} md={4} sx={{ display: 'flex' }}>
+
+                  <Grid item xs={12} md={3} sx={{ display: 'flex' }}>
                      <DetailBox title="Робочий стан" theme={theme} mode={mode} >
                         <DetailLine label="Група" value={getActualityLabel(item?.actualityGroup)} theme={theme} />
                         <DetailLine label="Статус роботи" value={item?.actualityStatus} theme={theme} />
@@ -793,7 +979,7 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
                      </DetailBox>
                   </Grid>
 
-                  <Grid item xs={12} md={4} sx={{ display: 'flex' }}>
+                  <Grid item xs={12} md={3} sx={{ display: 'flex' }}>
                      <DetailBox title="Основні дані" theme={theme} mode={mode}>
                         <DetailLine label="Тип об’єкта" value={getEstateLabel(item?.type_estate)} theme={theme} />
                         <DetailLine label="Тип угоди" value={item?.type_deal} theme={theme} />
@@ -803,7 +989,7 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
                      </DetailBox>
                   </Grid>
 
-                  <Grid item xs={12} md={4} sx={{ display: 'flex' }}>
+                  <Grid item xs={12} md={3} sx={{ display: 'flex' }}>
                      <DetailBox title="Характеристики" theme={theme} mode={mode}>
                         <DetailLine label="Кімнат" value={item?.rooms} theme={theme} />
                         <DetailLine label="Загальна площа" value={item?.square_tot ? `${item.square_tot} м²` : ''} theme={theme} />
@@ -812,6 +998,32 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
                         <DetailLine label="Поверх" value={item?.floor ? `${item.floor}/${item?.floors || '—'}` : ''} theme={theme} />
                         <DetailLine label="Стіни" value={item?.type_walls} theme={theme} />
                         <DetailLine label="Будівля" value={item?.type_building} theme={theme} />
+                     </DetailBox>
+                  </Grid>
+
+                  <Grid item xs={12} lg={3} sx={{ display: 'flex' }}>
+                     <DetailBox title="Бізнес-оцінка" theme={theme} mode={mode}>
+                        <BusinessScoreView
+                           score={item?.businessScore}
+                           theme={theme}
+                           mode={mode}
+                        />
+
+                        <Box sx={{ mt: 0.6 }}>
+                           <DetailLine label="Джерело" value={item?.source} theme={theme} />
+
+                           <DetailLine
+                              label="Стратегію погодив"
+                              value={getEmployeeName(item?.strategyApprovedBy)}
+                              theme={theme}
+                           />
+
+                           <DetailLine
+                              label="Дата погодження"
+                              value={formatDate(item?.strategyApprovedAt)}
+                              theme={theme}
+                           />
+                        </Box>
                      </DetailBox>
                   </Grid>
 
@@ -998,6 +1210,43 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
 
             <DialogContent>
                <Grid container spacing={1.2} sx={{ mt: 0.2 }}>
+
+                  <Grid item xs={12} md={6}>
+                     <TextField
+                        select
+                        label="AI варіант"
+                        value={aiStyle}
+                        onChange={(e) => setAiStyle(e.target.value)}
+                        fullWidth
+                        sx={fieldSx}
+                     >
+                        <MenuItem value="telegram">Telegram короткий</MenuItem>
+                        <MenuItem value="short">Короткий</MenuItem>
+                        <MenuItem value="selling">Продаючий</MenuItem>
+                        <MenuItem value="investor">Для інвестора</MenuItem>
+                        <MenuItem value="family">Для сім’ї</MenuItem>
+                     </TextField>
+                  </Grid>
+
+                  <Grid item xs={12} md={6}>
+                     <Button
+                        onClick={handleGenerateAIText}
+                        disabled={aiLoading}
+                        fullWidth
+                        sx={{
+                           height: '100%',
+                           minHeight: 54,
+                           borderRadius: 3,
+                           fontWeight: 950,
+                           color: '#0b0b12',
+                           background: `linear-gradient(90deg, ${theme.accent}, ${theme.accentLight})`,
+                        }}
+                     >
+                        {aiLoading ? 'Генерує...' : 'Згенерувати AI'}
+                     </Button>
+                  </Grid>
+
+
                   <Grid item xs={12}>
                      <TextField
                         label="Назва"
@@ -1036,6 +1285,14 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
             </DialogContent>
 
             <DialogActions sx={{ px: 3, pb: 2 }}>
+               <Button
+                  onClick={() => navigator.clipboard.writeText(adText || '')}
+                  disabled={!adText.trim()}
+                  sx={{ color: theme.accentLight, fontWeight: 900 }}
+               >
+                  Копіювати
+               </Button>
+
                <Button onClick={() => setOpenAdText(false)} sx={{ color: theme.textSoft }}>
                   Скасувати
                </Button>
@@ -1142,6 +1399,269 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
                   }}
                >
                   Додати
+               </Button>
+            </DialogActions>
+         </Dialog>
+
+
+         <Dialog
+            open={openShare}
+            onClose={() => setOpenShare(false)}
+            fullWidth
+            maxWidth="sm"
+            PaperProps={{
+               sx: {
+                  borderRadius: 4,
+                  bgcolor: theme.bgPanel,
+                  color: theme.text,
+                  border: `1px solid ${theme.border}`,
+               },
+            }}
+         >
+            <DialogTitle sx={{ fontWeight: 950 }}>
+               Поділитися об’єктом
+            </DialogTitle>
+
+            <DialogContent>
+               <Stack spacing={1.2} sx={{ mt: 1 }}>
+                  <Button
+                     disabled={shareLoading}
+                     onClick={() => handleCreateShareLink('client')}
+                     sx={{
+                        borderRadius: 3,
+                        fontWeight: 950,
+                        color: '#0b0b12',
+                        background: `linear-gradient(90deg, ${theme.accent}, ${theme.accentLight})`,
+                     }}
+                  >
+                     Створити клієнтську презентацію
+                  </Button>
+
+                  <Button
+                     disabled={shareLoading}
+                     onClick={() => handleCreateShareLink('partner')}
+                     sx={{
+                        borderRadius: 3,
+                        fontWeight: 950,
+                        color: theme.text,
+                        border: `1px solid ${theme.border}`,
+                     }}
+                  >
+                     Створити нейтральну презентацію для партнера
+                  </Button>
+
+                  <Divider sx={{ borderColor: theme.border }} />
+
+                  {(item?.shareLinks || []).map((link) => (
+                     // <Box
+                     //    key={link._id || link.slug}
+                     //    sx={{
+                     //       p: 1,
+                     //       borderRadius: 3,
+                     //       border: `1px solid ${theme.border}`,
+                     //       bgcolor: mode === 'light'
+                     //          ? 'rgba(124,58,237,0.035)'
+                     //          : 'rgba(255,255,255,0.025)',
+                     //    }}
+                     // >
+                     //    <Typography sx={{ fontWeight: 950 }}>
+                     //       {link.type === 'partner' ? 'Партнерська' : 'Клієнтська'} презентація
+                     //    </Typography>
+
+                     //    {/* <Typography sx={{ color: theme.textSoft, fontSize: 12 }}>
+                     //       Переглядів: {link.viewsCount || 0}
+                     //    </Typography> */}
+                     //    <Typography sx={{ fontSize: 10, color: theme.textSoft }}>
+                     //       👁 {link.viewsCount} · {formatDateTime(link.lastViewedAt)}
+                     //    </Typography>
+
+                     //    {/* <Typography sx={{ color: theme.textSoft, fontSize: 12 }}>
+                     //       Останній перегляд: {formatDateTime(link.lastViewedAt)}
+                     //    </Typography> */}
+                     //    <Typography sx={{ fontSize: 11, color: theme.textSoft }}>
+                     //       {getEmployeeName(item.createdByEmployee)}
+                     //    </Typography>
+
+                     //    {/* <Stack direction="row" spacing={0.7} sx={{ mt: 0.8 }}>
+                     //       <Button
+                     //          onClick={() => handleCopyShare(link)}
+                     //          sx={{ color: theme.accentLight, fontWeight: 900 }}
+                     //       >
+                     //          Скопіювати
+                     //       </Button>
+
+                     //       <Button
+                     //          component="a"
+                     //          href={getShareUrl(link)}
+                     //          target="_blank"
+                     //          rel="noreferrer"
+                     //          sx={{ color: theme.text, fontWeight: 900 }}
+                     //       >
+                     //          Відкрити
+                     //       </Button>
+
+                     //       <Button
+                     //          onClick={() => {
+                     //             const text = buildShareMessage(item, link);
+                     //             navigator.clipboard.writeText(text);
+                     //          }}
+                     //          sx={{
+                     //             color: theme.accentLight,
+                     //             fontWeight: 900,
+                     //          }}
+                     //       >
+                     //          Скопіювати текст
+                     //       </Button>
+
+                     //       <Button
+                     //          component="a"
+                     //          href={`https://t.me/share/url?url=${encodeURIComponent(getShareUrl(link))}&text=${encodeURIComponent(buildShareMessage(item, link))}`}
+                     //          target="_blank"
+                     //          sx={{
+                     //             color: theme.text,
+                     //             fontWeight: 900,
+                     //          }}
+                     //       >
+                     //          В Telegram
+                     //       </Button>
+
+                     //       <Stack direction="row" spacing={0.6}>
+                     //          <Button onClick={() => generateAI('short')}>Short</Button>
+                     //          <Button onClick={() => generateAI('medium')}>Medium</Button>
+                     //          <Button onClick={() => generateAI('sell')}>🔥 Sell</Button>
+                     //       </Stack>
+                     //    </Stack> */}
+
+                     //    <Stack direction="row" spacing={0.5}>
+                     //       <IconButton onClick={() => handleCopyShare(link)}>
+                     //          <ContentCopyRoundedIcon fontSize="small" />
+                     //       </IconButton>
+
+                     //       <IconButton
+                     //          component="a"
+                     //          href={getShareUrl(link)}
+                     //          target="_blank"
+                     //       >
+                     //          <OpenInNewRoundedIcon fontSize="small" />
+                     //       </IconButton>
+
+                     //       <IconButton
+                     //          onClick={() => {
+                     //             const text = buildShareMessage(item, link);
+                     //             navigator.clipboard.writeText(text);
+                     //          }}
+                     //       >
+                     //          <TextSnippetRoundedIcon fontSize="small" />
+                     //       </IconButton>
+
+                     //       <IconButton
+                     //          component="a"
+                     //          // href={`https://t.me/share/url?text=${encodeURIComponent(buildShareMessage(item, link))}`}
+                     //          href={`https://t.me/share/url?url=${encodeURIComponent(getShareUrl(link))}&text=${encodeURIComponent(buildShareMessage(item, link))}`}
+                     //          target="_blank"
+                     //       >
+                     //          <TelegramIcon fontSize="small" />
+                     //       </IconButton>
+                     //    </Stack>
+
+                     //    {/* <Stack direction="row" spacing={0.6}>
+                     //       <Button onClick={() => generateAI('short')}>Short</Button>
+                     //       <Button onClick={() => generateAI('medium')}>Medium</Button>
+                     //       <Button onClick={() => generateAI('sell')}>🔥 Sell</Button>
+                     //    </Stack> */}
+                     // </Box>
+                     <Box
+                        key={link._id || link.slug}
+                        sx={{
+                           p: 1,
+                           borderRadius: 3,
+                           border: `1px solid ${theme.border}`,
+                           bgcolor:
+                              mode === 'light'
+                                 ? 'rgba(124,58,237,0.035)'
+                                 : 'rgba(255,255,255,0.025)',
+                           display: 'flex',
+                           justifyContent: 'space-between',
+                           alignItems: 'center',
+                           gap: 1,
+                        }}
+                     >
+                        {/* ЛІВА ЧАСТИНА */}
+                        <Box sx={{ minWidth: 0 }}>
+                           <Typography sx={{ fontWeight: 950 }}>
+                              {link.type === 'partner' ? 'Партнерська' : 'Клієнтська'} презентація
+                           </Typography>
+
+                           <Typography sx={{ fontSize: 10, color: theme.textSoft }}>
+                              👁 {link.viewsCount} · {formatDateTime(link.lastViewedAt)}
+                           </Typography>
+
+                           <Typography sx={{ fontSize: 11, color: theme.textSoft }}>
+                              {/* {getEmployeeName(item.createdByEmployee)} */}
+                              {getEmployeeName(link.createdByEmployee)}
+                           </Typography>
+                        </Box>
+
+                        {/* ПРАВА ЧАСТИНА — ІКОНКИ */}
+                        <Stack direction="row" spacing={0.3}>
+                           <Tooltip title="Скопіювати лінк">
+
+                              <IconButton
+                                 onClick={() => handleCopyShare(link)}
+                                 sx={iconBtn(theme)}
+                              >
+                                 <ContentCopyRoundedIcon fontSize="small" />
+                              </IconButton>
+                           </Tooltip>
+
+                           <Tooltip title="Відкрити">
+                              <IconButton
+                                 component="a"
+                                 href={getShareUrl(link)}
+                                 target="_blank"
+                                 sx={iconBtn(theme)}
+                              >
+                                 <OpenInNewRoundedIcon fontSize="small" />
+                              </IconButton>
+                           </Tooltip>
+
+                           <Tooltip title="Скопіювати текст для повідомлення">
+                              <IconButton
+                                 onClick={() => {
+                                    const text = buildShareMessage(item, link);
+                                    navigator.clipboard.writeText(text);
+                                 }}
+                                 sx={iconBtn(theme)}
+                              >
+                                 <TextSnippetRoundedIcon fontSize="small" />
+                              </IconButton>
+                           </Tooltip>
+
+                           <Tooltip title="Поділитися в Telegram">
+                              <IconButton
+                                 component="a"
+                                 href={`https://t.me/share/url?url=${encodeURIComponent(getShareUrl(link))}&text=${encodeURIComponent(buildShareMessage(item, link))}`}
+                                 target="_blank"
+                                 sx={iconBtn(theme, 'telegram')}
+                              >
+                                 <TelegramIcon fontSize="small" />
+                              </IconButton>
+                           </Tooltip>
+                        </Stack>
+                     </Box>
+                  ))}
+
+                  {!item?.shareLinks?.length && (
+                     <Typography sx={{ color: theme.textSoft, fontSize: 13 }}>
+                        Посилань ще немає
+                     </Typography>
+                  )}
+               </Stack>
+            </DialogContent>
+
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+               <Button onClick={() => setOpenShare(false)} sx={{ color: theme.textSoft }}>
+                  Закрити
                </Button>
             </DialogActions>
          </Dialog>

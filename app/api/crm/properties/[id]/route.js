@@ -199,6 +199,22 @@ export const PATCH = async (request, { params }) => {
          return Number.isNaN(d.getTime()) ? null : d;
       };
 
+
+      let businessScore = {};
+      try {
+         businessScore = JSON.parse(formData.get('businessScore') || '{}');
+         if (!businessScore || typeof businessScore !== 'object') businessScore = {};
+      } catch {
+         businessScore = {};
+      }
+
+      const score = (value) => {
+         const n = Number(value);
+         if (!n || Number.isNaN(n)) return null;
+         return Math.min(Math.max(n, 1), 5);
+      };
+
+
       const hasKey = (key) => formData.get(key) !== null;
 
       // -------------------------

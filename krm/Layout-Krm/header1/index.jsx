@@ -1,32 +1,18 @@
 'use client';
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { signIn } from "next-auth/react";
+// import { useRouter } from "next/navigation";
+// import { signIn } from "next-auth/react";
 
 import {
   Stack,
   Box,
   styled,
   useTheme,
-  Divider,
-  Link,
-  Popover,
-  MenuItem,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-  Fade,
-  Alert,
+  Divider
 } from "@mui/material";
 
 import WifiCalling3Icon from "@mui/icons-material/WifiCalling3";
-import BusinessIcon from "@mui/icons-material/Business";
-import WorkIcon from "@mui/icons-material/Work";
-import LoginIcon from "@mui/icons-material/Login";
 
 import MobileMenu from "./mobile-menu";
 import { LayoutContainer } from "../../container";
@@ -66,62 +52,11 @@ export const headerNav = [
 
 const AppHeader = () => {
   const theme = useTheme();
-  const router = useRouter();
+  // const router = useRouter();
 
   const [pathName, setPathName] = useState("");
   const [phone] = useState("067 9850 911");
 
-  // Popover
-  const [anchorEl, setAnchorEl] = useState(null);
-  const open = Boolean(anchorEl);
-  const handlePopoverOpen = (event) => setAnchorEl(event.currentTarget);
-  const handlePopoverClose = () => setAnchorEl(null);
-
-  // Login dialog
-  const [openLogin, setOpenLogin] = useState(false);
-
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [loginError, setLoginError] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  const handleOpenLogin = () => {
-    setOpenLogin(true);
-    handlePopoverClose();
-  };
-
-  const handleCloseLogin = () => {
-    setOpenLogin(false);
-    setLoginError("");
-    setEmail("");
-    setPassword("");
-  };
-
-  const handleLogin = async () => {
-    setLoginError("");
-    setLoading(true);
-
-    try {
-      const res = await signIn("credentials", {
-        redirect: false,
-        email,
-        password,
-      });
-
-      if (res?.error) {
-        setLoginError("Невірний email/телефон або пароль");
-        return;
-      }
-
-      handleCloseLogin();
-      router.push("/crm");
-      router.refresh();
-    } catch (e) {
-      setLoginError("Помилка входу. Спробуй ще раз.");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
     setPathName(window.location.pathname);
@@ -171,7 +106,7 @@ const AppHeader = () => {
             </Box>
 
             {/* Phone with popover */}
-            <Box display={{ xs: "none", lg: "block" }}>
+            {/* <Box display={{ xs: "none", lg: "block" }}>
               <StyledLinkTage
                 aria-owns={open ? "phone-popover" : undefined}
                 aria-haspopup="true"
@@ -191,6 +126,29 @@ const AppHeader = () => {
                   </Box>
                 </Link>
               </StyledLinkTage>
+            </Box> */}
+
+            {/* Phone */}
+            <Box display={{ xs: "none", lg: "block" }}>
+              <StyledLinkTage
+                component="a"
+                href={`tel:+38${phone.replace(/\s/g, "")}`}
+                color="text.secondary"
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 0.7,
+                  color: "#ff8803",
+                  "&:hover": {
+                    color: "#ff9f2f",
+                  },
+                }}
+              >
+                <WifiCalling3Icon />
+                <Box component="span" fontSize="1.05rem">
+                  {phone}
+                </Box>
+              </StyledLinkTage>
             </Box>
 
             {/* Mobile menu */}
@@ -203,7 +161,7 @@ const AppHeader = () => {
         <Divider variant="fullWidth" orientation="horizontal" />
 
         {/* Popover Menu */}
-        <Popover
+        {/* <Popover
           id="phone-popover"
           open={open}
           anchorEl={anchorEl}
@@ -231,51 +189,8 @@ const AppHeader = () => {
               <LoginIcon fontSize="small" sx={{ mr: 1 }} /> Вхід
             </MenuItem>
           </Box>
-        </Popover>
+        </Popover> */}
 
-        {/* Login Dialog */}
-        <Dialog open={openLogin} onClose={handleCloseLogin}>
-          <DialogTitle>Вхід у кабінет</DialogTitle>
-
-          <DialogContent>
-            <Stack spacing={2} sx={{ mt: 1, minWidth: 320 }}>
-              {loginError && <Alert severity="error">{loginError}</Alert>}
-
-              <TextField
-                label="Email або телефон"
-                fullWidth
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="username"
-              />
-              <TextField
-                label="Пароль"
-                type="password"
-                fullWidth
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleLogin();
-                }}
-              />
-            </Stack>
-          </DialogContent>
-
-          <DialogActions>
-            <Button onClick={handleCloseLogin} disabled={loading}>
-              Скасувати
-            </Button>
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleLogin}
-              disabled={loading || !email || !password}
-            >
-              {loading ? "Вхід..." : "Увійти"}
-            </Button>
-          </DialogActions>
-        </Dialog>
       </Box>
     </header>
   );

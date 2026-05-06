@@ -17,13 +17,13 @@ export default function LoginPage() {
          redirect: false,
          email,
          password,
-         callbackUrl: '/crm',
+         callbackUrl: '/crm/objects3',
       });
 
       if (result?.error) {
          setError('Невірний email/телефон або пароль');
       } else if (result?.ok) {
-         window.location.href = '/crm';
+         window.location.href = '/crm/objects3';
       }
    };
 
