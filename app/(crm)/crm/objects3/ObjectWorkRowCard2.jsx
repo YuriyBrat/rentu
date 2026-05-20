@@ -37,6 +37,13 @@ import HomeWorkRoundedIcon from '@mui/icons-material/HomeWorkRounded';
 
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 
+import MonetizationOnRoundedIcon from '@mui/icons-material/MonetizationOnRounded';
+import CurrencyBitcoinRoundedIcon from '@mui/icons-material/CurrencyBitcoinRounded';
+import PestControlRoundedIcon from '@mui/icons-material/PestControlRounded';
+
+import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded';
+import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
+
 import Badge from '@mui/material/Badge';
 import Popover from '@mui/material/Popover';
 import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
@@ -54,6 +61,7 @@ import { BUSINESS_SCORE_OPTIONS } from '@/utils/crm/BusinessScore';
 import ObjectAdvertisingPanel from './ObjectAdvertisingPanel2';
 import ObjectWorkHistoryPanel from './ObjectWorkHistoryPanel';
 
+import ImageLightbox from '@/crm_components/ImageLightbox';
 
 const getFieldSx = (theme, mode) => ({
    '& .MuiOutlinedInput-root': {
@@ -380,6 +388,299 @@ function BusinessScoreView({ score = {}, theme, mode }) {
 };
 
 
+function PhotoBadge({ label, title, active, color, onClick }) {
+   return (
+      <Tooltip title={title}>
+         <Box
+            onClick={onClick}
+            sx={{
+               width: 28,
+               height: 28,
+               borderRadius: '50%',
+               display: 'flex',
+               alignItems: 'center',
+               justifyContent: 'center',
+               fontSize: 15,
+               cursor: 'pointer',
+               opacity: active ? 1 : 0.45,
+               bgcolor: active ? color : 'rgba(15,15,23,0.68)',
+               border: active
+                  ? '1px solid rgba(255,255,255,0.45)'
+                  : '1px solid rgba(255,255,255,0.22)',
+               boxShadow: active ? '0 8px 22px rgba(0,0,0,0.35)' : 'none',
+               backdropFilter: 'blur(8px)',
+               transition: '0.18s ease',
+               '&:hover': {
+                  opacity: 1,
+                  transform: 'translateY(-1px) scale(1.04)',
+               },
+            }}
+         >
+            {label}
+         </Box>
+      </Tooltip>
+   );
+};
+
+function RealtorBugBadge() {
+   return (
+      <Tooltip title="Маклерський об’єкт">
+         <Box
+            sx={{
+               width: 26,
+               height: 26,
+               display: 'flex',
+               alignItems: 'center',
+               justifyContent: 'center',
+               filter: 'drop-shadow(0 5px 8px rgba(0,0,0,0.52))',
+               transform: 'rotate(-12deg)',
+            }}
+         >
+            <PestControlRoundedIcon
+               sx={{
+                  fontSize: 24,
+                  color: '#ef4444',
+                  '&:hover': {
+                     transform: 'rotate(-12deg) scale(1.08)',
+                  }
+               }}
+            />
+         </Box>
+      </Tooltip>
+   );
+}
+
+// function MiniPhotoMark({ label }) {
+//    return (
+//       <Box
+//          sx={{
+//             width: 22,
+//             height: 22,
+//             borderRadius: '50%',
+//             display: 'flex',
+//             alignItems: 'center',
+//             justifyContent: 'center',
+//             fontSize: 12,
+//             bgcolor: 'rgba(15,15,23,0.72)',
+//             border: '1px solid rgba(255,255,255,0.25)',
+//             backdropFilter: 'blur(8px)',
+//          }}
+//       >
+//          {label}
+//       </Box>
+//    );
+// };
+
+
+
+// const FINANCE_PRODUCT_META = {
+//    5: {
+//       label: 'Власник платить комісію',
+//       short: 'Наша комісія',
+//       color: '#8b5cf6',
+//       icon: '💰',
+//    },
+//    4: {
+//       label: 'Власник платить частково',
+//       short: 'Частково',
+//       color: '#22c55e',
+//       icon: '💵',
+//    },
+//    2: {
+//       label: 'Ділимо комісію з маклером',
+//       short: 'Ділимо',
+//       color: '#ef4444',
+//       icon: '🪙',
+//    },
+//    1: {
+//       label: 'Віддаємо всю комісію',
+//       short: 'Невигідно',
+//       color: '#374151',
+//       icon: '₿',
+//    },
+// };
+
+
+//  тут міняємо стилі іконок на фото
+function MiniPhotoMark({ label, title, color, type }) {
+   const isCoin = type === 'coin';
+
+   return (
+      <Tooltip title={title || ''}>
+         <Box
+            sx={{
+               width: 26,
+               height: 26,
+               display: 'flex',
+               alignItems: 'center',
+               justifyContent: 'center',
+               lineHeight: 1,
+               fontSize: isCoin ? 24 : 22,
+               color: color || '#fff',
+               textShadow: '0 2px 8px rgba(0,0,0,0.65)',
+               filter: 'drop-shadow(0 5px 8px rgba(0,0,0,0.45))',
+            }}
+         >
+            {label}
+         </Box>
+      </Tooltip>
+   );
+}
+
+const FINANCE_PRODUCT_META = {
+   5: {
+      label: 'Власник платить комісію',
+      short: 'Наша комісія',
+      color: '#6212b2', // '#8b5cf6',
+      icon: '●',
+   },
+   4: {
+      label: 'Власник платить частково',
+      short: 'Частково',
+      color: '#008f1a',
+      icon: '●',
+   },
+   3: {
+      label: 'Власник не платить',
+      short: 'Не платить',
+      color: '#fff500',
+      icon: '●',
+   },
+   2: {
+      label: 'Ділимо комісію з маклером',
+      short: 'Ділимо',
+      color: '#ad0101',
+      icon: '●',
+   },
+   1: {
+      label: 'Віддаємо всю комісію',
+      short: 'Невигідно',
+      color: '#400808', // '#111827',
+      icon: '●',
+   },
+};
+
+function getFinanceProduct(item) {
+   const value = Number(item?.businessScore?.finance);
+   if (!value || value === 3) return null;
+   return FINANCE_PRODUCT_META[value] || null;
+};
+
+
+// function FinanceCoin({ title, color }) {
+//    return (
+//       <Tooltip title={title || ''}>
+//          <Box
+//             sx={{
+//                width: 26,
+//                height: 26,
+//                display: 'flex',
+//                alignItems: 'center',
+//                justifyContent: 'center',
+//                filter: 'drop-shadow(0 5px 8px rgba(0,0,0,0.48))',
+//             }}
+//          >
+//             <MonetizationOnRoundedIcon
+//                sx={{
+//                   fontSize: 27,
+//                   color,
+//                   stroke: 'rgba(255,255,255,0.45)',
+//                   strokeWidth: 0.4,
+//                }}
+//             />
+//          </Box>
+//       </Tooltip>
+//    );
+// };
+
+function FinanceCoin({ title, color }) {
+   return (
+      <Tooltip title={title || ''}>
+         <Box
+            sx={{
+               width: 26,
+               height: 26,
+               borderRadius: '50%',
+               display: 'flex',
+               alignItems: 'center',
+               justifyContent: 'center',
+
+               background: `radial-gradient(circle at 30% 30%, rgba(255,255,255,0.28), transparent 45%), ${color}`,
+
+               border: '1px solid rgba(255,255,255,0.38)',
+
+               boxShadow: `
+                  0 6px 14px rgba(0,0,0,0.38),
+                  inset 0 1px 2px rgba(255,255,255,0.35)
+               `,
+
+               backdropFilter: 'blur(8px)',
+
+               position: 'relative',
+            }}
+         >
+            <Box
+               component="span"
+               sx={{
+                  fontSize: 18,
+                  fontWeight: 1000,
+
+                  color: '#facc15',
+
+                  textShadow: `
+                     0 1px 2px rgba(0,0,0,0.55),
+                     0 0 6px rgba(250,204,21,0.45)
+                  `,
+                  lineHeight: 1,
+
+                  transform: 'translateY(-0.5px)',
+               }}
+            >
+               $
+            </Box>
+         </Box>
+      </Tooltip>
+   );
+};
+
+
+function getObjectRating(score = {}) {
+   const weights = {
+      finance: 2,
+      liquidity: 1.5,
+      loyalty: 1.2,
+      motivation: 1.2,
+      problemFree: 1,
+      adAttractiveness: 1,
+      adHistory: 1,
+      adStrategy: 1,
+   };
+
+   let sum = 0;
+   let weightSum = 0;
+
+   Object.entries(weights).forEach(([key, weight]) => {
+      const value = Number(score?.[key]);
+      if (value >= 1 && value <= 5) {
+         sum += value * weight;
+         weightSum += weight;
+      }
+   });
+
+   if (!weightSum) return null;
+
+   return Number((sum / weightSum).toFixed(1));
+}
+
+function getRatingMeta(rating) {
+   if (!rating) return null;
+   if (rating >= 4.4) return { label: 'Топ', color: '#22c55e' };
+   if (rating >= 3.6) return { label: 'Сильний', color: '#8b5cf6' };
+   if (rating >= 2.8) return { label: 'Норм', color: '#eab308' };
+   return { label: 'Слабкий', color: '#ef4444' };
+}
+
+
 
 
 export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRefresh }) {
@@ -419,6 +720,31 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
 
    const [aiStyle, setAiStyle] = useState('telegram');
    const [aiLoading, setAiLoading] = useState(false);
+
+
+   const [visualTags, setVisualTags] = useState(item?.visualTags || {});
+
+
+   const [photoOpen, setPhotoOpen] = useState(false);
+   const [photoIndex, setPhotoIndex] = useState(0);
+
+
+   const [editingLink, setEditingLink] = useState(null);
+   const [editTitle, setEditTitle] = useState('');
+
+   const [shareTitleDraft, setShareTitleDraft] = useState('');
+   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+   const [selectedShareLink, setSelectedShareLink] = useState(null);
+   const [shareActionLoading, setShareActionLoading] = useState(false);
+
+
+   const galleryImages = (item?.images || [])
+      .filter((img) => !img.isHidden)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+      .map((img) => ({
+         ...img,
+         url: img.brandedUrl || img.processedUrl || img.url || img.preview,
+      }));
 
    const closeLinksMenu = () => {
       setLinksAnchor(null);
@@ -619,22 +945,75 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
          : `${base}/share/${link.slug}`;
    };
 
-   const handleCreateShareLink = async (type) => {
-      try {
-         setShareLoading(true);
+   // const handleCreateShareLink = async (type = 'client', presentationType = 'classic') => {
+   //    setShareLoading(true);
 
+   //    try {
+   //       const res = await fetch(`/api/crm/properties/${item._id}/share-links`, {
+   //          method: 'POST',
+   //          headers: {
+   //             'Content-Type': 'application/json',
+   //          },
+   //          body: JSON.stringify({
+   //             type,
+   //             presentationType,
+   //          }),
+   //       });
+
+   //       // const json = await res.json();
+
+   //       const text = await res.text();
+
+   //       let json = null;
+   //       try {
+   //          json = JSON.parse(text);
+   //       } catch {
+   //          console.error('API повернув не JSON:', text);
+   //       }
+
+   //       if (!res.ok) {
+   //          console.error('CREATE SHARE LINK ERROR:', json || text);
+   //          return;
+   //       }
+
+   //       if (json?.link) {
+   //          // setShareLinks((prev) => [json.link, ...prev]);
+   //          await onRefresh?.();
+
+   //       }
+   //    } finally {
+   //       setShareLoading(false);
+   //    }
+   // };
+
+
+   const handleCreateShareLink = async (type = 'client', presentationType = 'classic') => {
+      setShareLoading(true);
+
+      try {
          const res = await fetch(`/api/crm/properties/${item._id}/share-links`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type }),
+            headers: {
+               'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+               type,
+               presentationType,
+               title: shareTitleDraft.trim(),
+            }),
          });
 
+         const json = await res.json();
+
          if (!res.ok) {
-            alert('Не вдалося створити посилання');
+            console.error('CREATE SHARE LINK ERROR:', json);
             return;
          }
 
-         await onRefresh?.();
+         if (json?.link) {
+            item.shareLinks = [json.link, ...(item.shareLinks || [])];
+            setShareTitleDraft('');
+         }
       } finally {
          setShareLoading(false);
       }
@@ -682,6 +1061,96 @@ ${desc ? `✨ ${desc}\n\n` : ''}📸 Деталі та фото:
 ${url}`;
    };
 
+
+   const handleRenameShare = async (link) => {
+      const title = window.prompt(
+         'Нова назва презентації',
+         link.title || ''
+      );
+
+      if (title === null) return;
+
+      try {
+         const res = await fetch(
+            `/api/crm/properties/${item._id}/share-links/${link.slug}`,
+            {
+               method: 'PATCH',
+               headers: {
+                  'Content-Type': 'application/json',
+               },
+               body: JSON.stringify({
+                  title,
+               }),
+            }
+         );
+
+         if (!res.ok) return;
+
+         link.title = title;
+
+         forceUpdate?.();
+      } catch (error) {
+         console.error(error);
+      }
+   };
+
+   // const handleDeleteShare = async (link) => {
+   //    const ok = window.confirm(
+   //       'Видалити це посилання?'
+   //    );
+
+   //    if (!ok) return;
+
+   //    try {
+   //       const res = await fetch(
+   //          `/api/crm/properties/${item._id}/share-links/${link.slug}`,
+   //          {
+   //             method: 'DELETE',
+   //          }
+   //       );
+
+   //       if (!res.ok) return;
+
+   //       item.shareLinks = item.shareLinks.filter(
+   //          (x) => x.slug !== link.slug
+   //       );
+
+   //       forceUpdate?.();
+   //    } catch (error) {
+   //       console.error(error);
+   //    }
+   // };
+
+   const openDeleteShareDialog = (link) => {
+      setSelectedShareLink(link);
+      setDeleteDialogOpen(true);
+   };
+
+   const handleDeleteShare = async () => {
+      if (!selectedShareLink) return;
+
+      setShareActionLoading(true);
+
+      try {
+         const res = await fetch(
+            `/api/crm/properties/${item._id}/share-links/${selectedShareLink.slug}`,
+            { method: 'DELETE' }
+         );
+
+         if (!res.ok) return;
+
+         item.shareLinks = (item.shareLinks || []).filter(
+            (x) => x.slug !== selectedShareLink.slug
+         );
+
+         setDeleteDialogOpen(false);
+         setSelectedShareLink(null);
+      } finally {
+         setShareActionLoading(false);
+      }
+   };
+
+
    const generateAI = async (style) => {
       const res = await fetch(`/api/crm/properties/${item._id}/generate-text`, {
          method: 'POST',
@@ -722,6 +1191,34 @@ ${url}`;
       }
    };
 
+
+
+   // Візуальні теги: "Гаряча пропозиція", "Обране", "Ріелторський об'єкт"
+   const toggleVisualTag = async (key) => {
+      const optimistic = {
+         ...visualTags,
+         [key]: !visualTags?.[key],
+      };
+
+      setVisualTags(optimistic);
+
+      const res = await fetch(`/api/crm/properties/${item._id}/visual-tags`, {
+         method: 'PATCH',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ key }),
+      });
+
+      if (!res.ok) {
+         setVisualTags(item?.visualTags || {});
+         alert('Не вдалося оновити мітку');
+         return;
+      }
+
+      const data = await res.json();
+      setVisualTags(data.visualTags || optimistic);
+   };
+
+   const financeProduct = getFinanceProduct(item);
 
    const actionIconSx = {
       color: theme.text,
@@ -765,6 +1262,30 @@ ${url}`;
    });
 
 
+   const getShareKindLabel = (link) => {
+      const isLanding = link.presentationType === 'landing';
+      const isPartner = link.type === 'partner';
+
+      const icon = isLanding
+         ? '✨' // '🚀'
+         : isPartner
+            ? '🪲'
+            : '💎';
+
+      const defaultTitle = isLanding
+         ? 'Лендінг-презентація' // 'WOW-лендінг'
+         : isPartner
+            ? 'Партнерська презентація'
+            : 'Клієнтська презентація';
+
+      return `${icon} ${link.title || defaultTitle}`;
+   };
+
+
+   const rating = getObjectRating(item?.businessScore);
+   const ratingMeta = getRatingMeta(rating);
+
+
 
    return (
       <Box
@@ -791,9 +1312,15 @@ ${url}`;
                   sx={{
                      height: 108,
                      borderRadius: 3,
-                     overflow: 'hidden',
-                     border: '1px solid rgba(255,255,255,0.07)',
-                     bgcolor: 'rgba(255,255,255,0.04)',
+                     overflow: 'visible',
+                     border: `1px solid ${theme.border}`,
+                     bgcolor: mode === 'light' ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.04)',
+                     position: 'relative',
+                     '&:hover .tagControls': {
+                        opacity: 1,
+                        transform: 'translateX(-50%) translateY(0)',
+                        pointerEvents: 'auto',
+                     },
                   }}
                >
                   <Box
@@ -805,8 +1332,88 @@ ${url}`;
                         height: '100%',
                         objectFit: 'cover',
                         display: 'block',
+                        overflow: 'hidden',
+                        borderRadius: 3,
+                     }}
+                     onClick={() => {
+                        setPhotoIndex(0);
+                        setPhotoOpen(true);
                      }}
                   />
+
+                  <Stack
+                     direction="row"
+                     spacing={0.45}
+                     className="tagControls"
+                     sx={{
+                        position: 'absolute',
+                        // top: 7,
+                        bottom: 2,
+                        left: '50%',
+                        transform: 'translateX(-50%) translateY(-5px)',
+                        opacity: 0,
+                        pointerEvents: 'none',
+                        transition: '0.18s ease',
+                        zIndex: 2,
+                     }}
+                  >
+                     <PhotoBadge
+                        label="🔥"
+                        title="Гарячий"
+                        active={!!visualTags?.isHot}
+                        color="rgba(239,68,68,0.88)"
+                        onClick={() => toggleVisualTag('isHot')}
+                     />
+
+                     <PhotoBadge
+                        label="❤️"
+                        title="Улюблений"
+                        active={!!visualTags?.isFavorite}
+                        color="rgba(236,72,153,0.88)"
+                        onClick={() => toggleVisualTag('isFavorite')}
+                     />
+
+                     <PhotoBadge
+                        label="🪲"
+                        title="Маклерський об’єкт"
+                        active={!!visualTags?.isRealtorObject}
+                        // color="rgba(245,158,11,0.92)"
+                        color="rgba(239,68,68,0.92)"
+                        onClick={() => toggleVisualTag('isRealtorObject')}
+                     />
+                  </Stack>
+
+
+                  <Stack
+                     direction="row"
+                     spacing={0.45}
+                     sx={{
+                        position: 'absolute',
+                        // top: 7,
+                        // left: 7,
+                        top: -11,
+                        left: 10,
+                        zIndex: 2,
+                     }}
+                  >
+                     {visualTags?.isHot && <MiniPhotoMark label="🔥" />}
+                     {visualTags?.isFavorite && <MiniPhotoMark label="❤️" />}
+                     {visualTags?.isRealtorObject && <MiniPhotoMark label="🪲" color="rgba(239,68,68,0.92)" />}
+
+                     {/* {financeProduct && (
+                        <MiniPhotoMark
+                           label={financeProduct.icon}
+                           title={financeProduct.short}
+                           color={financeProduct.color}
+                        />
+                     )} */}
+                     {financeProduct && (
+                        <FinanceCoin
+                           title={financeProduct.short}
+                           color={financeProduct.color}
+                        />
+                     )}
+                  </Stack>
                </Box>
 
                <Stack spacing={0.8} minWidth={0}>
@@ -893,6 +1500,15 @@ ${url}`;
                         theme={theme}
                      />
 
+                     {rating && (
+                        <InfoPill
+                           icon={<span style={{ fontSize: 16 }}>⭐</span>}
+                           label="Рейтинг"
+                           value={`${rating} · ${ratingMeta.label}`}
+                           theme={theme}
+                        />
+                     )}
+
                      {/* <InfoPill
                         icon={<PersonRoundedIcon sx={{ fontSize: 16 }} />}
                         label="Відповідальний"
@@ -976,6 +1592,25 @@ ${url}`;
                         <DetailLine label="Примітка" value={item?.actualityNote} theme={theme} />
                         <DetailLine label="Відповідальний" value={assigneeName} theme={theme} />
                         <DetailLine label="Хто вніс" value={createdByName} theme={theme} />
+
+                        <Divider sx={{ borderColor: 'rgba(255,255,255,0.07)' }} />
+
+
+                        <Box sx={{ mt: 0.6 }}>
+                           <DetailLine label="Джерело" value={item?.source} theme={theme} />
+
+                           <DetailLine
+                              label="Стратегію погодив"
+                              value={getEmployeeName(item?.strategyApprovedBy)}
+                              theme={theme}
+                           />
+
+                           <DetailLine
+                              label="Дата погодження"
+                              value={formatDate(item?.strategyApprovedAt)}
+                              theme={theme}
+                           />
+                        </Box>
                      </DetailBox>
                   </Grid>
 
@@ -1008,22 +1643,6 @@ ${url}`;
                            theme={theme}
                            mode={mode}
                         />
-
-                        <Box sx={{ mt: 0.6 }}>
-                           <DetailLine label="Джерело" value={item?.source} theme={theme} />
-
-                           <DetailLine
-                              label="Стратегію погодив"
-                              value={getEmployeeName(item?.strategyApprovedBy)}
-                              theme={theme}
-                           />
-
-                           <DetailLine
-                              label="Дата погодження"
-                              value={formatDate(item?.strategyApprovedAt)}
-                              theme={theme}
-                           />
-                        </Box>
                      </DetailBox>
                   </Grid>
 
@@ -1404,6 +2023,8 @@ ${url}`;
          </Dialog>
 
 
+
+
          <Dialog
             open={openShare}
             onClose={() => setOpenShare(false)}
@@ -1424,9 +2045,43 @@ ${url}`;
 
             <DialogContent>
                <Stack spacing={1.2} sx={{ mt: 1 }}>
+                  <TextField
+                     fullWidth
+                     size="small"
+                     value={shareTitleDraft}
+                     onChange={(e) => setShareTitleDraft(e.target.value)}
+                     placeholder="Назва для посилання: Для клієнтки Ольги"
+                     sx={{
+                        '& .MuiOutlinedInput-root': {
+                           borderRadius: 3,
+                           color: theme.text,
+                           bgcolor:
+                              mode === 'light'
+                                 ? 'rgba(124,58,237,0.04)'
+                                 : 'rgba(255,255,255,0.04)',
+                           '& fieldset': {
+                              borderColor: theme.border,
+                           },
+                           '&:hover fieldset': {
+                              borderColor: theme.accent,
+                           },
+                           '&.Mui-focused fieldset': {
+                              borderColor: theme.accent,
+                           },
+                        },
+                        '& input::placeholder': {
+                           color: theme.textSoft,
+                           opacity: 1,
+                        },
+                     }}
+                  />
+
+                  {/* <Typography sx={{ color: theme.textSoft, fontSize: 11, mt: -0.4 }}>
+                     Можна залишити порожнім — тоді буде стандартна назва.
+                  </Typography> */}
                   <Button
                      disabled={shareLoading}
-                     onClick={() => handleCreateShareLink('client')}
+                     onClick={() => handleCreateShareLink('client', 'classic')}
                      sx={{
                         borderRadius: 3,
                         fontWeight: 950,
@@ -1439,7 +2094,7 @@ ${url}`;
 
                   <Button
                      disabled={shareLoading}
-                     onClick={() => handleCreateShareLink('partner')}
+                     onClick={() => handleCreateShareLink('partner', 'classic')}
                      sx={{
                         borderRadius: 3,
                         fontWeight: 950,
@@ -1450,126 +2105,26 @@ ${url}`;
                      Створити нейтральну презентацію для партнера
                   </Button>
 
+                  <Button
+                     disabled={shareLoading}
+                     onClick={() => handleCreateShareLink('client', 'landing')}
+                     sx={{
+                        borderRadius: 3,
+                        fontWeight: 950,
+                        color: theme.text,
+                        border: `1px solid ${theme.border}`,
+                        bgcolor: mode === 'light'
+                           ? 'rgba(124,58,237,0.06)'
+                           : 'rgba(255,255,255,0.04)',
+                     }}
+                  >
+                     Створити лендінг
+                  </Button>
+
                   <Divider sx={{ borderColor: theme.border }} />
 
                   {(item?.shareLinks || []).map((link) => (
-                     // <Box
-                     //    key={link._id || link.slug}
-                     //    sx={{
-                     //       p: 1,
-                     //       borderRadius: 3,
-                     //       border: `1px solid ${theme.border}`,
-                     //       bgcolor: mode === 'light'
-                     //          ? 'rgba(124,58,237,0.035)'
-                     //          : 'rgba(255,255,255,0.025)',
-                     //    }}
-                     // >
-                     //    <Typography sx={{ fontWeight: 950 }}>
-                     //       {link.type === 'partner' ? 'Партнерська' : 'Клієнтська'} презентація
-                     //    </Typography>
 
-                     //    {/* <Typography sx={{ color: theme.textSoft, fontSize: 12 }}>
-                     //       Переглядів: {link.viewsCount || 0}
-                     //    </Typography> */}
-                     //    <Typography sx={{ fontSize: 10, color: theme.textSoft }}>
-                     //       👁 {link.viewsCount} · {formatDateTime(link.lastViewedAt)}
-                     //    </Typography>
-
-                     //    {/* <Typography sx={{ color: theme.textSoft, fontSize: 12 }}>
-                     //       Останній перегляд: {formatDateTime(link.lastViewedAt)}
-                     //    </Typography> */}
-                     //    <Typography sx={{ fontSize: 11, color: theme.textSoft }}>
-                     //       {getEmployeeName(item.createdByEmployee)}
-                     //    </Typography>
-
-                     //    {/* <Stack direction="row" spacing={0.7} sx={{ mt: 0.8 }}>
-                     //       <Button
-                     //          onClick={() => handleCopyShare(link)}
-                     //          sx={{ color: theme.accentLight, fontWeight: 900 }}
-                     //       >
-                     //          Скопіювати
-                     //       </Button>
-
-                     //       <Button
-                     //          component="a"
-                     //          href={getShareUrl(link)}
-                     //          target="_blank"
-                     //          rel="noreferrer"
-                     //          sx={{ color: theme.text, fontWeight: 900 }}
-                     //       >
-                     //          Відкрити
-                     //       </Button>
-
-                     //       <Button
-                     //          onClick={() => {
-                     //             const text = buildShareMessage(item, link);
-                     //             navigator.clipboard.writeText(text);
-                     //          }}
-                     //          sx={{
-                     //             color: theme.accentLight,
-                     //             fontWeight: 900,
-                     //          }}
-                     //       >
-                     //          Скопіювати текст
-                     //       </Button>
-
-                     //       <Button
-                     //          component="a"
-                     //          href={`https://t.me/share/url?url=${encodeURIComponent(getShareUrl(link))}&text=${encodeURIComponent(buildShareMessage(item, link))}`}
-                     //          target="_blank"
-                     //          sx={{
-                     //             color: theme.text,
-                     //             fontWeight: 900,
-                     //          }}
-                     //       >
-                     //          В Telegram
-                     //       </Button>
-
-                     //       <Stack direction="row" spacing={0.6}>
-                     //          <Button onClick={() => generateAI('short')}>Short</Button>
-                     //          <Button onClick={() => generateAI('medium')}>Medium</Button>
-                     //          <Button onClick={() => generateAI('sell')}>🔥 Sell</Button>
-                     //       </Stack>
-                     //    </Stack> */}
-
-                     //    <Stack direction="row" spacing={0.5}>
-                     //       <IconButton onClick={() => handleCopyShare(link)}>
-                     //          <ContentCopyRoundedIcon fontSize="small" />
-                     //       </IconButton>
-
-                     //       <IconButton
-                     //          component="a"
-                     //          href={getShareUrl(link)}
-                     //          target="_blank"
-                     //       >
-                     //          <OpenInNewRoundedIcon fontSize="small" />
-                     //       </IconButton>
-
-                     //       <IconButton
-                     //          onClick={() => {
-                     //             const text = buildShareMessage(item, link);
-                     //             navigator.clipboard.writeText(text);
-                     //          }}
-                     //       >
-                     //          <TextSnippetRoundedIcon fontSize="small" />
-                     //       </IconButton>
-
-                     //       <IconButton
-                     //          component="a"
-                     //          // href={`https://t.me/share/url?text=${encodeURIComponent(buildShareMessage(item, link))}`}
-                     //          href={`https://t.me/share/url?url=${encodeURIComponent(getShareUrl(link))}&text=${encodeURIComponent(buildShareMessage(item, link))}`}
-                     //          target="_blank"
-                     //       >
-                     //          <TelegramIcon fontSize="small" />
-                     //       </IconButton>
-                     //    </Stack>
-
-                     //    {/* <Stack direction="row" spacing={0.6}>
-                     //       <Button onClick={() => generateAI('short')}>Short</Button>
-                     //       <Button onClick={() => generateAI('medium')}>Medium</Button>
-                     //       <Button onClick={() => generateAI('sell')}>🔥 Sell</Button>
-                     //    </Stack> */}
-                     // </Box>
                      <Box
                         key={link._id || link.slug}
                         sx={{
@@ -1588,13 +2143,47 @@ ${url}`;
                      >
                         {/* ЛІВА ЧАСТИНА */}
                         <Box sx={{ minWidth: 0 }}>
-                           <Typography sx={{ fontWeight: 950 }}>
+                           {/* <Typography sx={{ fontWeight: 950 }}>
                               {link.type === 'partner' ? 'Партнерська' : 'Клієнтська'} презентація
+                           </Typography>  */}
+                           {/* <Typography sx={{ fontWeight: 950 }}>
+                              {link.presentationType === 'landing'
+                                 ? 'Лендінг'
+                                 : link.type === 'partner'
+                                    ? 'Партнерська'
+                                    : 'Клієнтська'} презентація
+                           </Typography> */}
+                           <Typography sx={{ fontWeight: 950 }}>
+                              {getShareKindLabel(link)}
                            </Typography>
 
                            <Typography sx={{ fontSize: 10, color: theme.textSoft }}>
                               👁 {link.viewsCount} · {formatDateTime(link.lastViewedAt)}
                            </Typography>
+
+                           {!!link.reactions?.length && (
+                              <Tooltip
+                                 title={
+                                    <Box>
+                                       {link.reactions.map((r, idx) => (
+                                          <Typography key={idx} sx={{ fontSize: 12 }}>
+                                             {r.label} — {formatDateTime(r.createdAt)}
+                                          </Typography>
+                                       ))}
+                                    </Box>
+                                 }
+                              >
+                                 <Chip
+                                    size="small"
+                                    label={`❤️ ${link.reactions.length}`}
+                                    sx={{
+                                       height: 22,
+                                       fontSize: 11,
+                                       fontWeight: 900,
+                                    }}
+                                 />
+                              </Tooltip>
+                           )}
 
                            <Typography sx={{ fontSize: 11, color: theme.textSoft }}>
                               {/* {getEmployeeName(item.createdByEmployee)} */}
@@ -1647,6 +2236,29 @@ ${url}`;
                                  <TelegramIcon fontSize="small" />
                               </IconButton>
                            </Tooltip>
+                           {/* <Tooltip title="Перейменувати">
+                              <IconButton
+                                 onClick={() => handleRenameShare(link)}
+                                 sx={iconBtn(theme)}
+                              >
+                                 <EditRoundedIcon fontSize="small" />
+                              </IconButton>
+                           </Tooltip> */}
+
+                           <Tooltip title="Видалити">
+                              <IconButton
+                                 onClick={() => openDeleteShareDialog(link)}
+                                 sx={{
+                                    ...iconBtn(theme),
+                                    color: '#f87171',
+                                    '&:hover': {
+                                       bgcolor: 'rgba(248,113,113,0.14)',
+                                    },
+                                 }}
+                              >
+                                 <DeleteRoundedIcon fontSize="small" />
+                              </IconButton>
+                           </Tooltip>
                         </Stack>
                      </Box>
                   ))}
@@ -1665,6 +2277,89 @@ ${url}`;
                </Button>
             </DialogActions>
          </Dialog>
+
+
+
+         <Dialog
+            open={deleteDialogOpen}
+            onClose={() => setDeleteDialogOpen(false)}
+            fullWidth
+            maxWidth="xs"
+            PaperProps={{
+               sx: {
+                  borderRadius: 4,
+                  bgcolor: theme.bgPanel,
+                  color: theme.text,
+                  border: '1px solid rgba(248,113,113,0.28)',
+               },
+            }}
+         >
+            <DialogTitle sx={{ fontWeight: 950, display: 'flex', alignItems: 'center', gap: 1 }}>
+               <WarningAmberRoundedIcon sx={{ color: '#f87171' }} />
+               Видалити посилання?
+            </DialogTitle>
+
+            <DialogContent>
+               <Typography sx={{ color: theme.textSoft, fontSize: 14, lineHeight: 1.7 }}>
+                  Це посилання більше не відкриватиметься у клієнта або партнера.
+               </Typography>
+
+               {!!selectedShareLink && (
+                  <Box
+                     sx={{
+                        mt: 2,
+                        p: 1.4,
+                        borderRadius: 3,
+                        bgcolor: 'rgba(248,113,113,0.08)',
+                        border: '1px solid rgba(248,113,113,0.18)',
+                     }}
+                  >
+                     <Typography sx={{ fontWeight: 950 }}>
+                        {getShareKindLabel(selectedShareLink)}
+                     </Typography>
+                  </Box>
+               )}
+            </DialogContent>
+
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+               <Button
+                  onClick={() => setDeleteDialogOpen(false)}
+                  sx={{ color: theme.textSoft }}
+               >
+                  Скасувати
+               </Button>
+
+               <Button
+                  disabled={shareActionLoading}
+                  onClick={handleDeleteShare}
+                  startIcon={<DeleteRoundedIcon />}
+                  sx={{
+                     borderRadius: 999,
+                     px: 2.4,
+                     fontWeight: 950,
+                     color: '#fff',
+                     bgcolor: '#ef4444',
+                     '&:hover': {
+                        bgcolor: '#dc2626',
+                     },
+                  }}
+               >
+                  Видалити
+               </Button>
+            </DialogActions>
+         </Dialog>
+
+
+
+
+
+         <ImageLightbox
+            open={photoOpen}
+            images={galleryImages}
+            index={photoIndex}
+            onClose={() => setPhotoOpen(false)}
+            onChangeIndex={setPhotoIndex}
+         />
       </Box>
    );
 };

@@ -43,6 +43,7 @@ import HomeWorkRoundedIcon from '@mui/icons-material/HomeWorkRounded';
 import PersonSearchRoundedIcon from '@mui/icons-material/PersonSearchRounded';
 import ManageAccountsRoundedIcon from '@mui/icons-material/ManageAccountsRounded';
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
+import BedRoundedIcon from '@mui/icons-material/BedRounded';
 
 // для наводок варіанти
 import TipsAndUpdatesIcon from '@mui/icons-material/TipsAndUpdates';
@@ -83,7 +84,7 @@ export default function CRMLayout({ children }) {
       { label: 'Воронки', path: '/crm/pipeline', icon: <FilterListIcon />, badge: 5 },
       { label: 'Ліди', path: '/crm/leads3', icon: <PersonSearchRoundedIcon />, badge: 15 },
       // { label: 'Угоди', path: '/crm/deals', icon: <AssignmentIcon /> },
-      { label: 'Оренда', path: '/crm/rent', icon: <HomeWorkRoundedIcon /> },
+      { label: 'Оренда', path: '/crm/rent', icon: <BedRoundedIcon /> },
       // { label: 'Завдання', path: '/crm/tasks', icon: <TaskIcon />, badge: 2 },
       { label: 'Наводки', path: '/crm/navodky4', icon: <RadarIcon /> },
       { label: 'Персонал', path: '/crm/employees', icon: <GroupsRoundedIcon /> },

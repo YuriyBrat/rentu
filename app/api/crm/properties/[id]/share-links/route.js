@@ -38,10 +38,21 @@ export const POST = async (req, { params }) => {
             ? randomSlug('p')
             : makeClientSlug(property.title || 'object');
 
+      const presentationType = body.presentationType === 'landing' ? 'landing' : 'classic';
+
       const link = {
          type,
          slug,
-         title: body.title || (type === 'partner' ? 'Партнерська презентація' : 'Клієнтська презентація'),
+         presentationType,
+         // title:
+         //    body.title ||
+         //    (presentationType === 'landing'
+         //       ? 'Лендінг-презентація'
+         //       : type === 'partner'
+         //          ? 'Партнерська презентація'
+         //          : 'Клієнтська презентація'),
+         title: body.title?.trim() || '',
+
          isActive: true,
 
          showBrand: type === 'client',
@@ -51,9 +62,28 @@ export const POST = async (req, { params }) => {
          viewsCount: 0,
          lastViewedAt: null,
 
-         // createdByEmployee: body.createdByEmployee || null,
-         createdByEmployee: session?.user?.id || null,
+         createdByEmployee:
+            session?.user?._id ||
+            session?.user?.id ||
+            null,
       };
+
+      // const link = {
+      //    type,
+      //    slug,
+      //    title: body.title || (type === 'partner' ? 'Партнерська презентація' : 'Клієнтська презентація'),
+      //    isActive: true,
+
+      //    showBrand: type === 'client',
+      //    showManagerContact: type === 'client',
+      //    useBrandedPhotos: type === 'client',
+
+      //    viewsCount: 0,
+      //    lastViewedAt: null,
+
+      //    // createdByEmployee: body.createdByEmployee || null,
+      //    createdByEmployee: session?.user?.id || null,
+      // };
 
       property.shareLinks.unshift(link);
 

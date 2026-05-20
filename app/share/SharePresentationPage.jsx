@@ -18,6 +18,10 @@ import SquareFootRoundedIcon from '@mui/icons-material/SquareFootRounded';
 import BedRoundedIcon from '@mui/icons-material/BedRounded';
 import ApartmentRoundedIcon from '@mui/icons-material/ApartmentRounded';
 
+import PropertyLandingPresentation from './PropertyLandingPresentation';
+
+import ImageLightbox from '../../crm_components/ImageLightbox';
+
 function formatMoney(value, currency = 'USD') {
    if (!value) return 'Ціна не вказана';
    return `${Number(value).toLocaleString('uk-UA')} ${currency}`;
@@ -50,9 +54,54 @@ function InfoChip({ icon, label }) {
    );
 }
 
+
+
+
+
 export default function SharePresentationPage({ slug }) {
    const [data, setData] = useState(null);
    const [loading, setLoading] = useState(true);
+
+   const [photoOpen, setPhotoOpen] = useState(false);
+   const [photoIndex, setPhotoIndex] = useState(0);
+
+   const [selectedReaction, setSelectedReaction] = useState(null);
+
+   // const handleReaction = async (type) => {
+   //    await fetch(`/api/public/property-share/${slug}/reaction`, {
+   //       method: 'POST',
+   //       headers: { 'Content-Type': 'application/json' },
+   //       body: JSON.stringify({ type }),
+   //    });
+   // };
+
+   const getClientId = () => {
+      const key = 'karamax-share-client-id';
+      let id = localStorage.getItem(key);
+
+      if (!id) {
+         id = crypto.randomUUID();
+         localStorage.setItem(key, id);
+      }
+
+      return id;
+   };
+
+   const handleReaction = async (type) => {
+      setSelectedReaction(type);
+      localStorage.setItem(`share-reaction-${slug}`, type);
+
+      await fetch(`/api/public/property-share/${slug}/reaction`, {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({
+            type,
+            clientId: getClientId(),
+         }),
+      });
+   };
+
+
 
    useEffect(() => {
       const load = async () => {
@@ -63,6 +112,9 @@ export default function SharePresentationPage({ slug }) {
             const json = await res.json();
 
             if (res.ok) setData(json);
+
+            const saved = localStorage.getItem(`share-reaction-${slug}`);
+            if (saved) setSelectedReaction(saved);
          } finally {
             setLoading(false);
          }
@@ -85,7 +137,9 @@ export default function SharePresentationPage({ slug }) {
             <CircularProgress />
          </Box>
       );
-   }
+   };
+
+
 
    if (!data?.property) {
       return (
@@ -107,8 +161,23 @@ export default function SharePresentationPage({ slug }) {
    }
 
    const { property, share } = data;
-   const mainImage = property.images?.[0]?.url || '/krm/logo-krm.png';
+
+   if (share?.presentationType === 'landing' || share?.viewType === 'landing') {
+      return <PropertyLandingPresentation slug={slug} />;
+   }
+
+   const images = property.images || [];
+   const mainImage = images?.[0]?.url || '/krm/logo-krm.png';
+   // const mainImage = property.images?.[0]?.url || '/krm/logo-krm.png';
    const manager = property.assignee;
+
+   const reactionItems = [
+      { type: 'view', label: '👀 Хочу оглянути' },
+      { type: 'like', label: '❤️ Подобається' },
+      { type: 'think', label: '🤔 Подумаю' },
+      { type: 'reject', label: '🙅 Не моє' },
+   ];
+
 
    return (
       <Box
@@ -127,18 +196,20 @@ export default function SharePresentationPage({ slug }) {
                      component="img"
                      src="/krm/logo-krm.png"
                      alt="Karamax"
-                     sx={{ width: 42, height: 42, objectFit: 'contain' }}
+                     sx={{ width: 80, height: 80, objectFit: 'contain' }}
                   />
                   <Box>
                      <Typography sx={{ fontWeight: 950, fontSize: 20 }}>
                         Karamax
                      </Typography>
                      <Typography sx={{ color: 'rgba(255,255,255,0.62)', fontSize: 13 }}>
-                        презентація об’єкта нерухомості
+                        презентація об’єкту нерухомості
                      </Typography>
                   </Box>
                </Stack>
             )}
+
+
 
             <Grid container spacing={2.2}>
                <Grid item xs={12} md={7}>
@@ -153,6 +224,11 @@ export default function SharePresentationPage({ slug }) {
                         borderRadius: 5,
                         border: '1px solid rgba(255,255,255,0.12)',
                         boxShadow: '0 30px 90px rgba(0,0,0,0.45)',
+                        cursor: 'zoom-in',
+                     }}
+                     onClick={() => {
+                        setPhotoIndex(0);
+                        setPhotoOpen(true);
                      }}
                   />
                </Grid>
@@ -188,6 +264,7 @@ export default function SharePresentationPage({ slug }) {
                         {formatMoney(property.price, property.currency)}
                      </Typography>
 
+
                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                         <InfoChip
                            icon={<BedRoundedIcon />}
@@ -206,6 +283,7 @@ export default function SharePresentationPage({ slug }) {
                            label={property.type_building || 'Об’єкт'}
                         />
                      </Stack>
+
 
                      {share.showManagerContact && manager && (
                         <Box
@@ -261,6 +339,62 @@ export default function SharePresentationPage({ slug }) {
                   </Stack>
                </Grid>
 
+               <Grid item xs={12}>
+
+                  {/* <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+                     
+                     {reactions.map((r) => (
+                        <Button
+                           key={r.type}
+                           sx={{
+                              borderRadius: 999,
+                              px: 2,
+                              py: 1,
+                              color: '#fff',
+                              border: '1px solid rgba(255,255,255,0.16)',
+                              bgcolor: 'rgba(255,255,255,0.08)',
+                              fontWeight: 950,
+                           }}
+                           onClick={() => handleReaction(r.type)}>
+                           {r.label}
+                        </Button>
+                     ))}
+                  </Stack> */}
+                  <Grid item xs={12}>
+                     <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mt: 1 }}>
+                        {reactionItems.map((r) => {
+                           const active = selectedReaction === r.type;
+
+                           return (
+                              <Button
+                                 key={r.type}
+                                 onClick={() => handleReaction(r.type)}
+                                 sx={{
+                                    borderRadius: 999,
+                                    px: 2,
+                                    py: 1,
+                                    color: '#fff',
+                                    border: active
+                                       ? '1px solid rgba(196,181,253,0.85)'
+                                       : '1px solid rgba(255,255,255,0.16)',
+                                    bgcolor: active
+                                       ? 'rgba(139,92,246,0.55)'
+                                       : 'rgba(255,255,255,0.08)',
+                                    fontWeight: 950,
+                                    transform: active ? 'translateY(-1px)' : 'none',
+                                    boxShadow: active
+                                       ? '0 12px 35px rgba(139,92,246,0.35)'
+                                       : 'none',
+                                 }}
+                              >
+                                 {active ? `${r.label} ✓` : r.label}
+                              </Button>
+                           );
+                        })}
+                     </Stack>
+                  </Grid>
+               </Grid>
+
                {!!property.description && (
                   <Grid item xs={12}>
                      <Box
@@ -298,6 +432,10 @@ export default function SharePresentationPage({ slug }) {
                                     borderRadius: 3,
                                     border: '1px solid rgba(255,255,255,0.10)',
                                  }}
+                                 onClick={() => {
+                                    setPhotoIndex(idx + 1);
+                                    setPhotoOpen(true);
+                                 }}
                               />
                            </Grid>
                         ))}
@@ -306,6 +444,16 @@ export default function SharePresentationPage({ slug }) {
                )}
             </Grid>
          </Box>
+
+
+         <ImageLightbox
+            open={photoOpen}
+            images={images}
+            index={photoIndex}
+            onClose={() => setPhotoOpen(false)}
+            onChangeIndex={setPhotoIndex}
+         />
+
       </Box>
    );
 }

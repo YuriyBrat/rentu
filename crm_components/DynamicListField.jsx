@@ -28,6 +28,7 @@ export default function DynamicListField({
    const list = ensureArray(value);
 
    const setItem = (idx, val) => {
+      if (idx < 0 || idx >= list.length) return;
       const next = [...list];
       next[idx] = val;
       onChange(next);
@@ -38,8 +39,9 @@ export default function DynamicListField({
    };
 
    const removeItem = (idx) => {
+      if (idx < 0 || idx >= list.length) return;
       const next = list.filter((_, i) => i !== idx);
-      onChange(next.length ? next : ['']);
+      onChange(next && next.length > 0 ? next : ['']);
    };
 
    return (
@@ -50,7 +52,7 @@ export default function DynamicListField({
 
          {list.map((item, idx) => (
             <TextField
-               key={idx}
+               key={`${title}-${idx}-${item}`}
                label={`${title} ${idx + 1}`}
                value={item}
                onChange={(e) => setItem(idx, e.target.value)}
@@ -61,13 +63,29 @@ export default function DynamicListField({
                   endAdornment: (
                      <InputAdornment position="end">
                         {idx === 0 ? (
-                           <IconButton edge="end" onClick={addItem} sx={adornmentBtnSx}>
+                           <IconButton
+                              edge="end"
+                              onClick={() => {
+                                 try {
+                                    addItem();
+                                 } catch (e) {
+                                    console.error('Error adding item:', e);
+                                 }
+                              }}
+                              sx={adornmentBtnSx}
+                           >
                               <AddRoundedIcon fontSize="small" />
                            </IconButton>
                         ) : (
                            <IconButton
                               edge="end"
-                              onClick={() => removeItem(idx)}
+                              onClick={() => {
+                                 try {
+                                    removeItem(idx);
+                                 } catch (e) {
+                                    console.error('Error removing item at index', idx, ':', e);
+                                 }
+                              }}
                               sx={{
                                  ...adornmentBtnSx,
                                  color: 'rgba(255,255,255,0.7)',

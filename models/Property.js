@@ -267,10 +267,60 @@ const ShareLinkSchema = new Schema(
       type: Date,
       default: Date.now,
     },
+
+    presentationType: {
+      type: String,
+      enum: ['classic', 'landing'],
+      default: 'classic',
+      index: true,
+    },
+
+    reactions: [
+      {
+        type: {
+          type: String,
+          enum: ['view', 'like', 'think', 'reject'],
+        },
+        label: String,
+        clientId: String,
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
   },
   { _id: true }
 );
 
+const PropertyVideoSchema = new Schema(
+  {
+    platform: {
+      type: String,
+      enum: ['youtube', 'tiktok', 'instagram', 'facebook', 'drive', 'other'],
+      default: 'other',
+    },
+    type: {
+      type: String,
+      enum: ['main', 'short_review', 'storytelling', 'full_review', 'other'],
+      default: 'main',
+    },
+    title: { type: String, trim: true, default: '' },
+    url: { type: String, trim: true, default: '' },
+    note: { type: String, trim: true, default: '' },
+    isMain: { type: Boolean, default: false },
+    createdByEmployee: {
+      type: Schema.Types.ObjectId,
+      ref: 'Employee',
+      default: null,
+    },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: true }
+);
+
+
+//* main schema below
 
 
 const PropertySchema = new Schema(
@@ -472,6 +522,17 @@ const PropertySchema = new Schema(
       type: [ShareLinkSchema],
       default: [],
     },
+    visualTags: {
+      isHot: { type: Boolean, default: false, index: true },
+      isFavorite: { type: Boolean, default: false, index: true },
+      isRealtorObject: { type: Boolean, default: false, index: true },
+    },
+
+    propertyVideos: {
+      type: [PropertyVideoSchema],
+      default: [],
+    },
+
   },
   { timestamps: true }
 );

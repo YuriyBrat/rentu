@@ -12,10 +12,16 @@ export default function EditPropertyDialog({
    employees = [],
 }) {
 
+   const handleClose = (_event, reason) => {
+      if (reason === 'backdropClick') return;
+
+      onClose?.();
+   };
+
    return (
       <Dialog
          open={open}
-         onClose={onClose}
+         onClose={handleClose}
          fullWidth
          maxWidth="md"
          PaperProps={{

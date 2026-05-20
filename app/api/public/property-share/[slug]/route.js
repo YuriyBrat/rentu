@@ -1,5 +1,6 @@
 import connectDB from '@/config/database';
 import Property from '@/models/Property';
+import Employee from '@/models/Employee';
 
 export const GET = async (req, { params }) => {
    try {
@@ -51,8 +52,10 @@ export const GET = async (req, { params }) => {
          share: {
             type: shareLink.type,
             title: shareLink.title,
+            presentationType: shareLink.presentationType || 'classic',
             showBrand: shareLink.showBrand,
             showManagerContact: shareLink.showManagerContact,
+            reactions: shareLink.reactions || [],
          },
          property: {
             title: property.title,
@@ -72,6 +75,10 @@ export const GET = async (req, { params }) => {
             advantages: property.advantages || [],
             images,
             assignee: shareLink.showManagerContact ? property.assignee : null,
+            advertisingTexts: property.advertisingTexts || [],
+
+
+            propertyVideos: property.propertyVideos || [],
          },
       });
    } catch (error) {

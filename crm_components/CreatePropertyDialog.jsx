@@ -5,10 +5,17 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import PropertyForm from './PropertyForm5';
 
 export default function CreatePropertyDialog({ open, onClose, onSubmit, employees = [], }) {
+
+   const handleClose = (event, reason) => {
+      if (reason === 'backdropClick') return;
+      // onClose?.();
+   };
+
+
    return (
       <Dialog
          open={open}
-         onClose={onClose}
+         onClose={handleClose}
          fullWidth
          maxWidth="md"
          PaperProps={{
