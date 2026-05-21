@@ -92,10 +92,30 @@ const CustomBetweenSelect = ({
   const [isOpen, setIsOpen] = useState(false);
   const [from, setFrom] = useState(fromValue);
   const [to, setTo] = useState(toValue);
+  const skipNotifyRef = useRef(true);
 
   const wrapperRef = useRef(null);
 
   const toggleOpen = () => setIsOpen((prev) => !prev);
+
+  useEffect(() => {
+    skipNotifyRef.current = true;
+    setFrom(fromValue || "");
+    setTo(toValue || "");
+  }, [fromValue, toValue]);
+
+  useEffect(() => {
+    if (skipNotifyRef.current) {
+      skipNotifyRef.current = false;
+      return;
+    }
+
+    const id = setTimeout(() => {
+      onChange?.({ from, to });
+    }, 350);
+
+    return () => clearTimeout(id);
+  }, [from, to, onChange]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -116,11 +136,6 @@ const CustomBetweenSelect = ({
 
     if (type === "from") setFrom(newValue);
     if (type === "to") setTo(newValue);
-
-    onChange?.({
-      from: type === "from" ? newValue : from,
-      to: type === "to" ? newValue : to,
-    });
   };
 
   const displayValue =

@@ -25,6 +25,7 @@
     "docx": "^9.3.0",
     "file-saver": "^2.0.5",
     "framer-motion": "^12.23.12",
+    "heic2any": "^0.0.4",
     "install": "^0.13.0",
     "lucide-react": "^0.536.0",
     "mapbox-gl": "^3.5.2",

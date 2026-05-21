@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 
 import {
    styled, useTheme, Box, Typography, TextField, Divider,
@@ -40,6 +40,10 @@ const ViewsProp = () => {
    const [page, setPage] = useState(1);
    const [pageSize, setPageSize] = useState(5);
    const [totalItems, setTotalItems] = useState(0);
+   const [selectedRooms, setSelectedRooms] = useState([]);
+   const [selectedTypes, setSelectedTypes] = useState([]);
+   const [areaRange, setAreaRange] = useState({ from: '', to: '' });
+   const [priceRange, setPriceRange] = useState({ from: '', to: '' });
 
 
 
@@ -79,6 +83,75 @@ const ViewsProp = () => {
       fetchLeadProps()
 
    }, [page, pageSize]);
+
+   const filteredProperties = useMemo(() => {
+      const inRange = (value, range) => {
+         if (!range?.from && !range?.to) return true;
+
+         const num = Number(value);
+         if (!Number.isFinite(num) || num <= 0) return false;
+
+         if (range.from && num < Number(range.from)) return false;
+         if (range.to && num > Number(range.to)) return false;
+         return true;
+      };
+
+      const normalize = (value) => String(value || '').trim().toLowerCase();
+      const typeMatchers = {
+         'австр': ['австр'],
+         'ав.люкс': ['ав.люкс', 'австрійський люкс', 'люкс'],
+         'хрущ': ['хрущ'],
+         'чешка': ['чеш'],
+         'нов_00-10': ['2000-2010', '2000', '2010'],
+         'нов_10-20': ['2010-2020', '2010', '2020'],
+         'нов_від_20': ['від 2020', '2020'],
+      };
+
+      return properties.filter((prop) => {
+         if (selectedRooms.length && !selectedRooms.includes(String(prop?.rooms || ''))) {
+            return false;
+         }
+
+         if (!inRange(prop?.square_tot, areaRange)) return false;
+         if (!inRange(prop?.cost, priceRange)) return false;
+
+         if (selectedTypes.length) {
+            const typeText = [
+               prop?.type_building,
+               prop?.type_house,
+               prop?.type_estate,
+               prop?.type_walls,
+               prop?.title,
+               prop?.description,
+            ].map(normalize).join(' ');
+
+            const hasType = selectedTypes.some((type) => {
+               const needles = typeMatchers[type] || [normalize(type)];
+               return needles.some((needle) => typeText.includes(needle));
+            });
+
+            if (!hasType) return false;
+         }
+
+         return true;
+      });
+   }, [areaRange, priceRange, properties, selectedRooms, selectedTypes]);
+
+   const hasActiveFilters = Boolean(
+      selectedRooms.length ||
+      selectedTypes.length ||
+      areaRange.from ||
+      areaRange.to ||
+      priceRange.from ||
+      priceRange.to
+   );
+
+   const resetFilters = () => {
+      setSelectedRooms([]);
+      setSelectedTypes([]);
+      setAreaRange({ from: '', to: '' });
+      setPriceRange({ from: '', to: '' });
+   };
 
    const theme = useTheme();
    const colorGray = theme.palette.divider;
@@ -173,8 +246,8 @@ const ViewsProp = () => {
                               icon="ic:outline-bed"
                               data={roomsSearch}
                               placeholder="К-сть кімнат"
-                           // defaultChecked={selectedRooms}
-                           // onChange={setSelectedRooms}
+                              defaultChecked={selectedRooms}
+                              onChange={setSelectedRooms}
                            />
                            <CustomBetweenSelect
                               data={PropertySize}
@@ -183,11 +256,16 @@ const ViewsProp = () => {
                               min="0"
                               max="1000"
                               placeholder="Площа загальна"
+                              fromValue={areaRange.from}
+                              toValue={areaRange.to}
+                              onChange={setAreaRange}
                            />
                            <CustomMultiSelect
                               data={typeHouseSearch}
                               icon="ic:outline-maps-home-work"
                               placeholder="Тип будинку"
+                              defaultChecked={selectedTypes}
+                              onChange={setSelectedTypes}
                            />
 
                            {/* <Iconify icon="ic:outline-bed" fontSize='small' sx={{ color: "text.secondary" }} /> */}
@@ -199,7 +277,20 @@ const ViewsProp = () => {
                               max="1000000"
                               step={1000}
                               placeholder="Вартість"
+                              fromValue={priceRange.from}
+                              toValue={priceRange.to}
+                              onChange={setPriceRange}
                            />
+                           {!!hasActiveFilters && (
+                              <Button
+                                 variant="outlined"
+                                 color="primary"
+                                 onClick={resetFilters}
+                                 sx={{ minWidth: 140, borderRadius: '10px' }}
+                              >
+                                 Скинути
+                              </Button>
+                           )}
                         </Stack>
                      </StyledWrapperBox>
                   </Stack>
@@ -212,21 +303,34 @@ const ViewsProp = () => {
 
 
                   {
-                     properties.length === 0
+                     filteredProperties.length === 0
                         ?
                         <Typography variant="h3" color="text.secondary" mb={2}>Об'єктів не знайдено</Typography>
                         : (
                            // <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                            // <Container >
-                           <Grid container spacing={1} p={1} >
-                              {/* <Grid id="description" item xs={12} md={6}></Grid> */}
+                           <Box
+                              sx={{
+                                 display: 'grid',
+                                 gridTemplateColumns: {
+                                    xs: '1fr',
+                                    sm: 'repeat(2, minmax(0, 1fr))',
+                                    md: 'repeat(3, minmax(0, 1fr))',
+                                    lg: 'repeat(4, minmax(0, 1fr))',
+                                 },
+                                 columnGap: 3,
+                                 rowGap: 5,
+                                 width: '100%',
+                                 pt: 1.5,
+                                 alignItems: 'start',
+                              }}
+                           >
                               {
-                                 properties.map(prop => (
+                                 filteredProperties.map(prop => (
                                     <ViewCard prop={prop} key={prop._id} />
                                  ))
                               }
-                              {/* </Container> */}
-                           </Grid>
+                           </Box>
                         )
                   }
 

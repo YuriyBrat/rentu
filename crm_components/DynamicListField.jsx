@@ -52,7 +52,8 @@ export default function DynamicListField({
 
          {list.map((item, idx) => (
             <TextField
-               key={`${title}-${idx}-${item}`}
+               // key={`${title}-${idx}-${item}`}
+               key={`${title}-${idx}`}
                label={`${title} ${idx + 1}`}
                value={item}
                onChange={(e) => setItem(idx, e.target.value)}

@@ -82,13 +82,19 @@ const CustomMultiSelect = ({
    icon,
    data = [],
    placeholder = "",
-   defaultChecked = [],
+   defaultChecked,
    onChange,
 }) => {
    const [isOpen, setIsOpen] = useState(false);
    const [selectedOption, setSelectedOption] = useState(defaultChecked || []);
 
    const selectRef = useRef(null);
+
+   useEffect(() => {
+      if (Array.isArray(defaultChecked)) {
+         setSelectedOption(defaultChecked);
+      }
+   }, [defaultChecked]);
 
    useEffect(() => {
       const handleOutsideClick = (event) => {

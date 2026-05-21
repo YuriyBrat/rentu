@@ -113,6 +113,49 @@ function getVisibleSortedImages(images = []) {
       .sort((a, b) => (a?.sortOrder ?? 0) - (b?.sortOrder ?? 0));
 }
 
+function normalizePublicSaleProperty(item) {
+   const visibleImages = getVisibleSortedImages(item.images || []);
+   const main = visibleImages.find((img) => img?.isMain) || visibleImages[0];
+
+   const mainImage = getBestCardImage(main) || '/background/bg1.jpg';
+
+   const imageList =
+      visibleImages.length > 0
+         ? visibleImages.map((img) => getBestFullImage(img)).filter(Boolean)
+         : [];
+
+   return {
+      _id: item._id.toString(),
+      title: item.title || '',
+      cost: item.cost ?? '',
+      currency: item.currency || 'USD',
+      description: item.description || '',
+      location_text:
+         item.location_text ||
+         [item.location?.city, item.location?.street, item.location?.number]
+            .filter(Boolean)
+            .join(', '),
+      rooms: item.rooms ?? '',
+      square_tot: item.square_tot ?? '',
+      square_liv: item.square_liv ?? '',
+      square_kit: item.square_kit ?? '',
+      floor: item.floor ?? '',
+      floors: item.floors ?? '',
+      type_walls: item.type_walls || '',
+      type_building: item.type_building || '',
+      type_house: item.type_house || '',
+      type_estate: item.type_estate || '',
+      advantages: Array.isArray(item.advantages) ? item.advantages : [],
+      visualTags: {
+         isHot: !!item.visualTags?.isHot,
+         isFavorite: !!item.visualTags?.isFavorite,
+      },
+      images: imageList,
+      mainImage,
+      createdAt: item.createdAt,
+   };
+}
+
 export const GET = async (req) => {
    try {
       await connectDB();
@@ -122,7 +165,7 @@ export const GET = async (req) => {
       const skip = (page - 1) * pageSize;
 
       const filter = {
-         // isPublic: true,
+         isPublic: true,
          // actualityGroup: 'active',
          type_deal: {
             $in: [/^\s*продаж\s*$/i, /^\s*sale\s*$/i],
@@ -137,37 +180,7 @@ export const GET = async (req) => {
          .limit(pageSize)
          .lean();
 
-      const properties = rawProperties.map((item) => {
-         const visibleImages = getVisibleSortedImages(item.images || []);
-         const main = visibleImages.find((img) => img?.isMain) || visibleImages[0];
-
-         const mainImage = getBestCardImage(main) || '/background/bg1.jpg';
-
-         const imageList =
-            visibleImages.length > 0
-               ? visibleImages.map((img) => getBestFullImage(img)).filter(Boolean)
-               : [];
-
-         return {
-            _id: item._id.toString(),
-            title: item.title || '',
-            cost: item.cost ?? '',
-            currency: item.currency || 'USD',
-            location_text:
-               item.location_text ||
-               [item.location?.city, item.location?.street, item.location?.number]
-                  .filter(Boolean)
-                  .join(', '),
-            rooms: item.rooms ?? '',
-            square_tot: item.square_tot ?? '',
-            floor: item.floor ?? '',
-            floors: item.floors ?? '',
-            type_walls: item.type_walls || '',
-            images: imageList,
-            mainImage,
-            createdAt: item.createdAt,
-         };
-      });
+      const properties = rawProperties.map(normalizePublicSaleProperty);
 
       return new Response(
          JSON.stringify({

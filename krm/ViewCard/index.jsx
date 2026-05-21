@@ -1,11 +1,10 @@
 'use client'
 
 import { memo } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 
 import { LazyLoadImage } from "react-lazy-load-image-component";
-import { styled, useTheme, Box, Typography, Container, Grid, Stack, Button } from '@mui/material';
+import { styled, useTheme, Box, Typography, Stack, Button } from '@mui/material';
 
 import Iconify from "@/estatein/components/iconify/iconify";
 import LineWeightIcon from '@mui/icons-material/LineWeight';
@@ -28,10 +27,6 @@ import { Navigation } from 'swiper/modules';
 
 import { checkFieldFront, getCurrencySymbol } from '@/hooks/text.hook';
 
-
-
-import { Gallery, Item } from 'react-photoswipe-gallery';
-import 'photoswipe/style.css'; // Обов’язково
 
 
 const ViewCard = memo(({ prop }) => {
@@ -63,29 +58,81 @@ const ViewCard = memo(({ prop }) => {
             ? [prop.mainImage]
             : ['/background/bg1.jpg'];
 
+   const badges = [
+      prop?.visualTags?.isHot ? '🔥' : '',
+      prop?.visualTags?.isFavorite ? '❤' : '',
+   ].filter(Boolean);
+
 
    return (
-      <Gallery>
-         <Grid item xs={12} sm={6} md={4} lg={3} sx={{ display: 'flex' }}>
-            <Box
-               sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'space-between',
-                  width: '100%',
-                  height: '100%',
-                  border: borderValue,
-                  py: 2,
-                  px: 2,
-                  mb: 1,
-                  borderRadius: "10px",
-                  position: 'relative',
-               }}
-            >
+      <Box
+         sx={{
+            display: 'flex',
+            minWidth: 0,
+            width: '100%',
+            pt: 1.8,
+         }}
+      >
+         <Box
+            sx={{
+               display: 'flex',
+               flexDirection: 'column',
+               minWidth: 0,
+               width: '100%',
+               border: borderValue,
+               pt: 2,
+               pb: 2,
+               px: 2,
+               borderRadius: "10px",
+               position: 'relative',
+               gap: 1.1,
+               overflow: 'visible',
+            }}
+         >
+
+               {!!badges.length && (
+                  <Stack
+                     direction="row"
+                     alignItems="center"
+                     gap={0.6}
+                     sx={{
+                        position: 'absolute',
+                        top: '-14px',
+                        left: '18px',
+                        px: 0.7,
+                        bgcolor: 'background.default',
+                        lineHeight: 1,
+                        zIndex: 2,
+                     }}
+                  >
+                     {badges.map((badge, index) => (
+                        <Typography
+                           key={`${badge}-${index}`}
+                           component="span"
+                           sx={{
+                              fontSize: '1rem',
+                              lineHeight: 1.1,
+                           }}
+                        >
+                           {badge}
+                        </Typography>
+                     ))}
+                  </Stack>
+               )}
 
                {/* Ціна */}
-               <Box sx={{ position: 'absolute', top: '-13px', right: '20px' }}>
-                  <Typography variant="subtitle1" color="text.secondary">
+               <Box
+                  sx={{
+                     position: 'absolute',
+                     top: '-13px',
+                     right: '18px',
+                     px: 0.8,
+                     bgcolor: 'background.default',
+                     lineHeight: 1,
+                     zIndex: 2,
+                  }}
+               >
+                  <Typography variant="subtitle1" color="text.secondary" sx={{ lineHeight: 1.2, fontWeight: 700 }}>
                      {prop.cost} {getCurrencySymbol(prop.currency)}
                   </Typography>
                </Box>
@@ -94,18 +141,28 @@ const ViewCard = memo(({ prop }) => {
                <Typography
                   variant="subtitle1"
                   color="text.secondary"
-                  sx={{ textAlign: 'center', lineHeight: 1.25, fontSize: { xs: '1rem', sm: '0.95rem', lg: '0.95rem' }, mb: 0.5 }}
+                  sx={{
+                     textAlign: 'center',
+                     lineHeight: 1.25,
+                     fontSize: { xs: '1rem', sm: '0.95rem', lg: '0.95rem' },
+                     minHeight: 48,
+                     mb: 0.5,
+                     display: '-webkit-box',
+                     WebkitBoxOrient: 'vertical',
+                     WebkitLineClamp: 2,
+                     overflow: 'hidden',
+                  }}
                >
                   {prop.title}
                </Typography>
 
                {/* Зображення (вирівняне по низу) */}
-               <Box sx={{ mt: 'auto', mb: 2 }}>
+               <Box sx={{ width: '100%', minWidth: 0 }}>
                   <Swiper
                      loop
                      navigation
                      modules={[Navigation]}
-                     style={{ width: '100%' }}
+                     style={{ width: '100%', maxWidth: '100%' }}
                      className={"mySwiper"}
                   >
                      {galleryImages.map((img, idx) => (
@@ -143,14 +200,27 @@ const ViewCard = memo(({ prop }) => {
                   variant="subtitle2"
                   color="text.primary"
                   pl={0.5}
-                  sx={{ fontSize: { sm: '1rem', lg: '0.9rem' }, fontWeight: 300 }}
+                  sx={{
+                     fontSize: { sm: '1rem', lg: '0.9rem' },
+                     fontWeight: 300,
+                     display: '-webkit-box',
+                     WebkitBoxOrient: 'vertical',
+                     WebkitLineClamp: 2,
+                     overflow: 'hidden',
+                  }}
                >
                   {/* <LocationOnOutlinedIcon fontSize='small' sx={{ color: "text.secondary" }} /> */}
                   {prop?.location_text ? prop?.location_text : '...  '}
                </Typography>
 
                {/* Характеристики та кнопка */}
-               <Stack direction="row" alignItems="center" gap={0.2} mt={1} sx={{ position: 'relative' }}>
+               <Stack
+                  direction="row"
+                  alignItems="center"
+                  gap={0.5}
+                  mt={0.4}
+                  flexWrap="wrap"
+               >
                   <StyledRoomsStack direction="row" alignItems="center">
                      <Iconify icon="ic:outline-bed" fontSize='small' sx={{ color: "text.secondary" }} />
                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.8rem' }}>
@@ -179,8 +249,7 @@ const ViewCard = memo(({ prop }) => {
                      variant="contained"
                      color="primary"
                      sx={{
-                        position: 'absolute',
-                        right: 0,
+                        ml: 'auto',
                         paddingY: '8px',
                         paddingX: '9px',
                         minWidth: 'unset',
@@ -192,9 +261,8 @@ const ViewCard = memo(({ prop }) => {
                      Опис
                   </Button>
                </Stack>
-            </Box>
-         </Grid>
-      </Gallery>
+         </Box>
+      </Box>
    );
 }
 )

@@ -93,7 +93,9 @@ const PropertiesView = () => {
          try {
             // const res = await fetch(`/api/rcs/leadprop?page=${page}&pageSize=${pageSize}`);
             if (!id) return;
-            const res = await fetch(`/api/rcs/leadprop/` + id);
+            const res = await fetch(`/api/properties/sale/${id}`, {
+               cache: 'no-store',
+            });
 
             if (!res.ok) {
                throw new Error('Failed to get properties')

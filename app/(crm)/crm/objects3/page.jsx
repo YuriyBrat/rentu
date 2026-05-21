@@ -6,8 +6,17 @@ import {
    Typography,
    Button,
    TextField,
-   Stack
+   Stack,
+   Grid,
+   Dialog,
+   DialogTitle,
+   DialogContent,
+   DialogActions,
+   Alert,
+   MenuItem,
 } from '@mui/material';
+
+import { useCRMTheme } from '@/app/(crm)/crm/context/CRMThemeContext';
 
 import AddIcon from '@mui/icons-material/Add';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
@@ -22,6 +31,31 @@ import { createProperty, updateProperty } from '@/utils/crm/propertyApi';
 
 const MAX_FILES = 25;
 
+const getFieldSx = (theme, mode) => ({
+   '& .MuiOutlinedInput-root': {
+      bgcolor: mode === 'light' ? 'rgba(124,58,237,0.035)' : 'rgba(255,255,255,0.04)',
+      borderRadius: 2.5,
+      color: theme.text,
+      '& fieldset': { borderColor: theme.border },
+      '&:hover fieldset': { borderColor: theme.accent },
+      '&.Mui-focused fieldset': { borderColor: theme.accentLight },
+   },
+   '& .MuiInputLabel-root': {
+      color: theme.textSoft,
+   },
+   '& .MuiInputBase-input': {
+      color: `${theme.text} !important`,
+      WebkitTextFillColor: theme.text,
+   },
+   '& textarea': {
+      color: `${theme.text} !important`,
+      WebkitTextFillColor: theme.text,
+   },
+   '& .MuiSelect-icon': {
+      color: theme.text,
+   },
+});
+
 export default function ObjectsPage() {
    const [openCreate, setOpenCreate] = useState(false);
    const [q, setQ] = useState('');
@@ -31,13 +65,71 @@ export default function ObjectsPage() {
    const [editingItem, setEditingItem] = useState(null);
    const [employees, setEmployees] = useState([]);
 
-   const load = async (query = '') => {
+   const { theme, mode } = useCRMTheme();
+   const fieldSx = getFieldSx(theme, mode);
+
+
+   const [filters, setFilters] = useState({
+      assignee: '',
+      actualityGroup: '',
+      type_estate: '',
+      isPublic: '',
+   });
+
+   const [errorDialog, setErrorDialog] = useState({
+      open: false,
+      title: '',
+      message: '',
+      details: '',
+   });
+
+   // const load = async (query = '') => {
+   //    setLoading(true);
+   //    try {
+   //       // const res = await fetch(`/api/crm/properties?q=${encodeURIComponent(query)}`, { cache: 'no-store' });
+   //       const res = await fetch(`/api/crm/properties?mode=sale&q=${encodeURIComponent(query)}`, { cache: 'no-store' });
+   //       const data = await res.json();
+   //       setItems(data.items || []);
+   //    } finally {
+   //       setLoading(false);
+   //    }
+   // };
+
+   const load = async (query = q, nextFilters = filters) => {
       setLoading(true);
+
       try {
-         // const res = await fetch(`/api/crm/properties?q=${encodeURIComponent(query)}`, { cache: 'no-store' });
-         const res = await fetch(`/api/crm/properties?mode=sale&q=${encodeURIComponent(query)}`, { cache: 'no-store' });
-         const data = await res.json();
-         setItems(data.items || []);
+         const params = new URLSearchParams();
+
+         params.set('mode', 'sale');
+
+         if (query?.trim()) params.set('q', query.trim());
+         if (nextFilters.assignee) params.set('assignee', nextFilters.assignee);
+         if (nextFilters.actualityGroup) params.set('actualityGroup', nextFilters.actualityGroup);
+         if (nextFilters.type_estate) params.set('type_estate', nextFilters.type_estate);
+         if (nextFilters.isPublic) params.set('isPublic', nextFilters.isPublic);
+
+         const res = await fetch(`/api/crm/properties?${params.toString()}`, {
+            cache: 'no-store',
+         });
+
+         const text = await res.text();
+
+         let data = null;
+         try {
+            data = JSON.parse(text);
+         } catch {
+            data = null;
+         }
+
+         if (!res.ok) {
+            throw new Error(data?.error || data?.message || text || 'Не вдалося завантажити об’єкти');
+         }
+
+         setItems(data?.items || []);
+      } catch (e) {
+         console.error(e);
+         showError('Не вдалося завантажити об’єкти', e);
       } finally {
          setLoading(false);
       }
@@ -54,6 +146,15 @@ export default function ObjectsPage() {
          console.error(e);
          setEmployees([]);
       }
+   };
+
+   const showError = (title, error) => {
+      setErrorDialog({
+         open: true,
+         title,
+         message: error?.message || 'Щось пішло не так',
+         details: error?.details || error?.stack || '',
+      });
    };
 
 
@@ -97,128 +198,8 @@ export default function ObjectsPage() {
    useEffect(() => {
       const t = setTimeout(() => load(q), 350);
       return () => clearTimeout(t);
-   }, [q]);
+   }, [q, filters]);
 
-
-   // const handleCreate = async (payload) => {
-   //    try {
-   //       const fd = new FormData();
-
-   //       fd.set('title', payload.title || '');
-
-   //       fd.set('type_estate', payload.type_estate || '');
-   //       fd.set('type_deal', payload.type_deal || '');
-   //       fd.set('location_text', payload.location_text || '');
-
-   //       fd.set('location.city', payload.location?.city || '');
-   //       fd.set('location.street', payload.location?.street || '');
-   //       fd.set('location.number', payload.location?.number || '');
-
-   //       fd.set('isPublic', String(!!payload.isPublic));
-   //       fd.set('actualityGroup', payload.actualityGroup || 'active');
-   //       fd.set('actualityStatus', payload.actualityStatus || 'Продзвін');
-   //       fd.set('actualityNote', payload.actualityNote || '');
-
-   //       const num = (k, v) => {
-   //          if (v === undefined || v === null || v === '') return;
-   //          fd.set(k, String(v));
-   //       };
-
-   //       num('rooms', payload.rooms);
-   //       num('square_tot', payload.square_tot);
-   //       num('square_liv', payload.square_liv);
-   //       num('square_kit', payload.square_kit);
-   //       num('square_area', payload.square_area);
-   //       num('square_use', payload.square_use);
-
-   //       if (payload.area_unit) fd.set('area_unit', payload.area_unit);
-
-   //       num('floor', payload.floor);
-   //       num('floors', payload.floors);
-
-   //       if (payload.type_building) fd.set('type_building', payload.type_building);
-   //       if (payload.type_walls) fd.set('type_walls', payload.type_walls);
-
-   //       num('balconies', payload.balconies);
-   //       num('height_wall', payload.height_wall);
-
-   //       if (payload.type_using) fd.set('type_using', payload.type_using);
-   //       if (payload.type_commerce) fd.set('type_commerce', payload.type_commerce);
-   //       if (payload.type_house) fd.set('type_house', payload.type_house);
-   //       if (payload.purpose_area) fd.set('purpose_area', payload.purpose_area);
-
-   //       num('cost', payload.cost);
-   //       fd.set('currency', payload.currency || 'USD');
-
-   //       fd.set('description', payload.description || '');
-
-   //       // =========================
-   //       // НОВЕ: оренда
-   //       // =========================
-   //       fd.set('statusRent', payload.statusRent || 'rentNo');
-   //       fd.set('rentOptions', JSON.stringify(payload.rentOptions || {}));
-
-   //       // =========================
-   //       // НОВЕ: власники / контакти
-   //       // =========================
-   //       fd.set('owners', JSON.stringify(payload.owners || []));
-
-   //       // старі поля можна вже прибрати,
-   //       // або залишити тимчасово для сумісності
-   //       if (payload.leadname) fd.set('leadname', payload.leadname);
-   //       if (payload.phone) fd.set('phone', payload.phone);
-   //       if (payload.email) fd.set('email', payload.email);
-
-   //       (payload.advantages || []).forEach((x) => {
-   //          const v = String(x || '').trim();
-   //          if (v) fd.append('advantages', v);
-   //       });
-
-   //       (payload.disadvantages || []).forEach((x) => {
-   //          const v = String(x || '').trim();
-   //          if (v) fd.append('disadvantages', v);
-   //       });
-
-   //       // files
-   //       (payload.images || []).slice(0, MAX_FILES).forEach((img) => {
-   //          if (img?.file) fd.append('images', img.file);
-   //       });
-
-   //       // meta for files
-   //       fd.set(
-   //          'imagesMeta',
-   //          JSON.stringify(
-   //             (payload.images || []).slice(0, MAX_FILES).map((img, index) => ({
-   //                originalName: img?.file?.name || '',
-   //                isMain: !!img?.isMain,
-   //                stage: img?.stage || 'draft',
-   //                order: index,
-   //                sortOrder: index,
-   //             }))
-   //          )
-   //       );
-
-   //       console.log('CREATE FD statusRent:', payload.statusRent);
-   //       console.log('CREATE FD owners:', payload.owners);
-   //       console.log('CREATE FD rentOptions:', payload.rentOptions);
-
-   //       const res = await fetch('/api/crm/properties', {
-   //          method: 'POST',
-   //          body: fd,
-   //       });
-
-   //       if (!res.ok) {
-   //          const txt = await res.text();
-   //          throw new Error(txt || 'Помилка створення');
-   //       }
-
-   //       setOpenCreate(false);
-   //       await load(q);
-   //    } catch (e) {
-   //       console.error(e);
-   //       alert(e?.message || 'Помилка створення');
-   //    }
-   // };
 
    const handleCreate = async (payload) => {
       try {
@@ -227,7 +208,8 @@ export default function ObjectsPage() {
          await load(q);
       } catch (e) {
          console.error(e);
-         alert(e?.message || 'Помилка створення');
+         // alert(e?.message || 'Помилка створення');
+         showError('Не вдалося додати об’єкт', e);
       }
    };
 
@@ -240,7 +222,8 @@ export default function ObjectsPage() {
          await load(q);
       } catch (e) {
          console.error(e);
-         alert(e?.message || 'Помилка оновлення');
+         // alert(e?.message || 'Помилка оновлення');
+         showError('Не вдалося оновити об’єкт', e);
       }
    };
 
@@ -269,62 +252,177 @@ export default function ObjectsPage() {
 
    return (
       <Box>
-         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} alignItems={{ xs: 'stretch', md: 'center' }} justifyContent="space-between" sx={{ mb: 3 }}>
-            <Box>
-               <Typography variant="h5" fontWeight={950} sx={{ color: '#fff' }}>
+         <Stack
+            direction={{ xs: 'column', lg: 'row' }}
+            spacing={1.4}
+            alignItems={{ xs: 'stretch', lg: 'center' }}
+            justifyContent="space-between"
+            sx={{ mb: 2.2 }}
+         >
+            {/* LEFT */}
+            <Stack
+               direction="row"
+               spacing={1.5}
+               alignItems="center"
+               flexWrap="wrap"
+               sx={{ flex: 1 }}
+            >
+               <Typography
+                  variant="h5"
+                  fontWeight={950}
+                  sx={{
+                     color: theme.text,
+                     whiteSpace: 'nowrap',
+                     mr: 1,
+                  }}
+               >
                   Об'єкти
                </Typography>
-               <Typography sx={{ fontSize: 12, opacity: 0.65, mt: 0.4 }}>
-                  Каталог об’єктів CRM • Black + Purple neon
-               </Typography>
-            </Box>
 
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems="center">
                <TextField
-                  placeholder="Пошук по назві / адресі..."
+                  placeholder="Пошук..."
                   size="small"
-                  InputProps={{ startAdornment: <SearchRoundedIcon sx={{ mr: 1, opacity: 0.7 }} /> }}
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
                   sx={{
-                     width: { xs: '100%', sm: 320 },
-                     '& .MuiOutlinedInput-root': {
-                        bgcolor: 'rgba(255,255,255,0.03)',
-                        borderRadius: 3,
-                        color: '#fff',
-                        '& fieldset': { borderColor: 'rgba(255,255,255,0.10)' },
-                     },
+                     ...fieldSx,
+                     minWidth: 240,
+                     flex: 1,
+                     maxWidth: 360,
+                  }}
+                  InputProps={{
+                     startAdornment: (
+                        <SearchRoundedIcon
+                           sx={{
+                              mr: 1,
+                              opacity: 0.7,
+                              color: theme.textSoft,
+                           }}
+                        />
+                     ),
                   }}
                />
 
-               <Button
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  onClick={() => setOpenCreate(true)}
+               <TextField
+                  select
+                  size="small"
+                  label="Працівник"
+                  value={filters.assignee}
+                  onChange={(e) =>
+                     setFilters((p) => ({
+                        ...p,
+                        assignee: e.target.value,
+                     }))
+                  }
                   sx={{
-                     borderRadius: 3,
-                     fontWeight: 950,
-                     px: 2.2,
-                     background: 'linear-gradient(90deg, rgba(139,92,246,1), rgba(168,85,247,1))',
-                     boxShadow: '0 14px 30px rgba(139,92,246,0.35)',
-                     '&:hover': { boxShadow: '0 18px 40px rgba(139,92,246,0.45)' },
+                     ...fieldSx,
+                     minWidth: 180,
                   }}
                >
-                  Додати об'єкт
+                  <MenuItem value="">Всі</MenuItem>
+
+                  {employees.map((emp) => (
+                     <MenuItem key={emp._id} value={emp._id}>
+                        {emp.fullName ||
+                           [emp.surname, emp.name]
+                              .filter(Boolean)
+                              .join(' ') ||
+                           emp.name}
+                     </MenuItem>
+                  ))}
+               </TextField>
+
+               <TextField
+                  select
+                  size="small"
+                  label="Статус"
+                  value={filters.actualityGroup}
+                  onChange={(e) =>
+                     setFilters((p) => ({
+                        ...p,
+                        actualityGroup: e.target.value,
+                     }))
+                  }
+                  sx={{
+                     ...fieldSx,
+                     minWidth: 160,
+                  }}
+               >
+                  <MenuItem value="">Всі</MenuItem>
+                  <MenuItem value="active">Актуальні</MenuItem>
+                  <MenuItem value="paused">Зупинені</MenuItem>
+                  <MenuItem value="inactive">Неактуальні</MenuItem>
+               </TextField>
+
+               <TextField
+                  select
+                  size="small"
+                  label="Тип"
+                  value={filters.type_estate}
+                  onChange={(e) =>
+                     setFilters((p) => ({
+                        ...p,
+                        type_estate: e.target.value,
+                     }))
+                  }
+                  sx={{
+                     ...fieldSx,
+                     minWidth: 150,
+                  }}
+               >
+                  <MenuItem value="">Всі</MenuItem>
+                  <MenuItem value="flat">Квартира</MenuItem>
+                  <MenuItem value="house">Будинок</MenuItem>
+                  <MenuItem value="commerce">Комерція</MenuItem>
+                  <MenuItem value="land">Ділянка</MenuItem>
+               </TextField>
+
+               <Button
+                  onClick={() => {
+                     setQ('');
+
+                     setFilters({
+                        assignee: '',
+                        actualityGroup: '',
+                        type_estate: '',
+                        isPublic: '',
+                     });
+                  }}
+                  sx={{
+                     height: 40,
+                     borderRadius: 3,
+                     fontWeight: 900,
+                     color: theme.text,
+                     border: `1px solid ${theme.border}`,
+                     px: 2,
+                  }}
+               >
+                  Скинути
                </Button>
             </Stack>
+
+            {/* RIGHT */}
+            <Button
+               variant="contained"
+               startIcon={<AddIcon />}
+               onClick={() => setOpenCreate(true)}
+               sx={{
+                  borderRadius: 3,
+                  fontWeight: 950,
+                  px: 2.2,
+                  minHeight: 42,
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0,
+                  alignSelf: { xs: 'flex-start', lg: 'center' },
+                  background: `linear-gradient(90deg, ${theme.accent}, ${theme.accentLight})`,
+                  boxShadow: `0 14px 30px ${theme.glow}`,
+               }}
+            >
+               Додати об'єкт
+            </Button>
          </Stack>
 
-         {/* <Grid container spacing={3}>
-            {items.map((p) => (
-               <Grid item xs={12} md={6} lg={4} key={p._id}>
-                  <PropertyCard
-                     property={p}
-                     onDelete={handleDelete}
-                     onEdit={(item) => console.log('edit', item)}
-                     onView={(item) => console.log('view', item)}
-                  />
-               </Grid>
-            ))}
-         </Grid> */}
+
 
          <Stack spacing={1.15}>
             {items.map((p) => (
@@ -334,7 +432,8 @@ export default function ObjectsPage() {
                   onDelete={handleDelete}
                   onEdit={(item) => setEditingItem(item)}
                   onView={(item) => console.log('view', item)}
-                  onRefresh={() => load()}
+                  // onRefresh={() => load()}
+                  onRefresh={() => load(q, filters)}
                />
             ))}
          </Stack>
@@ -358,6 +457,45 @@ export default function ObjectsPage() {
                onSubmit={handleUpdate}
             />
          )}
+
+
+
+         <Dialog
+            open={errorDialog.open}
+            onClose={() => setErrorDialog((p) => ({ ...p, open: false }))}
+            fullWidth
+            maxWidth="sm"
+            PaperProps={{
+               sx: {
+                  borderRadius: 4,
+                  bgcolor: theme.bgPanel,
+                  color: theme.text,
+                  border: '1px solid rgba(248,113,113,0.28)',
+               },
+            }}
+         >
+            <DialogTitle sx={{ fontWeight: 950 }}>
+               {errorDialog.title}
+            </DialogTitle>
+
+            <DialogContent>
+               <Alert severity="error" sx={{ borderRadius: 3 }}>
+                  {errorDialog.message}
+               </Alert>
+
+               {!!errorDialog.details && (
+                  <Typography sx={{ mt: 2, fontSize: 12, color: theme.textSoft, whiteSpace: 'pre-wrap' }}>
+                     {errorDialog.details}
+                  </Typography>
+               )}
+            </DialogContent>
+
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+               <Button onClick={() => setErrorDialog((p) => ({ ...p, open: false }))}>
+                  Закрити
+               </Button>
+            </DialogActions>
+         </Dialog>
       </Box>
    );
 }

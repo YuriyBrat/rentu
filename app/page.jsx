@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 
 import { styled, useTheme, Box, Typography, Container, Card, CardHeader, Grid, Stack, Divider } from '@mui/material';
 
-import MainCard from '@/krm/MainCard';
+import ViewCard from '@/krm/ViewCard';
 import VisitSection from '@/krm/VisionSection';
 import ViewOrder from '@/krm/ViewOrder';
 import { dataOrders } from '@/krm/ViewOrder';
@@ -32,7 +32,7 @@ import 'swiper/css/autoplay';
 
 import { ThreeViewCarousel } from '@/estatein/hooks/CarouselView';  //!
 
-const demoProps = [
+/* const demoProps = [
    //    {
    //    _id: '9090921',
    //    cost: '75000',
@@ -75,7 +75,7 @@ const demoProps = [
 
    //    images: []
    // }
-];
+]; */
 
 
 export const StyledPrevNextBox = styled(Box)(({ theme }) => ({
@@ -94,10 +94,10 @@ export const StyledPrevNextBox = styled(Box)(({ theme }) => ({
 
 
 const ViewsProp = () => {
-   const [leadprops, setLeadprops] = useState([]);
-   const [loading, setLoading] = useState(false);
+   const [properties, setProperties] = useState([]);
+   const [loading, setLoading] = useState(true);
    const [page, setPage] = useState(1);
-   const [pageSize, setPageSize] = useState(5);
+   const [pageSize, setPageSize] = useState(12);
    const [totalItems, setTotalItems] = useState(0);
 
 
@@ -148,30 +148,27 @@ const ViewsProp = () => {
 
    useEffect(() => {
 
-      const fetchLeadProps = async () => {
+      const fetchProperties = async () => {
+         setLoading(true);
          try {
-            // const res = await fetch(`/api/rcs/leadprop?page=${page}&pageSize=${pageSize}`);
-            const res = await fetch(`/api/rcs/leadprop`);
+            const res = await fetch(`/api/properties/sale?page=${page}&pageSize=${pageSize}`, {
+               cache: 'no-store',
+            });
 
             if (!res.ok) {
                throw new Error('Failed to get properties')
             };
 
             const data = await res.json();
-            const { leadprops, total } = data;
-            if (leadprops) {
-               leadprops.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-            }
-            setLeadprops(leadprops);
-            setTotalItems(total)
-            setLeadprops(prev => demoProps.concat(prev))
+            setProperties(data.properties || []);
+            setTotalItems(data.total || 0);
          } catch (error) {
             console.log(error);
          } finally {
             setLoading(false)
          }
       };
-      fetchLeadProps()
+      fetchProperties()
 
    }, [page, pageSize]);
 
@@ -221,7 +218,7 @@ const ViewsProp = () => {
                </Stack>
 
                {
-                  leadprops.length === 0
+                  properties.length === 0
                      ?
                      <Typography variant="h3" color="text.secondary" mb={2}>Об'єктів не знайдено</Typography>
                      : (
@@ -248,25 +245,30 @@ const ViewsProp = () => {
 
                               // onSwiper={handleSwiperInit}
                               navigation={false}
-                              style={{ height: '100%' }} // ⬅️ важливо!
+                              style={{
+                                 height: 'auto',
+                                 paddingTop: 16,
+                                 paddingBottom: 24,
+                              }}
 
                               onSwiper={handleSwiperInit}
                               onSlideChange={handleSlideChange}
                            >
                               {/* <Grid container spacing={1} p={1} alignItems="stretch"> */}
                               {
-                                 leadprops.map((prop, i) => (
-                                    <SwiperSlide key={i} style={{ display: 'flex', height: 'auto' }}>
+                                 properties.map((prop) => (
+                                    <SwiperSlide key={prop?._id} style={{ display: 'flex', height: 'auto' }}>
                                        <Box
                                           sx={{
                                              height: '100%',
+                                             width: '100%',
                                              display: 'flex',
                                              flexDirection: 'column',
                                              justifyContent: 'stretch',
-                                             p: 1,
+                                             px: 1,
                                           }}
                                        >
-                                          <MainCard prop={prop} />
+                                          <ViewCard prop={prop} />
                                        </Box>
                                     </SwiperSlide>
                                  ))
@@ -285,7 +287,7 @@ const ViewsProp = () => {
                               >
                                  <Typography variant="subtitle1" color="text.primary">
                                     {activeIndex + 1 < 10 ? 0 : null}
-                                    {activeIndex + 1} із {leadprops.length + 1 < 10 ? 0 : null}{leadprops.length}
+                                    {activeIndex + 1} із {properties.length + 1 < 10 ? 0 : null}{properties.length}
                                  </Typography>
 
                                  <Stack direction="row" gap={2}>
@@ -330,7 +332,11 @@ const ViewsProp = () => {
 
                   // onSwiper={handleSwiperInit}
                   navigation={false}
-                  style={{ height: 'auto' }} // ⬅️ важливо!
+                  style={{
+                     height: 'auto',
+                     paddingTop: 16,
+                     paddingBottom: 24,
+                  }}
 
                   onSwiper={handleSwiperInit1}
                   onSlideChange={handleSlideChange1}
@@ -346,7 +352,7 @@ const ViewsProp = () => {
                                  flexDirection: 'column',
                                  justifyContent: 'stretch',
                                  flex: 1,
-                                 p: 1,
+                                 px: 1,
                               }}
                            >
                               <ViewOrder order={order} />

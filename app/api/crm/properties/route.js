@@ -165,7 +165,32 @@ export const GET = async (req) => {
 
       const q = (sp.get('q') || '').trim();
 
+      const assignee = sp.get('assignee');
+      const actualityGroup = sp.get('actualityGroup');
+      const type_estate = sp.get('type_estate');
+      const isPublic = sp.get('isPublic');
+
       const filter = {};
+
+      if (assignee) {
+         filter.assignee = assignee;
+      }
+
+      if (actualityGroup) {
+         filter.actualityGroup = actualityGroup;
+      }
+
+      if (type_estate) {
+         filter.type_estate = type_estate;
+      }
+
+      if (isPublic === 'true') {
+         filter.isPublic = true;
+      }
+
+      if (isPublic === 'false') {
+         filter.isPublic = false;
+      }
 
       const mode = sp.get('mode');
 
@@ -275,7 +300,7 @@ export const POST = async (request) => {
 
       const toObjectId = (value) => {
          if (!value) return undefined;
-         return mongoose.Types.ObjectId.isValid(value) ? value : undefined;
+         return Types.ObjectId.isValid(value) ? value : undefined;
       };
 
       const normalizeStage = (value) => {
