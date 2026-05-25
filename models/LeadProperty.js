@@ -86,10 +86,21 @@ const LeadPropertySchema = new Schema(
       fingerprint: { type: String, index: true }, // для “ймовірного дедупа”
       stage: {
          type: String,
-         enum: ["raw", "called", "qualified", "rejected", "moved"],
+         enum: ["raw", "processing", "called", "qualified", "duplicate", "fake", "rejected", "moved"],
          default: "raw",
          index: true,
       },
+      reviewStatus: {
+         type: String,
+         enum: ["unchecked", "actual", "not_actual", "owner", "realtor", "unknown", ""],
+         default: "unchecked",
+         index: true,
+      },
+      callResult: { type: String, trim: true, default: "" },
+      reviewNote: { type: String, trim: true, default: "" },
+      lastCallAt: { type: Date, default: null, index: true },
+      assignedToEmployee: { type: Schema.Types.ObjectId, ref: "Employee", default: null, index: true },
+      duplicateOf: { type: Schema.Types.ObjectId, ref: "LeadProperty", default: null, index: true },
 
       // твоє ядро
       type_estate: String,
