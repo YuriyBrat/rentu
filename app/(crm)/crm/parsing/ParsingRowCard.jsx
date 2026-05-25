@@ -1,18 +1,21 @@
 'use client';
 
-import { Box, Button, Chip, IconButton, Stack, Tooltip, Typography } from '@mui/material';
+import { Box, Chip, IconButton, Stack, Tooltip, Typography } from '@mui/material';
 
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import DifferenceRoundedIcon from '@mui/icons-material/DifferenceRounded';
+import HelpOutlineRoundedIcon from '@mui/icons-material/HelpOutlineRounded';
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded';
+import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
+import PestControlRoundedIcon from '@mui/icons-material/PestControlRounded';
 import ReportProblemRoundedIcon from '@mui/icons-material/ReportProblemRounded';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
 
 import { useCRMTheme } from '@/app/(crm)/crm/context/CRMThemeContext';
 
 function formatMoney(value, currency = 'USD') {
-   if (!value && value !== 0) return '—';
+   if (!value && value !== 0) return '-';
    return `${Number(value).toLocaleString('uk-UA')} ${currency || ''}`;
 }
 
@@ -28,46 +31,136 @@ function buildAddress(item) {
       'Адреса не вказана';
 }
 
+function getSourceLabel(source) {
+   if (!source || source === 'manual') return 'ручне';
+   if (source === 'olx') return 'OLX';
+   if (source === 'dimria') return 'DIM.RIA';
+   if (source === 'rieltor') return 'RIELTOR';
+   if (source === 'telegram') return 'TG';
+   if (source === 'facebook') return 'FB';
+   if (source === 'instagram') return 'IG';
+   return source;
+}
+
+function getPhoneCount(item) {
+   const raw =
+      item?.phoneCount ??
+      item?.phoneHits ??
+      item?.attrs?.phoneCount ??
+      item?.attrs?.phoneHits ??
+      item?.attrs?.phoneMatches ??
+      0;
+   const n = Number(raw);
+   return Number.isFinite(n) && n > 1 ? n : 0;
+}
+
+function getContactKind(item) {
+   const raw = String(
+      item?.attrs?.contactType ||
+      item?.attrs?.sellerType ||
+      item?.reviewStatus ||
+      ''
+   ).toLowerCase();
+
+   if (['owner', 'власник', 'actual_owner'].includes(raw)) {
+      return { label: 'Власник', short: 'вл', color: '#22c55e', icon: <PersonRoundedIcon fontSize="small" /> };
+   }
+
+   if (['realtor', 'agent', 'makler', 'маклер', 'агент'].includes(raw)) {
+      return { label: 'Маклер', short: 'мк', color: '#ef4444', icon: <PestControlRoundedIcon fontSize="small" /> };
+   }
+
+   return { label: 'Хто це?', short: '?', color: '#f59e0b', icon: <HelpOutlineRoundedIcon fontSize="small" /> };
+}
+
 export const STAGE_META = {
-   raw: { label: 'Новий', color: '#60a5fa' },
-   processing: { label: 'В роботі', color: '#f59e0b' },
-   called: { label: 'Продзвонено', color: '#a78bfa' },
-   qualified: { label: 'В базі ринку', color: '#22c55e' },
-   duplicate: { label: 'Дубль', color: '#94a3b8' },
-   fake: { label: 'Фейк', color: '#ef4444' },
-   rejected: { label: 'Відхилено', color: '#f97316' },
-   moved: { label: 'В обʼєктах', color: '#14b8a6' },
+   raw: { label: 'Новий', compact: 'Новий', color: '#60a5fa' },
+   processing: { label: 'В роботі', compact: 'Робота', color: '#f59e0b' },
+   called: { label: 'Продзвонено', compact: 'Дзвінок', color: '#a78bfa' },
+   qualified: { label: 'БАЗА', compact: 'БАЗА', color: '#22c55e' },
+   duplicate: { label: 'Дубль', compact: 'Дубль', color: '#94a3b8' },
+   fake: { label: 'Фейк', compact: 'Фейк', color: '#ef4444' },
+   rejected: { label: 'Відхилено', compact: 'Відх.', color: '#f97316' },
+   moved: { label: 'В обʼєктах', compact: 'Обʼєкт', color: '#14b8a6' },
 };
+
+function ContactCell({ item, theme }) {
+   const count = getPhoneCount(item);
+   const kind = getContactKind(item);
+
+   return (
+      <Stack spacing={0.15} sx={{ minWidth: 0, display: { xs: 'none', lg: 'flex' } }}>
+         <Stack direction="row" spacing={0.45} alignItems="center" minWidth={0}>
+            <Typography sx={{ color: theme.text, fontWeight: 850, fontSize: 12.4 }} noWrap>
+               {item?.phone || item?.leadname || 'Контакт -'}
+            </Typography>
+
+            {!!count && (
+               <Tooltip title="Скільки разів номер зустрічається в базі">
+                  <Box
+                     component="span"
+                     sx={{
+                        minWidth: 17,
+                        height: 17,
+                        px: 0.45,
+                        borderRadius: 1,
+                        color: count > 2 ? '#ef4444' : '#8b5cf6',
+                        bgcolor: count > 2 ? 'rgba(239,68,68,0.12)' : 'rgba(139,92,246,0.14)',
+                        border: `1px solid ${count > 2 ? 'rgba(239,68,68,0.38)' : 'rgba(139,92,246,0.35)'}`,
+                        fontSize: 10,
+                        fontWeight: 950,
+                        lineHeight: '15px',
+                        textAlign: 'center',
+                     }}
+                  >
+                     {count}
+                  </Box>
+               </Tooltip>
+            )}
+         </Stack>
+
+         <Tooltip title={kind.label}>
+            <Stack direction="row" spacing={0.45} alignItems="center" sx={{ color: kind.color, minWidth: 0 }}>
+               <Box sx={{ display: 'flex', '& svg': { fontSize: 15 } }}>{kind.icon}</Box>
+               <Typography sx={{ fontSize: 10.5, fontWeight: 950, lineHeight: 1 }} noWrap>
+                  {kind.label}
+               </Typography>
+            </Stack>
+         </Tooltip>
+      </Stack>
+   );
+}
 
 export default function ParsingRowCard({ item, onOpen, onStage }) {
    const { theme, mode } = useCRMTheme();
    const meta = STAGE_META[item?.stage] || STAGE_META.raw;
 
    const iconButtonSx = {
-      width: 34,
-      height: 34,
+      width: 31,
+      height: 31,
       borderRadius: 2,
       color: theme.text,
       border: `1px solid ${theme.border}`,
       bgcolor: mode === 'light' ? 'rgba(124,58,237,0.035)' : 'rgba(255,255,255,0.035)',
+      flex: '0 0 auto',
       '&:hover': { bgcolor: theme.hover },
    };
 
    return (
       <Box
          sx={{
-            minHeight: 68,
-            px: 1.15,
-            py: 0.9,
+            minHeight: 66,
+            px: 1.05,
+            py: 0.8,
             borderRadius: 2,
             border: `1px solid ${theme.border}`,
             bgcolor: mode === 'light' ? 'rgba(255,255,255,0.78)' : 'rgba(255,255,255,0.025)',
             display: 'grid',
             gridTemplateColumns: {
                xs: '42px 1fr',
-               lg: '46px minmax(220px, 1.45fr) 90px 96px 100px 140px 96px 190px',
+               lg: '44px minmax(190px, 1.35fr) 64px 72px 94px minmax(145px, 0.75fr) 72px minmax(204px, auto)',
             },
-            gap: 1,
+            gap: 0.8,
             alignItems: 'center',
             boxShadow: mode === 'light' ? '0 10px 24px rgba(124,58,237,0.05)' : 'none',
          }}
@@ -77,8 +170,8 @@ export default function ParsingRowCard({ item, onOpen, onStage }) {
             src={getImage(item)}
             alt=""
             sx={{
-               width: 42,
-               height: 42,
+               width: 40,
+               height: 40,
                borderRadius: 1.5,
                objectFit: 'cover',
                border: `1px solid ${theme.border}`,
@@ -86,69 +179,76 @@ export default function ParsingRowCard({ item, onOpen, onStage }) {
          />
 
          <Stack spacing={0.25} minWidth={0}>
-            <Stack direction="row" spacing={0.65} alignItems="center" minWidth={0}>
+            <Stack direction="row" spacing={0.6} alignItems="center" minWidth={0}>
                <Chip
-                  label={item?.source || 'manual'}
+                  label={getSourceLabel(item?.source)}
                   size="small"
                   sx={{
                      height: 21,
                      borderRadius: 1.5,
-                     fontSize: 11,
+                     fontSize: 10.5,
                      fontWeight: 900,
                      color: theme.text,
                      bgcolor: theme.hover,
                   }}
                />
-               <Typography sx={{ color: theme.text, fontWeight: 950, fontSize: 13.5 }} noWrap>
+               <Typography sx={{ color: theme.text, fontWeight: 950, fontSize: 13.3 }} noWrap>
                   {item?.title || 'Без назви'}
                </Typography>
             </Stack>
 
-            <Typography sx={{ color: theme.textSoft, fontSize: 12 }} noWrap>
+            <Typography sx={{ color: theme.textSoft, fontSize: 11.8 }} noWrap>
                {buildAddress(item)}
             </Typography>
          </Stack>
 
-         <Typography sx={{ color: theme.textSoft, fontSize: 12.5, display: { xs: 'none', lg: 'block' } }}>
-            {item?.rooms ? `${item.rooms} кімн.` : '—'}
+         <Typography sx={{ color: theme.textSoft, fontSize: 12.2, display: { xs: 'none', lg: 'block' } }}>
+            {item?.rooms ? `${item.rooms} кімн.` : '-'}
          </Typography>
 
-         <Typography sx={{ color: theme.textSoft, fontSize: 12.5, display: { xs: 'none', lg: 'block' } }}>
-            {item?.square_tot ? `${item.square_tot} м²` : '—'}
+         <Typography sx={{ color: theme.textSoft, fontSize: 12.2, display: { xs: 'none', lg: 'block' } }}>
+            {item?.square_tot ? `${item.square_tot} м²` : '-'}
          </Typography>
 
-         <Typography sx={{ color: theme.text, fontWeight: 950, fontSize: 12.5, display: { xs: 'none', lg: 'block' } }}>
+         <Typography sx={{ color: theme.text, fontWeight: 950, fontSize: 12.2, display: { xs: 'none', lg: 'block' } }}>
             {formatMoney(item?.cost, item?.currency)}
          </Typography>
 
-         <Typography sx={{ color: theme.textSoft, fontSize: 12.5, display: { xs: 'none', lg: 'block' } }} noWrap>
-            {item?.phone || item?.leadname || 'Контакт —'}
-         </Typography>
+         <ContactCell item={item} theme={theme} />
 
          <Chip
-            label={meta.label}
+            label={meta.compact || meta.label}
             size="small"
             sx={{
                justifySelf: { xs: 'start', lg: 'stretch' },
                display: { xs: 'none', lg: 'inline-flex' },
-               height: 26,
+               height: 25,
                borderRadius: 1.5,
                fontWeight: 950,
                color: meta.color,
                bgcolor: `${meta.color}18`,
                border: `1px solid ${meta.color}45`,
+               '& .MuiChip-label': {
+                  px: 0.8,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+               },
             }}
          />
 
          <Stack
             direction="row"
-            spacing={0.45}
+            spacing={0.35}
             alignItems="center"
             justifyContent="flex-end"
-            sx={{ gridColumn: { xs: '1 / -1', lg: 'auto' } }}
+            sx={{
+               gridColumn: { xs: '1 / -1', lg: 'auto' },
+               minWidth: 0,
+               flexWrap: 'nowrap',
+            }}
          >
             <Typography sx={{ color: theme.textSoft, fontSize: 11, mr: 'auto', display: { xs: 'block', lg: 'none' } }}>
-               {meta.label}
+               {meta.label} · {item?.phone || 'контакт -'}
             </Typography>
 
             {item?.sourceUrl && (
@@ -189,21 +289,22 @@ export default function ParsingRowCard({ item, onOpen, onStage }) {
                </span>
             </Tooltip>
 
-            <Button
-               onClick={() => onOpen(item)}
-               startIcon={<VisibilityRoundedIcon />}
-               sx={{
-                  minHeight: 34,
-                  borderRadius: 2,
-                  px: 1.25,
-                  fontSize: 12,
-                  fontWeight: 950,
-                  color: '#0b0b12',
-                  background: `linear-gradient(90deg, ${theme.accent}, ${theme.accentLight})`,
-               }}
-            >
-               Відкрити
-            </Button>
+            <Tooltip title="Відкрити">
+               <IconButton
+                  onClick={() => onOpen(item)}
+                  sx={{
+                     ...iconButtonSx,
+                     color: '#0b0b12',
+                     background: `linear-gradient(90deg, ${theme.accent}, ${theme.accentLight})`,
+                     borderColor: 'transparent',
+                     '&:hover': {
+                        background: `linear-gradient(90deg, ${theme.accentLight}, ${theme.accent})`,
+                     },
+                  }}
+               >
+                  <VisibilityRoundedIcon fontSize="small" />
+               </IconButton>
+            </Tooltip>
          </Stack>
       </Box>
    );

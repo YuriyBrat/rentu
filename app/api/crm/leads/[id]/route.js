@@ -2,10 +2,26 @@ import connectDB from '@/config/database';
 import Lead from '@/models/Lead';
 import Employee from '@/models/Employee';
 
+const VALID_STAGES = ['lead', 'hot', 'ps', 'rs', 'ds', 'pzs', 'zs', 'pers'];
+const VALID_NOTE_TYPES = ['positive', 'negative', 'info', 'important'];
+
 function parseDate(value) {
    if (!value) return undefined;
    const d = new Date(value);
    return Number.isNaN(d.getTime()) ? undefined : d;
+}
+
+function parseNumber(value) {
+   if (value === undefined || value === null || value === '') return undefined;
+   const n = Number(value);
+   return Number.isNaN(n) ? undefined : n;
+}
+
+async function populateLead(id) {
+   return Lead.findById(id)
+      .populate('assignee', 'name role color avatarUrl')
+      .populate('createdByEmployee', 'name role')
+      .lean();
 }
 
 export const PATCH = async (request, { params }) => {
@@ -21,9 +37,46 @@ export const PATCH = async (request, { params }) => {
       }
 
       // 1) Додати нотатку
+      if (body?.action === 'update') {
+         const phones = Array.isArray(body?.phones)
+            ? body.phones.map((x) => String(x || '').trim()).filter(Boolean)
+            : [];
+
+         const emails = Array.isArray(body?.emails)
+            ? body.emails.map((x) => String(x || '').trim().toLowerCase()).filter(Boolean)
+            : [];
+
+         const name = String(body?.name || '').trim();
+         if (!name) {
+            return Response.json({ error: 'name required' }, { status: 400 });
+         }
+
+         lead.name = name;
+         lead.phones = phones;
+         lead.emails = emails;
+         lead.stage = VALID_STAGES.includes(body?.stage) ? body.stage : lead.stage;
+         lead.status = body?.status === 'client' ? 'client' : 'lead';
+         lead.requestSummary = String(body?.requestSummary || '').trim();
+         lead.budgetMax = parseNumber(body?.budgetMax);
+         lead.sourceChannel = String(body?.sourceChannel || '').trim();
+         lead.sourceObject = String(body?.sourceObject || '').trim();
+         lead.sourceNote = String(body?.sourceNote || '').trim();
+         if (body?.actualityStatus) lead.actualityStatus = body.actualityStatus;
+         lead.lastActualizedAt = parseDate(body?.lastActualizedAt) || lead.lastActualizedAt;
+         lead.lastContactAt = parseDate(body?.lastContactAt) || undefined;
+         lead.leadAppearedAt = parseDate(body?.leadAppearedAt) || lead.leadAppearedAt;
+         lead.assignee = body?.assignee || undefined;
+         lead.createdByEmployee = body?.createdByEmployee || undefined;
+
+         await lead.save();
+
+         const item = await populateLead(id);
+         return Response.json({ item }, { status: 200 });
+      }
+
       if (body?.action === 'add_note') {
          const text = String(body?.text || '').trim();
-         const type = ['positive', 'negative', 'info', 'important'].includes(body?.type)
+         const type = VALID_NOTE_TYPES.includes(body?.type)
             ? body.type
             : 'info';
 
@@ -61,10 +114,7 @@ export const PATCH = async (request, { params }) => {
 
          await lead.save();
 
-         const item = await Lead.findById(id)
-            .populate('assignee', 'name role')
-            .populate('createdByEmployee', 'name role')
-            .lean();
+         const item = await populateLead(id);
 
          return Response.json({ item }, { status: 200 });
       }
@@ -129,8 +179,10 @@ export const PATCH = async (request, { params }) => {
       if (body?.action === 'set_stage_with_assignee') {
          const nextStage = body?.stage;
          const assignee = body?.assignee || undefined;
+         const noteText = String(body?.noteText || '').trim();
+         const noteType = VALID_NOTE_TYPES.includes(body?.noteType) ? body.noteType : 'info';
 
-         if (!['lead', 'hot', 'ps', 'rs', 'ds', 'pzs', 'zs', 'pers'].includes(nextStage)) {
+         if (!VALID_STAGES.includes(nextStage)) {
             return Response.json({ error: 'Invalid stage' }, { status: 400 });
          }
 
@@ -167,16 +219,36 @@ export const PATCH = async (request, { params }) => {
             });
          }
 
+         if (noteText) {
+            const note = {
+               text: noteText,
+               type: noteType,
+               createdByEmployee: body?.changedByEmployee || undefined,
+               createdByName: changedByName,
+               createdAt: new Date(),
+            };
+
+            lead.notes = Array.isArray(lead.notes) ? [note, ...lead.notes] : [note];
+
+            historyItems.push({
+               type: 'note',
+               note: noteText,
+               changedByEmployee: body?.changedByEmployee || undefined,
+               changedByName,
+               createdAt: new Date(),
+            });
+         }
+
+         lead.status = nextStage === 'lead' ? 'lead' : 'client';
+         lead.lastContactAt = new Date();
+         lead.lastActualizedAt = new Date();
          lead.history = Array.isArray(lead.history)
             ? [...historyItems, ...lead.history]
             : historyItems;
 
          await lead.save();
 
-         const item = await Lead.findById(id)
-            .populate('assignee', 'name role color avatarUrl')
-            .populate('createdByEmployee', 'name role')
-            .lean();
+         const item = await populateLead(id);
 
          return Response.json({ item }, { status: 200 });
       }
@@ -185,5 +257,26 @@ export const PATCH = async (request, { params }) => {
    } catch (error) {
       console.error(error);
       return new Response('Error updating lead', { status: 500 });
+   }
+};
+
+export const DELETE = async (request, { params }) => {
+   try {
+      await connectDB();
+
+      const { id } = params;
+      const lead = await Lead.findById(id);
+
+      if (!lead) {
+         return Response.json({ error: 'Lead not found' }, { status: 404 });
+      }
+
+      lead.isArchived = true;
+      await lead.save();
+
+      return Response.json({ ok: true }, { status: 200 });
+   } catch (error) {
+      console.error(error);
+      return new Response('Error deleting lead', { status: 500 });
    }
 };

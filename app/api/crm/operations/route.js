@@ -1,7 +1,14 @@
 import connectDB from '@/config/database';
+import Employee from '@/models/Employee';
+import Lead from '@/models/Lead';
 import OperationEvent from '@/models/OperationEvent';
+import Property from '@/models/Property';
 import { getSessionUser } from '@/utils/getSessionUser';
 import { Types } from 'mongoose';
+
+void Employee;
+void Lead;
+void Property;
 
 const VALID_TYPES = ['showing', 'review', 'call', 'meeting', 'other'];
 const VALID_OBJECT_RESULTS = [

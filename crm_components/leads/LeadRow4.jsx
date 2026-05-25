@@ -14,6 +14,11 @@ import {
    TextField,
    Button,
    MenuItem,
+   Dialog,
+   DialogTitle,
+   DialogContent,
+   DialogActions,
+   Alert,
 } from '@mui/material';
 
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
@@ -21,6 +26,8 @@ import ExpandLessRoundedIcon from '@mui/icons-material/ExpandLessRounded';
 
 import AccessTimeFilledRoundedIcon from '@mui/icons-material/AccessTimeFilledRounded';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import EditRoundedIcon from '@mui/icons-material/EditRounded';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 
 
 const stageColors = {
@@ -125,6 +132,17 @@ const noteColors = {
    important: '#93c5fd',
 };
 
+const stageOptions = [
+   { value: 'lead', label: 'РҐРѕР»РѕРґРЅРёР№ Р»С–Рґ' },
+   { value: 'hot', label: 'Р“Р°СЂСЏС‡РёР№ Р»С–Рґ' },
+   { value: 'ps', label: 'РџРЎ' },
+   { value: 'rs', label: 'Р РЎ' },
+   { value: 'ds', label: 'Р”РЎ' },
+   { value: 'pzs', label: 'РџР—РЎ' },
+   { value: 'zs', label: 'Р—РЎ' },
+   { value: 'pers', label: 'РџР•Р РЎ' },
+];
+
 function splitDateTime(value) {
    if (!value) return { date: '—', time: '' };
 
@@ -160,7 +178,7 @@ function getFreshnessMeta(lastActualizedAt) {
 
 
 
-export default function LeadRow({ item, employees = [], onPatched }) {
+export default function LeadRow({ item, employees = [], currentEmployeeId = '', onPatched, onEdit, onDeleted }) {
    const [open, setOpen] = useState(false);
 
    const [noteOpen, setNoteOpen] = useState(false);
@@ -169,6 +187,16 @@ export default function LeadRow({ item, employees = [], onPatched }) {
    const [noteAuthor, setNoteAuthor] = useState('');
    const [savingNote, setSavingNote] = useState(false);
    const [noteError, setNoteError] = useState('');
+   const [stageOpen, setStageOpen] = useState(false);
+   const [nextStage, setNextStage] = useState(item.stage || 'lead');
+   const [stageNoteText, setStageNoteText] = useState('');
+   const [stageNoteType, setStageNoteType] = useState('info');
+   const [stageAssignee, setStageAssignee] = useState(item.assignee?._id || item.assignee || '');
+   const [savingStage, setSavingStage] = useState(false);
+   const [stageError, setStageError] = useState('');
+   const [deleteOpen, setDeleteOpen] = useState(false);
+   const [deleting, setDeleting] = useState(false);
+   const [deleteError, setDeleteError] = useState('');
 
 
    const stage = stageColors[item.stage] || stageColors.lead;
@@ -232,6 +260,72 @@ export default function LeadRow({ item, employees = [], onPatched }) {
          setNoteError(e?.message || 'Помилка додавання нотатки');
       } finally {
          setSavingNote(false);
+      }
+   };
+
+   const openStageDialog = () => {
+      setNextStage(item.stage || 'lead');
+      setStageAssignee(item.assignee?._id || item.assignee || '');
+      setStageNoteText('');
+      setStageNoteType('info');
+      setStageError('');
+      setStageOpen(true);
+   };
+
+   const handleSaveStage = async () => {
+      try {
+         setSavingStage(true);
+         setStageError('');
+
+         const res = await fetch(`/api/crm/leads/${item._id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+               action: 'set_stage_with_assignee',
+               stage: nextStage,
+               assignee: stageAssignee || undefined,
+               changedByEmployee: currentEmployeeId || undefined,
+               noteText: stageNoteText,
+               noteType: stageNoteType,
+            }),
+         });
+
+         const data = await res.json();
+
+         if (!res.ok) {
+            throw new Error(data?.error || 'РќРµ РІРґР°Р»РѕСЃСЏ Р·РјС–РЅРёС‚Рё СЃС‚Р°РґС–СЋ');
+         }
+
+         onPatched?.(data.item);
+         setStageOpen(false);
+      } catch (e) {
+         setStageError(e?.message || 'РџРѕРјРёР»РєР° Р·РјС–РЅРё СЃС‚Р°РґС–С—');
+      } finally {
+         setSavingStage(false);
+      }
+   };
+
+   const handleDelete = async () => {
+      try {
+         setDeleting(true);
+         setDeleteError('');
+
+         const res = await fetch(`/api/crm/leads/${item._id}`, {
+            method: 'DELETE',
+         });
+
+         const data = await res.json().catch(() => ({}));
+
+         if (!res.ok) {
+            throw new Error(data?.error || 'РќРµ РІРґР°Р»РѕСЃСЏ РІРёРґР°Р»РёС‚Рё Р»С–РґР°');
+         }
+
+         onDeleted?.(item._id);
+         setDeleteOpen(false);
+      } catch (e) {
+         setDeleteError(e?.message || 'РџРѕРјРёР»РєР° РІРёРґР°Р»РµРЅРЅСЏ');
+      } finally {
+         setDeleting(false);
       }
    };
 
@@ -360,12 +454,14 @@ export default function LeadRow({ item, employees = [], onPatched }) {
                      <Chip
                         label={stage.label}
                         size="small"
+                        onClick={openStageDialog}
                         sx={{
                            bgcolor: stage.bg + ' !important',
                            color: stage.color,
                            fontWeight: 900,
                            borderRadius: 999,
                            height: 25,
+                           cursor: 'pointer',
                            boxShadow: 'inset 0 0 0 1px rgba(255,255,255,0.08)',
                            '& .MuiChip-label': {
                               px: 1.1,

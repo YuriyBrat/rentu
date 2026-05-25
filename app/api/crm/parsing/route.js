@@ -12,6 +12,48 @@ function normalizeImages(images) {
    return images.map((x) => String(x || '').trim()).filter(Boolean);
 }
 
+function normalizePhone(value) {
+   const digits = String(value || '').replace(/\D/g, '');
+   if (!digits) return '';
+
+   if (digits.length === 12 && digits.startsWith('380')) return `0${digits.slice(3)}`;
+   if (digits.length === 11 && digits.startsWith('80')) return `0${digits.slice(2)}`;
+   if (digits.length === 9) return `0${digits}`;
+
+   return digits;
+}
+
+async function getPhoneCountMap() {
+   const rows = await LeadProperty.find({
+      phone: { $exists: true, $nin: ['', null] },
+   })
+      .select('phone')
+      .lean();
+
+   return rows.reduce((acc, row) => {
+      const key = normalizePhone(row.phone);
+      if (!key) return acc;
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+   }, {});
+}
+
+function attachPhoneCounts(items, phoneCountMap) {
+   return items.map((item) => {
+      const phoneKey = normalizePhone(item?.phone);
+      const phoneCount = phoneKey ? phoneCountMap[phoneKey] || 0 : 0;
+
+      return {
+         ...item,
+         phoneCount,
+         attrs: {
+            ...(item.attrs || {}),
+            phoneCount,
+         },
+      };
+   });
+}
+
 export const GET = async (req) => {
    try {
       await connectDB();
@@ -45,7 +87,7 @@ export const GET = async (req) => {
 
       const total = await LeadProperty.countDocuments(filter);
 
-      const items = await LeadProperty.find(filter)
+      const rawItems = await LeadProperty.find(filter)
          .populate('assignedToEmployee', 'name fullName surname role')
          .populate('propertyId', 'title actualityGroup')
          .populate('duplicateOf', 'title source sourceUrl')
@@ -53,6 +95,9 @@ export const GET = async (req) => {
          .skip(skip)
          .limit(pageSize)
          .lean();
+
+      const phoneCountMap = await getPhoneCountMap();
+      const items = attachPhoneCounts(rawItems, phoneCountMap);
 
       const sources = await LeadProperty.distinct('source');
 

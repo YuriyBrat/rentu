@@ -10,6 +10,32 @@ function parseDate(value) {
    return Number.isNaN(d.getTime()) ? null : d;
 }
 
+function normalizePhone(value) {
+   const digits = String(value || '').replace(/\D/g, '');
+   if (!digits) return '';
+
+   if (digits.length === 12 && digits.startsWith('380')) return `0${digits.slice(3)}`;
+   if (digits.length === 11 && digits.startsWith('80')) return `0${digits.slice(2)}`;
+   if (digits.length === 9) return `0${digits}`;
+
+   return digits;
+}
+
+async function getPhoneCount(value) {
+   const key = normalizePhone(value);
+   if (!key) return 0;
+
+   const rows = await LeadProperty.find({
+      phone: { $exists: true, $nin: ['', null] },
+   })
+      .select('phone')
+      .lean();
+
+   return rows.reduce((count, row) => {
+      return normalizePhone(row.phone) === key ? count + 1 : count;
+   }, 0);
+}
+
 function imageToPropertyImage(src, index) {
    const url = typeof src === 'string' ? src : src?.url;
    if (!url) return null;
@@ -99,7 +125,17 @@ export const GET = async (_request, { params }) => {
 
       if (!item) return new Response('Parsed property not found', { status: 404 });
 
-      return Response.json({ item }, { status: 200 });
+      const phoneCount = await getPhoneCount(item.phone);
+      const itemWithPhoneCount = {
+         ...item,
+         phoneCount,
+         attrs: {
+            ...(item.attrs || {}),
+            phoneCount,
+         },
+      };
+
+      return Response.json({ item: itemWithPhoneCount }, { status: 200 });
    } catch (error) {
       console.error(error);
       return new Response('Error fetching parsed property', { status: 500 });
@@ -148,7 +184,17 @@ export const PATCH = async (request, { params }) => {
          .populate('duplicateOf', 'title source sourceUrl')
          .lean();
 
-      return Response.json({ item: saved }, { status: 200 });
+      const phoneCount = await getPhoneCount(saved.phone);
+      const savedWithPhoneCount = {
+         ...saved,
+         phoneCount,
+         attrs: {
+            ...(saved.attrs || {}),
+            phoneCount,
+         },
+      };
+
+      return Response.json({ item: savedWithPhoneCount }, { status: 200 });
    } catch (error) {
       console.error(error);
       return new Response('Error updating parsed property', { status: 500 });

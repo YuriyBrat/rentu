@@ -82,7 +82,7 @@ export default function CRMLayout({ children }) {
       { label: 'Операційка', path: '/crm/operations', icon: <TimelineRoundedIcon /> },
       // { label: 'Дашборд', path: '/crm', icon: <DashboardIcon /> },
       { label: "Об'єкти", path: '/crm/objects3', icon: <HomeWorkIcon /> },
-      { label: 'Парсинг', path: '/crm/parsing', icon: <TravelExploreIcon /> },
+      // { label: 'Парсинг', path: '/crm/parsing', icon: <TravelExploreIcon /> },
       // { label: 'Клієнти', path: '/crm/clients', icon: <PeopleIcon />, badge: 3 },
       { label: 'Воронки', path: '/crm/pipeline', icon: <FilterListIcon />, badge: 5 },
       { label: 'Ліди', path: '/crm/leads3', icon: <PersonSearchRoundedIcon />, badge: 15 },

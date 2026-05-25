@@ -86,6 +86,39 @@ function emptyFields() {
    };
 }
 
+function toDateTimeLocal(value) {
+   if (!value) return '';
+   const d = new Date(value);
+   if (Number.isNaN(d.getTime())) return '';
+   const offset = d.getTimezoneOffset() * 60000;
+   return new Date(d.getTime() - offset).toISOString().slice(0, 16);
+}
+
+function fieldsFromLead(item) {
+   if (!item?._id) return emptyFields();
+
+   return {
+      ...emptyFields(),
+      name: item.name || '',
+      phones: item.phones?.length ? item.phones : [''],
+      emails: item.emails?.length ? item.emails : [''],
+      status: item.status || 'lead',
+      stage: item.stage || 'lead',
+      requestSummary: item.requestSummary || '',
+      budgetMax: item.budgetMax || '',
+      sourceChannel: item.sourceChannel || '',
+      sourceObject: item.sourceObject || '',
+      sourceNote: item.sourceNote || '',
+      actualityStatus: item.actualityStatus || emptyFields().actualityStatus,
+      lastActualizedAt: toDateTimeLocal(item.lastActualizedAt),
+      lastContactAt: toDateTimeLocal(item.lastContactAt),
+      assignee: item.assignee?._id || item.assignee || '',
+      createdByEmployee: item.createdByEmployee?._id || item.createdByEmployee || '',
+      initialNotes: [{ text: '', type: 'info' }],
+      leadAppearedAt: toDateTimeLocal(item.leadAppearedAt),
+   };
+}
+
 const fieldSx = {
    '& .MuiOutlinedInput-root': {
       bgcolor: 'rgba(255,255,255,0.04)',
@@ -127,8 +160,9 @@ const selectMenuProps = {
    },
 };
 
-export default function LeadForm({ employees = [], onCancel, onCreated }) {
-   const [fields, setFields] = useState(() => emptyFields());
+export default function LeadForm({ employees = [], item = null, onCancel, onCreated, onUpdated }) {
+   const isEdit = Boolean(item?._id);
+   const [fields, setFields] = useState(() => fieldsFromLead(item));
    const [loading, setLoading] = useState(false);
    const [error, setError] = useState('');
    const [duplicateInfo, setDuplicateInfo] = useState(null);
@@ -193,6 +227,7 @@ export default function LeadForm({ employees = [], onCancel, onCreated }) {
       try {
          const payload = {
             ...fields,
+            action: isEdit ? 'update' : undefined,
             name: fields.name.trim(),
             phones: (fields.phones || []).map((x) => x.trim()).filter(Boolean),
             emails: (fields.emails || []).map((x) => x.trim()).filter(Boolean),
@@ -204,7 +239,7 @@ export default function LeadForm({ employees = [], onCancel, onCreated }) {
             leadAppearedAt: fields.leadAppearedAt || undefined,
             lastActualizedAt: fields.lastActualizedAt || undefined,
 
-            notes: (fields.initialNotes || [])
+            notes: isEdit ? [] : (fields.initialNotes || [])
                .map((note) => ({
                   text: String(note?.text || '').trim(),
                   type: note?.type || 'info',
@@ -213,8 +248,8 @@ export default function LeadForm({ employees = [], onCancel, onCreated }) {
                .filter((note) => note.text),
          };
 
-         const res = await fetch('/api/crm/leads', {
-            method: 'POST',
+         const res = await fetch(isEdit ? `/api/crm/leads/${item._id}` : '/api/crm/leads', {
+            method: isEdit ? 'PATCH' : 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
          });
@@ -225,12 +260,16 @@ export default function LeadForm({ employees = [], onCancel, onCreated }) {
             throw new Error(data?.error || 'Помилка створення ліда');
          }
 
-         if (data?.duplicate) {
+         if (!isEdit && data?.duplicate) {
             setDuplicateInfo(data.duplicate);
          }
 
-         onCreated?.(data.item);
-         setFields(emptyFields());
+         if (isEdit) {
+            onUpdated?.(data.item);
+         } else {
+            onCreated?.(data.item);
+            setFields(emptyFields());
+         }
       } catch (err) {
          setError(err?.message || 'Помилка створення');
       } finally {
@@ -516,6 +555,7 @@ export default function LeadForm({ employees = [], onCancel, onCreated }) {
                      <MenuItem value="important">Важлива</MenuItem>
                   </TextField>
                </Grid> */}
+               {!isEdit && (
                <Grid item xs={12}>
                   <Stack spacing={1}>
                      <Typography sx={{ color: '#fff', fontWeight: 800 }}>
@@ -570,6 +610,7 @@ export default function LeadForm({ employees = [], onCancel, onCreated }) {
                      ))}
                   </Stack>
                </Grid>
+               )}
             </Grid>
 
             <Stack direction="row" spacing={1} justifyContent="flex-end">

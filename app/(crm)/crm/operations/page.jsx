@@ -1306,8 +1306,8 @@ export default function OperationsPage() {
             <DialogTitle sx={{ fontWeight: 950, pb: 1 }}>
                {editingItem ? 'Редагувати показ / огляд' : 'Новий показ / огляд'}
             </DialogTitle>
-            <DialogContent sx={{ pt: 1 }}>
-               <Grid container spacing={1.3}>
+            <DialogContent sx={{ pt: '20px !important' }}>
+               <Grid container spacing={1.3} sx={{ pt: 0.5 }}>
                   <Grid item xs={12} md={3}>
                      <TextField select fullWidth label="Тип" value={form.type} onChange={(e) => updateForm('type', e.target.value)} sx={fieldSx} SelectProps={{ MenuProps: menuProps }}>
                         {EVENT_TYPES.map((x) => <MenuItem key={x.value} value={x.value}>{x.label}</MenuItem>)}
