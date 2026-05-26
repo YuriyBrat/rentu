@@ -24,6 +24,7 @@ import AddRoundedIcon from '@mui/icons-material/AddRounded';
 
 import LeadRow from '@/crm_components/leads/LeadRow4';
 import LeadForm from '@/crm_components/leads/LeadForm';
+import { useCRMTheme } from '@/app/(crm)/crm/context/CRMThemeContext';
 
 const STAGE_OPTIONS = [
    { value: 'all', label: 'Усі стадії' },
@@ -37,53 +38,57 @@ const STAGE_OPTIONS = [
    { value: 'pers', label: 'ПЕРС' },
 ];
 
-const fieldSx = {
+const getFieldSx = (theme) => ({
    '& .MuiOutlinedInput-root': {
-      bgcolor: 'rgba(255,255,255,0.04)',
+      bgcolor: theme.hover,
       borderRadius: 3,
-      color: '#fff',
+      color: theme.text,
       minHeight: 44,
       '& input': {
-         color: '#fff !important',
-         WebkitTextFillColor: '#fff',
+         color: `${theme.text} !important`,
+         WebkitTextFillColor: theme.text,
          padding: '10px 14px',
       },
       '& .MuiSelect-select': {
-         color: '#fff !important',
-         WebkitTextFillColor: '#fff',
+         color: `${theme.text} !important`,
+         WebkitTextFillColor: theme.text,
          display: 'flex',
          alignItems: 'center',
          minHeight: 'auto',
          paddingTop: '10px',
          paddingBottom: '10px',
       },
-      '& fieldset': { borderColor: 'rgba(255,255,255,0.12)' },
-      '&:hover fieldset': { borderColor: 'rgba(139,92,246,0.35)' },
-      '&.Mui-focused fieldset': { borderColor: 'rgba(168,85,247,0.95)' },
+      '& fieldset': { borderColor: theme.border },
+      '&:hover fieldset': { borderColor: theme.accent },
+      '&.Mui-focused fieldset': { borderColor: theme.accentLight },
    },
    '& .MuiInputLabel-root': {
-      color: 'rgba(255,255,255,0.82) !important',
+      color: `${theme.textSoft} !important`,
       fontWeight: 700,
    },
    '& .MuiSelect-icon': {
-      color: 'rgba(255,255,255,0.78)',
+      color: theme.text,
    },
-};
+});
 
-const selectMenuProps = {
+const getSelectMenuProps = (theme) => ({
    PaperProps: {
       sx: {
-         bgcolor: '#151521',
-         color: '#fff',
-         border: '1px solid rgba(255,255,255,0.08)',
+         bgcolor: theme.bgPanel,
+         color: theme.text,
+         border: `1px solid ${theme.border}`,
          '& .MuiMenuItem-root.Mui-selected': {
-            bgcolor: 'rgba(139,92,246,0.22)',
+            bgcolor: theme.hover,
          },
       },
    },
-};
+});
 
 export default function LeadsPage() {
+   const { theme, mode } = useCRMTheme();
+   const fieldSx = getFieldSx(theme);
+   const selectMenuProps = getSelectMenuProps(theme);
+
    const [items, setItems] = useState([]);
    const [employees, setEmployees] = useState([]);
 
@@ -95,6 +100,7 @@ export default function LeadsPage() {
    const [error, setError] = useState('');
 
    const [openCreate, setOpenCreate] = useState(false);
+   const [editItem, setEditItem] = useState(null);
 
    const [filterType, setFilterType] = useState('all');
    const [assigneeFilter, setAssigneeFilter] = useState('');
@@ -262,12 +268,28 @@ export default function LeadsPage() {
       await loadLeads();
    };
 
+   const handleUpdated = async (updatedItem) => {
+      setEditItem(null);
+      if (updatedItem?._id) {
+         setItems((prev) =>
+            prev.map((item) => (item._id === updatedItem._id ? updatedItem : item))
+         );
+      }
+      await loadLeads();
+   };
+
+   const handleDeleted = (id) => {
+      setItems((prev) => prev.filter((item) => item._id !== id));
+   };
+
    return (
       <Box
          sx={{
             p: { xs: 1.2, md: 2 },
-            bgcolor: '#0b0b12',
+            bgcolor: mode === 'light' ? 'rgba(255,255,255,0.45)' : theme.bgDark,
+            color: theme.text,
             minHeight: '100vh',
+            transition: 'background-color 0.2s ease, color 0.2s ease',
          }}
       >
          <Stack spacing={2}>
@@ -278,10 +300,10 @@ export default function LeadsPage() {
                spacing={1.2}
             >
                <Stack spacing={0.5}>
-                  <Typography sx={{ color: '#fff', fontSize: 24, fontWeight: 950 }}>
+                  <Typography sx={{ color: theme.text, fontSize: 24, fontWeight: 950 }}>
                      Ліди / Клієнти
                   </Typography>
-                  <Typography sx={{ color: 'rgba(255,255,255,0.62)', fontSize: 13 }}>
+                  <Typography sx={{ color: theme.textSoft, fontSize: 13 }}>
                      Таблиця вхідних лідів та клієнтів у роботі з деталями, актуальністю і нотатками
                   </Typography>
                </Stack>
@@ -290,9 +312,9 @@ export default function LeadsPage() {
                   <Chip
                      label={`Усього: ${counts.total}`}
                      sx={{
-                        color: '#fff',
-                        bgcolor: 'rgba(255,255,255,0.05)',
-                        border: '1px solid rgba(255,255,255,0.08)',
+                        color: mode === 'light' ? '#fff' : theme.text,
+                        bgcolor: mode === 'light' ? '#111827' : theme.hover,
+                        border: `1px solid ${theme.border}`,
                      }}
                   />
 
@@ -306,11 +328,10 @@ export default function LeadsPage() {
                         // my: '0px ',
                         color: '#111',
                         fontWeight: 900,
-                        background:
-                           'linear-gradient(90deg, rgba(139,92,246,1), rgba(168,85,247,1))',
-                        boxShadow: '0 12px 28px rgba(139,92,246,0.25)',
+                        background: `linear-gradient(90deg, ${theme.accent}, ${theme.accentLight})`,
+                        boxShadow: `0 12px 28px ${theme.glow}`,
                         '&:hover': {
-                           boxShadow: '0 16px 36px rgba(139,92,246,0.35)',
+                           boxShadow: `0 16px 36px ${theme.glow}`,
                         },
                      }}
                   >
@@ -325,8 +346,8 @@ export default function LeadsPage() {
                sx={{
                   p: 1.2,
                   borderRadius: 4,
-                  bgcolor: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.06)',
+                  bgcolor: theme.bgPanel,
+                  border: `1px solid ${theme.border}`,
                }}
             >
 
@@ -350,10 +371,12 @@ export default function LeadsPage() {
                      }} sx={{
                         bgcolor:
                            filterType === x.value
-                              ? 'rgba(139,92,246,0.35)'
-                              : 'rgba(255,255,255,0.05)',
-                        color: '#fff',
+                              ? `${theme.accent} !important`
+                              : mode === 'light' ? '#ffffff !important' : 'rgba(255,255,255,0.05) !important',
+                        color: filterType === x.value ? '#fff' : theme.text,
+                        border: `1px solid ${filterType === x.value ? theme.accent : theme.border}`,
                         cursor: 'pointer',
+                        fontWeight: 800,
                      }}
                   />
                ))}
@@ -425,14 +448,14 @@ export default function LeadsPage() {
                      py: 8,
                      textAlign: 'center',
                      borderRadius: 4,
-                     border: '1px solid rgba(255,255,255,0.06)',
-                     bgcolor: 'rgba(255,255,255,0.02)',
+                     border: `1px solid ${theme.border}`,
+                     bgcolor: theme.bgPanel,
                   }}
                >
-                  <Typography sx={{ color: '#fff', fontWeight: 850 }}>
+                  <Typography sx={{ color: theme.text, fontWeight: 850 }}>
                      Поки немає лідів
                   </Typography>
-                  <Typography sx={{ color: 'rgba(255,255,255,0.62)', mt: 0.5 }}>
+                  <Typography sx={{ color: theme.textSoft, mt: 0.5 }}>
                      Додай першого ліда і почнемо воронку
                   </Typography>
                </Box>
@@ -446,6 +469,9 @@ export default function LeadsPage() {
                   {filteredLeads.map((item) => (
                      <LeadRow key={item._id || item.id} item={item}
                         employees={employees} onPatched={handlePatched}
+                        currentEmployeeId={currentEmployeeId || ''}
+                        onEdit={setEditItem}
+                        onDeleted={handleDeleted}
                      />
                   ))}
                </Stack>
@@ -459,10 +485,10 @@ export default function LeadsPage() {
             fullWidth
             PaperProps={{
                sx: {
-                  bgcolor: '#0f0f17',
-                  color: '#fff',
+                  bgcolor: theme.bgPanel,
+                  color: theme.text,
                   borderRadius: 4,
-                  border: '1px solid rgba(255,255,255,0.08)',
+                  border: `1px solid ${theme.border}`,
                },
             }}
          >
@@ -476,6 +502,37 @@ export default function LeadsPage() {
                   onCancel={() => setOpenCreate(false)}
                   onCreated={handleCreated}
                />
+            </DialogContent>
+         </Dialog>
+
+         <Dialog
+            open={Boolean(editItem)}
+            onClose={() => setEditItem(null)}
+            maxWidth="lg"
+            fullWidth
+            PaperProps={{
+               sx: {
+                  bgcolor: theme.bgPanel,
+                  color: theme.text,
+                  borderRadius: 4,
+                  border: `1px solid ${theme.border}`,
+               },
+            }}
+         >
+            <DialogTitle sx={{ fontWeight: 950, pb: 1 }}>
+               Редагувати ліда
+            </DialogTitle>
+
+            <DialogContent sx={{ pb: 2 }}>
+               {editItem && (
+                  <LeadForm
+                     key={editItem._id}
+                     item={editItem}
+                     employees={employees}
+                     onCancel={() => setEditItem(null)}
+                     onUpdated={handleUpdated}
+                  />
+               )}
             </DialogContent>
          </Dialog>
       </Box>

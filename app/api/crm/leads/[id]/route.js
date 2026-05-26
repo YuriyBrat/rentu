@@ -176,6 +176,54 @@ export const PATCH = async (request, { params }) => {
       // }
 
 
+      if (body?.action === 'set_stage') {
+         const nextStage = body?.stage;
+
+         if (!VALID_STAGES.includes(nextStage)) {
+            return Response.json({ error: 'Invalid stage' }, { status: 400 });
+         }
+
+         let changedByName = '';
+         if (body?.changedByEmployee) {
+            const emp = await Employee.findById(body.changedByEmployee).select('name').lean();
+            changedByName = emp?.name || '';
+         }
+
+         const prevStage = lead.stage;
+
+         lead.stage = nextStage;
+         lead.status = nextStage === 'lead' ? 'lead' : 'client';
+         lead.lastContactAt = new Date();
+         lead.lastActualizedAt = new Date();
+         lead.history = Array.isArray(lead.history)
+            ? [
+               {
+                  type: 'stage_change',
+                  fromStage: prevStage,
+                  toStage: nextStage,
+                  changedByEmployee: body?.changedByEmployee || undefined,
+                  changedByName,
+                  createdAt: new Date(),
+               },
+               ...lead.history,
+            ]
+            : [
+               {
+                  type: 'stage_change',
+                  fromStage: prevStage,
+                  toStage: nextStage,
+                  changedByEmployee: body?.changedByEmployee || undefined,
+                  changedByName,
+                  createdAt: new Date(),
+               },
+            ];
+
+         await lead.save();
+
+         const item = await populateLead(id);
+         return Response.json({ item }, { status: 200 });
+      }
+
       if (body?.action === 'set_stage_with_assignee') {
          const nextStage = body?.stage;
          const assignee = body?.assignee || undefined;

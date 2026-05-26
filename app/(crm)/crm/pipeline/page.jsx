@@ -37,6 +37,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 
 import useCurrentUser from '@/utils/useCurrentUser';
+import { useCRMTheme } from '@/app/(crm)/crm/context/CRMThemeContext';
 
 const HEADER_HEIGHT = 64;
 
@@ -62,7 +63,28 @@ function formatMoney(value) {
    return `${Number(value).toLocaleString('uk-UA')} $`;
 }
 
-function LeadCard({ item, isMine, onOpen }) {
+const getFieldSx = (theme) => ({
+   '& .MuiOutlinedInput-root': {
+      bgcolor: theme.hover,
+      borderRadius: 3,
+      color: theme.text,
+      '& fieldset': { borderColor: theme.border },
+      '&:hover fieldset': { borderColor: theme.accent },
+      '&.Mui-focused fieldset': { borderColor: theme.accentLight },
+   },
+   '& .MuiInputLabel-root': {
+      color: theme.textSoft,
+   },
+   '& .MuiSelect-icon': {
+      color: theme.text,
+   },
+   '& .MuiSelect-select': {
+      color: `${theme.text} !important`,
+      WebkitTextFillColor: theme.text,
+   },
+});
+
+function LeadCard({ item, isMine, onOpen, theme, mode }) {
    const {
       attributes,
       listeners,
@@ -105,31 +127,31 @@ function LeadCard({ item, isMine, onOpen }) {
             p: 1.1,
             borderRadius: 3,
             border: isMine
-               ? '1px solid rgba(139,92,246,0.40)'
-               : '1px solid rgba(255,255,255,0.08)',
+               ? `1px solid ${theme.accent}`
+               : `1px solid ${theme.border}`,
             bgcolor: isDragging
-               ? 'rgba(139,92,246,0.16)'
+               ? theme.hover
                : isMine
-                  ? 'rgba(139,92,246,0.08)'
-                  : 'rgba(255,255,255,0.04)',
+                  ? theme.hover
+                  : mode === 'light' ? 'rgba(255,255,255,0.72)' : 'rgba(255,255,255,0.04)',
             cursor: 'grab',
             boxShadow: isDragging
                ? '0 16px 32px rgba(0,0,0,0.28)'
                : isMine
-                  ? '0 0 0 1px rgba(139,92,246,0.08)'
+                  ? `0 0 0 1px ${theme.glow}`
                   : 'none',
             transition: '0.18s ease',
             '&:hover': {
                bgcolor: isMine
-                  ? 'rgba(139,92,246,0.12)'
-                  : 'rgba(255,255,255,0.06)',
+                  ? theme.hover
+                  : mode === 'light' ? 'rgba(124,58,237,0.06)' : 'rgba(255,255,255,0.06)',
             },
          }}
       >
          <Stack spacing={0.55}>
             <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
                <Typography
-                  sx={{ color: '#fff', fontWeight: 800, fontSize: 13.5, lineHeight: 1.2 }}
+                  sx={{ color: theme.text, fontWeight: 800, fontSize: 13.5, lineHeight: 1.2 }}
                >
                   {item.name}
                </Typography>
@@ -148,7 +170,7 @@ function LeadCard({ item, isMine, onOpen }) {
 
             <Typography
                sx={{
-                  color: 'rgba(255,255,255,0.8)',
+                  color: theme.textSoft,
                   fontSize: 12,
                   lineHeight: 1.25,
                   display: '-webkit-box',
@@ -163,7 +185,7 @@ function LeadCard({ item, isMine, onOpen }) {
             <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
                <Typography
                   sx={{
-                     color: 'rgba(255,255,255,0.55)',
+                     color: theme.textSoft,
                      fontSize: 11,
                      whiteSpace: 'nowrap',
                      overflow: 'hidden',
@@ -192,7 +214,7 @@ function LeadCard({ item, isMine, onOpen }) {
    );
 }
 
-function StageColumn({ stage, items, currentEmployeeId, onOpen }) {
+function StageColumn({ stage, items, currentEmployeeId, onOpen, theme, mode }) {
    const { setNodeRef, isOver } = useDroppable({
       id: stage.id,
    });
@@ -204,8 +226,8 @@ function StageColumn({ stage, items, currentEmployeeId, onOpen }) {
             minWidth: 290,
             width: 290,
             borderRadius: 4,
-            border: '1px solid rgba(255,255,255,0.08)',
-            bgcolor: isOver ? 'rgba(139,92,246,0.10)' : 'rgba(255,255,255,0.03)',
+            border: `1px solid ${theme.border}`,
+            bgcolor: isOver ? theme.hover : mode === 'light' ? 'rgba(255,255,255,0.64)' : 'rgba(255,255,255,0.03)',
             p: 1,
             flexShrink: 0,
             transition: '0.18s ease',
@@ -226,8 +248,8 @@ function StageColumn({ stage, items, currentEmployeeId, onOpen }) {
                   label={items.length}
                   size="small"
                   sx={{
-                     bgcolor: 'rgba(255,255,255,0.08)',
-                     color: '#fff',
+                     bgcolor: theme.hover,
+                     color: theme.text,
                   }}
                />
             </Stack>
@@ -240,6 +262,8 @@ function StageColumn({ stage, items, currentEmployeeId, onOpen }) {
                         item={item}
                         isMine={(item.assignee?._id || item.assignee) === currentEmployeeId}
                         onOpen={onOpen}
+                        theme={theme}
+                        mode={mode}
                      />
                   ))}
 
@@ -248,11 +272,11 @@ function StageColumn({ stage, items, currentEmployeeId, onOpen }) {
                         sx={{
                            minHeight: 80,
                            borderRadius: 3,
-                           border: '1px dashed rgba(255,255,255,0.10)',
+                           border: `1px dashed ${theme.border}`,
                            display: 'flex',
                            alignItems: 'center',
                            justifyContent: 'center',
-                           color: 'rgba(255,255,255,0.42)',
+                           color: theme.textSoft,
                            fontSize: 12,
                         }}
                      >
@@ -269,6 +293,8 @@ function StageColumn({ stage, items, currentEmployeeId, onOpen }) {
 
 export default function PipelinePage() {
    const { user } = useCurrentUser();
+   const { theme, mode } = useCRMTheme();
+   const fieldSx = getFieldSx(theme);
 
    const [items, setItems] = useState([]);
    const [loading, setLoading] = useState(true);
@@ -558,13 +584,21 @@ export default function PipelinePage() {
    }
 
    return (
-      <Box sx={{ p: 2, bgcolor: '#0b0b12', minHeight: '100vh' }}>
+      <Box
+         sx={{
+            p: 2,
+            bgcolor: mode === 'light' ? 'rgba(255,255,255,0.45)' : theme.bgDark,
+            color: theme.text,
+            minHeight: '100vh',
+            transition: 'background-color 0.2s ease, color 0.2s ease',
+         }}
+      >
          <Stack spacing={2}>
             <Stack spacing={0.5}>
-               <Typography sx={{ color: '#fff', fontSize: 24, fontWeight: 950 }}>
+               <Typography sx={{ color: theme.text, fontSize: 24, fontWeight: 950 }}>
                   Воронки продажів
                </Typography>
-               <Typography sx={{ color: 'rgba(255,255,255,0.62)', fontSize: 13 }}>
+               <Typography sx={{ color: theme.textSoft, fontSize: 13 }}>
                   Перетягуй картки між стадіями як в amoCRM
                </Typography>
             </Stack>
@@ -576,8 +610,8 @@ export default function PipelinePage() {
                sx={{
                   p: 1.2,
                   borderRadius: 4,
-                  bgcolor: 'rgba(255,255,255,0.03)',
-                  border: '1px solid rgba(255,255,255,0.06)',
+                  bgcolor: theme.bgPanel,
+                  border: `1px solid ${theme.border}`,
                }}
             >
                <Stack
@@ -602,9 +636,10 @@ export default function PipelinePage() {
                         sx={{
                            bgcolor:
                               filterType === x.value
-                                 ? 'rgba(139,92,246,0.35)'
-                                 : 'rgba(255,255,255,0.05)',
-                           color: '#fff',
+                                 ? theme.hover
+                                 : mode === 'light' ? 'rgba(17,24,39,0.04)' : 'rgba(255,255,255,0.05)',
+                           color: theme.text,
+                           border: `1px solid ${filterType === x.value ? theme.accent : theme.border}`,
                            cursor: 'pointer',
                         }}
                      />
@@ -619,20 +654,7 @@ export default function PipelinePage() {
                      setAssigneeFilter(e.target.value);
                      setFilterType('all');
                   }}
-                  sx={{
-                     minWidth: { xs: '100%', lg: 220 },
-                     '& .MuiOutlinedInput-root': {
-                        bgcolor: 'rgba(255,255,255,0.04)',
-                        borderRadius: 3,
-                        color: '#fff',
-                     },
-                     '& .MuiInputLabel-root': {
-                        color: 'rgba(255,255,255,0.75)',
-                     },
-                     '& .MuiSelect-icon': {
-                        color: 'rgba(255,255,255,0.78)',
-                     },
-                  }}
+                  sx={{ minWidth: { xs: '100%', lg: 220 }, ...fieldSx }}
                >
                   <MenuItem value="">—</MenuItem>
                   {employees.map((emp) => (
@@ -665,6 +687,8 @@ export default function PipelinePage() {
                         items={grouped[stage.id] || []}
                         currentEmployeeId={currentEmployeeId}
                         onOpen={setSelectedLead}
+                        theme={theme}
+                        mode={mode}
                      />
                   ))}
                </Stack>
@@ -683,9 +707,9 @@ export default function PipelinePage() {
                   top: `${HEADER_HEIGHT}px`,
                   height: `calc(100% - ${HEADER_HEIGHT}px)`,
                   width: { xs: '100%', sm: 420 },
-                  bgcolor: '#0f0f17',
-                  color: '#fff',
-                  borderLeft: '1px solid rgba(255,255,255,0.08)',
+                  bgcolor: theme.bgPanel,
+                  color: theme.text,
+                  borderLeft: `1px solid ${theme.border}`,
                   overflowY: 'auto',
                },
             }}
@@ -714,40 +738,40 @@ export default function PipelinePage() {
                            label={selectedLead.stage?.toUpperCase()}
                            sx={{
                               bgcolor: 'rgba(139,92,246,0.25)',
-                              color: '#fff',
+                              color: theme.text,
                            }}
                         />
                      </Stack>
 
-                     <Typography sx={{ color: 'rgba(255,255,255,0.72)', lineHeight: 1.5 }}>
+                     <Typography sx={{ color: theme.textSoft, lineHeight: 1.5 }}>
                         {selectedLead.requestSummary || 'Без опису'}
                      </Typography>
 
-                     <Divider sx={{ borderColor: 'rgba(255,255,255,0.08)' }} />
+                     <Divider sx={{ borderColor: theme.border }} />
 
-                     <Typography sx={{ color: '#fff' }}>
+                      <Typography sx={{ color: theme.text }}>
                         <b>Бюджет:</b> {formatMoney(selectedLead.budgetMax)}
                      </Typography>
 
-                     <Typography sx={{ color: '#fff' }}>
+                      <Typography sx={{ color: theme.text }}>
                         <b>Відповідальний:</b> {selectedLead.assignee?.name || '—'}
                      </Typography>
 
-                     <Typography sx={{ color: '#fff' }}>
+                      <Typography sx={{ color: theme.text }}>
                         <b>Актуальність:</b> {selectedLead.actualityStatus || '—'}
                      </Typography>
 
-                     <Typography sx={{ color: '#fff' }}>
+                      <Typography sx={{ color: theme.text }}>
                         <b>Джерело:</b> {selectedLead.sourceChannel || '—'}
                      </Typography>
 
-                     <Typography sx={{ color: '#fff' }}>
+                      <Typography sx={{ color: theme.text }}>
                         <b>Обʼєкт:</b> {selectedLead.sourceObject || '—'}
                      </Typography>
 
                      {!!selectedLead.notes?.length && (
                         <>
-                           <Divider sx={{ borderColor: 'rgba(255,255,255,0.08)' }} />
+                           <Divider sx={{ borderColor: theme.border }} />
                            <Typography sx={{ fontWeight: 850 }}>Нотатки</Typography>
 
                            <Stack spacing={0.8}>
@@ -757,14 +781,14 @@ export default function PipelinePage() {
                                     sx={{
                                        p: 1,
                                        borderRadius: 2.5,
-                                       bgcolor: 'rgba(255,255,255,0.04)',
-                                       border: '1px solid rgba(255,255,255,0.06)',
+                                       bgcolor: theme.hover,
+                                       border: `1px solid ${theme.border}`,
                                     }}
                                  >
-                                    <Typography sx={{ color: '#fff', lineHeight: 1.45 }}>
+                                    <Typography sx={{ color: theme.text, lineHeight: 1.45 }}>
                                        {note.text}
                                     </Typography>
-                                    <Typography sx={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, mt: 0.4 }}>
+                                    <Typography sx={{ color: theme.textSoft, fontSize: 11, mt: 0.4 }}>
                                        {note.createdByName || '—'}
                                     </Typography>
                                  </Box>
@@ -775,7 +799,7 @@ export default function PipelinePage() {
 
                      {!!selectedLead.history?.length && (
                         <>
-                           <Divider sx={{ borderColor: 'rgba(255,255,255,0.08)' }} />
+                           <Divider sx={{ borderColor: theme.border }} />
                            <Typography sx={{ fontWeight: 850 }}>Історія</Typography>
 
                            <Stack spacing={0.7}>
@@ -785,16 +809,16 @@ export default function PipelinePage() {
                                     sx={{
                                        p: 0.9,
                                        borderRadius: 2.5,
-                                       bgcolor: 'rgba(255,255,255,0.03)',
-                                       border: '1px solid rgba(255,255,255,0.06)',
+                                       bgcolor: theme.hover,
+                                       border: `1px solid ${theme.border}`,
                                     }}
                                  >
-                                    <Typography sx={{ color: '#fff', fontSize: 13 }}>
+                                    <Typography sx={{ color: theme.text, fontSize: 13 }}>
                                        {h.type === 'stage_change'
                                           ? `${h.fromStage || '—'} → ${h.toStage || '—'}`
                                           : h.type}
                                     </Typography>
-                                    <Typography sx={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>
+                                    <Typography sx={{ color: theme.textSoft, fontSize: 11 }}>
                                        {h.changedByName || '—'}
                                     </Typography>
                                  </Box>
@@ -807,8 +831,8 @@ export default function PipelinePage() {
                         onClick={() => setSelectedLead(null)}
                         sx={{
                            mt: 1,
-                           color: '#fff',
-                           border: '1px solid rgba(255,255,255,0.10)',
+                           color: theme.text,
+                           border: `1px solid ${theme.border}`,
                            borderRadius: 3,
                         }}
                      >
@@ -834,10 +858,10 @@ export default function PipelinePage() {
             fullWidth
             PaperProps={{
                sx: {
-                  bgcolor: '#0f0f17',
-                  color: '#fff',
+                  bgcolor: theme.bgPanel,
+                  color: theme.text,
                   borderRadius: 4,
-                  border: '1px solid rgba(255,255,255,0.08)',
+                  border: `1px solid ${theme.border}`,
                },
             }}
          >
@@ -847,7 +871,7 @@ export default function PipelinePage() {
 
             <DialogContent sx={{ pb: 2 }}>
                <Stack spacing={1.4} sx={{ mt: 0.5 }}>
-                  <Typography sx={{ color: 'rgba(255,255,255,0.72)', fontSize: 13 }}>
+                  <Typography sx={{ color: theme.textSoft, fontSize: 13 }}>
                      Для переходу в стадію <b>{pendingDrop?.targetStage?.toUpperCase() || '—'}</b> потрібно вибрати відповідального.
                   </Typography>
 
@@ -861,19 +885,7 @@ export default function PipelinePage() {
                      value={assignEmployeeId}
                      onChange={(e) => setAssignEmployeeId(e.target.value)}
                      fullWidth
-                     sx={{
-                        '& .MuiOutlinedInput-root': {
-                           bgcolor: 'rgba(255,255,255,0.04)',
-                           borderRadius: 3,
-                           color: '#fff',
-                        },
-                        '& .MuiInputLabel-root': {
-                           color: 'rgba(255,255,255,0.75)',
-                        },
-                        '& .MuiSelect-icon': {
-                           color: 'rgba(255,255,255,0.78)',
-                        },
-                     }}
+                     sx={fieldSx}
                   >
                      <MenuItem value="">—</MenuItem>
                      {employees.map((emp) => (
@@ -892,8 +904,8 @@ export default function PipelinePage() {
                            setAssignError('');
                         }}
                         sx={{
-                           color: 'rgba(255,255,255,0.72)',
-                           border: '1px solid rgba(255,255,255,0.12)',
+                           color: theme.textSoft,
+                           border: `1px solid ${theme.border}`,
                            borderRadius: 3,
                         }}
                      >
@@ -907,8 +919,7 @@ export default function PipelinePage() {
                            color: '#111',
                            fontWeight: 900,
                            borderRadius: 3,
-                           background:
-                              'linear-gradient(90deg, rgba(139,92,246,1), rgba(168,85,247,1))',
+                           background: `linear-gradient(90deg, ${theme.accent}, ${theme.accentLight})`,
                         }}
                      >
                         {savingAssign ? 'Збереження...' : 'Підтвердити'}

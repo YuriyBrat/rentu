@@ -28,17 +28,18 @@ import AccessTimeFilledRoundedIcon from '@mui/icons-material/AccessTimeFilledRou
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import { useCRMTheme } from '@/app/(crm)/crm/context/CRMThemeContext';
 
 
 const stageColors = {
-   lead: { bg: '#9ca3af', color: '#111', label: 'Холодний лід' },   // сірий
-   hot: { bg: '#fa6515', color: '#111', label: 'Гарячий лід' },     // жовтий   facc15
-   ps: { bg: '#60a5fa', color: '#111', label: 'ПС' },               // синій
-   rs: { bg: '#2dd4bf', color: '#111', label: 'РС' },               // бірюзовий
-   ds: { bg: '#fb923c', color: '#111', label: 'ДС' },               // помаранчевий
-   pzs: { bg: '#f472b6', color: '#111', label: 'ПЗС' },             // рожевий
-   zs: { bg: '#4ade80', color: '#111', label: 'ЗС' },               // зелений
-   pers: { bg: '#a78bfa', color: '#111', label: 'ПЕРС' },           // фіолетовий
+   lead: { bg: '#9ca3af', color: '#111', label: 'Холодний лід' },
+   hot: { bg: '#fa6515', color: '#111', label: 'Гарячий лід' },
+   ps: { bg: '#60a5fa', color: '#111', label: 'ПС' },
+   rs: { bg: '#2dd4bf', color: '#111', label: 'РС' },
+   ds: { bg: '#fb923c', color: '#111', label: 'ДС' },
+   pzs: { bg: '#f472b6', color: '#111', label: 'ПЗС' },
+   zs: { bg: '#4ade80', color: '#111', label: 'ЗС' },
+   pers: { bg: '#a78bfa', color: '#111', label: 'ПЕРС' },
 };
 
 function formatDateOnly(value) {
@@ -133,15 +134,20 @@ const noteColors = {
 };
 
 const stageOptions = [
-   { value: 'lead', label: 'РҐРѕР»РѕРґРЅРёР№ Р»С–Рґ' },
-   { value: 'hot', label: 'Р“Р°СЂСЏС‡РёР№ Р»С–Рґ' },
-   { value: 'ps', label: 'РџРЎ' },
-   { value: 'rs', label: 'Р РЎ' },
-   { value: 'ds', label: 'Р”РЎ' },
-   { value: 'pzs', label: 'РџР—РЎ' },
-   { value: 'zs', label: 'Р—РЎ' },
-   { value: 'pers', label: 'РџР•Р РЎ' },
+   { value: 'lead', label: 'Холодний лід' },
+   { value: 'hot', label: 'Гарячий лід' },
+   { value: 'ps', label: 'ПС' },
+   { value: 'rs', label: 'РС' },
+   { value: 'ds', label: 'ДС' },
+   { value: 'pzs', label: 'ПЗС' },
+   { value: 'zs', label: 'ЗС' },
+   { value: 'pers', label: 'ПЕРС' },
 ];
+
+const stageSelectOptions = stageOptions.map(({ value }) => ({
+   value,
+   label: stageColors[value]?.label || value,
+}));
 
 function splitDateTime(value) {
    if (!value) return { date: '—', time: '' };
@@ -179,6 +185,7 @@ function getFreshnessMeta(lastActualizedAt) {
 
 
 export default function LeadRow({ item, employees = [], currentEmployeeId = '', onPatched, onEdit, onDeleted }) {
+   const { theme, mode } = useCRMTheme();
    const [open, setOpen] = useState(false);
 
    const [noteOpen, setNoteOpen] = useState(false);
@@ -203,8 +210,33 @@ export default function LeadRow({ item, employees = [], currentEmployeeId = '', 
    const actuality =
       actualityColors[item.actualityStatus] || {
          bg: 'rgba(255,255,255,0.08)',
-         color: '#fff',
+         color: theme.text,
       };
+   const isLight = mode === 'light';
+   const detailBoxSx = {
+      p: 1.2,
+      borderRadius: 3,
+      bgcolor: isLight ? 'rgba(255,255,255,0.62)' : 'rgba(255,255,255,0.03)',
+      border: `1px solid ${theme.border}`,
+   };
+   const fieldSx = {
+      '& .MuiOutlinedInput-root': {
+         color: theme.text,
+         bgcolor: theme.hover,
+         borderRadius: 2.5,
+         '& fieldset': { borderColor: theme.border },
+         '&:hover fieldset': { borderColor: theme.accent },
+         '&.Mui-focused fieldset': { borderColor: theme.accentLight },
+      },
+      '& .MuiInputLabel-root': { color: theme.textSoft },
+      '& .MuiSelect-icon': { color: theme.text },
+      '& .MuiInputBase-input': {
+         color: `${theme.text} !important`,
+         WebkitTextFillColor: theme.text,
+      },
+   };
+   const detailTextSx = { color: theme.textSoft, lineHeight: 1.65 };
+   const detailLabelStyle = { color: theme.text };
 
    // console.log(stage);
    const freshness = getFreshnessMeta(item.lastActualizedAt);
@@ -293,13 +325,13 @@ export default function LeadRow({ item, employees = [], currentEmployeeId = '', 
          const data = await res.json();
 
          if (!res.ok) {
-            throw new Error(data?.error || 'РќРµ РІРґР°Р»РѕСЃСЏ Р·РјС–РЅРёС‚Рё СЃС‚Р°РґС–СЋ');
+            throw new Error(data?.error || 'Не вдалося змінити стадію');
          }
 
          onPatched?.(data.item);
          setStageOpen(false);
       } catch (e) {
-         setStageError(e?.message || 'РџРѕРјРёР»РєР° Р·РјС–РЅРё СЃС‚Р°РґС–С—');
+         setStageError(e?.message || 'Помилка зміни стадії');
       } finally {
          setSavingStage(false);
       }
@@ -317,13 +349,13 @@ export default function LeadRow({ item, employees = [], currentEmployeeId = '', 
          const data = await res.json().catch(() => ({}));
 
          if (!res.ok) {
-            throw new Error(data?.error || 'РќРµ РІРґР°Р»РѕСЃСЏ РІРёРґР°Р»РёС‚Рё Р»С–РґР°');
+            throw new Error(data?.error || 'Не вдалося видалити ліда');
          }
 
          onDeleted?.(item._id);
          setDeleteOpen(false);
       } catch (e) {
-         setDeleteError(e?.message || 'РџРѕРјРёР»РєР° РІРёРґР°Р»РµРЅРЅСЏ');
+         setDeleteError(e?.message || 'Помилка видалення');
       } finally {
          setDeleting(false);
       }
@@ -345,17 +377,19 @@ export default function LeadRow({ item, employees = [], currentEmployeeId = '', 
 
 
    return (
+      <>
       <Box
          sx={{
-            border: '1px solid rgba(255,255,255,0.08)',
+            border: `1px solid ${theme.border}`,
             borderRadius: 3,
-            bgcolor: 'rgba(255,255,255,0.03)',
+            bgcolor: mode === 'light' ? 'rgba(255,255,255,0.76)' : 'rgba(255,255,255,0.03)',
             overflow: 'hidden',
             transition: '0.18s ease',
             boxShadow: '0 0 0 rgba(0,0,0,0)',
+            color: theme.text,
             '&:hover': {
-               borderColor: 'rgba(139,92,246,0.22)',
-               bgcolor: 'rgba(255,255,255,0.045)',
+               borderColor: theme.accent,
+               bgcolor: mode === 'light' ? 'rgba(124,58,237,0.06)' : 'rgba(255,255,255,0.045)',
                boxShadow: '0 10px 26px rgba(0,0,0,0.16)',
             },
          }}
@@ -389,7 +423,7 @@ export default function LeadRow({ item, employees = [], currentEmployeeId = '', 
                   <Tooltip title={item.name || ''}>
                      <Typography
                         sx={{
-                           color: '#fff',
+                           color: theme.text,
                            fontWeight: 850,
                            fontSize: 14,
                            lineHeight: 1.1,
@@ -402,7 +436,7 @@ export default function LeadRow({ item, employees = [], currentEmployeeId = '', 
 
                   <Typography
                      sx={{
-                        color: 'rgba(255,255,255,0.62)',
+                         color: theme.textSoft,
                         fontSize: 11.5,
                         lineHeight: 1.1,
                      }}
@@ -456,7 +490,7 @@ export default function LeadRow({ item, employees = [], currentEmployeeId = '', 
                         size="small"
                         onClick={openStageDialog}
                         sx={{
-                           bgcolor: stage.bg + ' !important',
+                           bgcolor: `${stage.bg} !important`,
                            color: stage.color,
                            fontWeight: 900,
                            borderRadius: 999,
@@ -477,12 +511,12 @@ export default function LeadRow({ item, employees = [], currentEmployeeId = '', 
                         }
                         size="small"
                         sx={{
-                           bgcolor: 'rgba(17,24,39,0.92)',
-                           color: '#5eead4',
+                           bgcolor: isLight ? '#ecfdf5 !important' : 'rgba(17,24,39,0.92) !important',
+                           color: isLight ? '#047857' : '#5eead4',
                            fontWeight: 500,
                            borderRadius: 999,
                            height: 25,
-                           border: '1px solid rgba(156,163,175,0.28)',
+                           border: isLight ? '1px solid rgba(4,120,87,0.18)' : '1px solid rgba(156,163,175,0.28)',
                            '& .MuiChip-label': {
                               px: 1.15,
                            },
@@ -495,10 +529,11 @@ export default function LeadRow({ item, employees = [], currentEmployeeId = '', 
                      size="small"
                      sx={{
                         alignSelf: 'flex-start',
-                        bgcolor: actuality.bg,
-                        color: actuality.color,
+                        bgcolor: isLight ? '#ecfdf5 !important' : `${actuality.bg} !important`,
+                        color: isLight ? '#047857' : actuality.color,
                         fontWeight: 800,
                         borderRadius: 999,
+                        border: isLight ? '1px solid rgba(4,120,87,0.18)' : 'none',
                         maxWidth: '100%',
                         height: 22,
                         '& .MuiChip-label': {
@@ -516,7 +551,7 @@ export default function LeadRow({ item, employees = [], currentEmployeeId = '', 
                <Stack spacing={0.18} minWidth={0}>
                   <Typography
                      sx={{
-                        color: '#fff',
+                         color: theme.text,
                         fontSize: 12.8,
                         fontWeight: 700,
                         lineHeight: 1.22,
@@ -536,7 +571,15 @@ export default function LeadRow({ item, employees = [], currentEmployeeId = '', 
                      <Stack direction="row" alignItems="center" spacing={1}>
                         <Typography
                            sx={{
-                              color: noteColors[lastNote.type] || 'rgba(255,255,255,0.58)',
+                              color: isLight
+                                 ? (lastNote.type === 'positive'
+                                    ? '#047857'
+                                    : lastNote.type === 'negative'
+                                       ? '#b91c1c'
+                                       : lastNote.type === 'important'
+                                          ? '#1d4ed8'
+                                          : '#92400e')
+                                 : noteColors[lastNote.type] || 'rgba(255,255,255,0.58)',
                               fontSize: 11,
                               lineHeight: 1.1,
                               whiteSpace: 'nowrap',
@@ -590,7 +633,7 @@ export default function LeadRow({ item, employees = [], currentEmployeeId = '', 
                <Stack spacing={0.1} alignItems={{ xs: 'flex-start', lg: 'flex-end', marginRight: '7px' }}>
                   <Typography
                      sx={{
-                        color: '#fff',
+                         color: theme.text,
                         fontWeight: 800,
                         fontSize: 12.5,
                         lineHeight: 1.1,
@@ -609,7 +652,7 @@ export default function LeadRow({ item, employees = [], currentEmployeeId = '', 
                         <Tooltip title={`Дата появи: ${formatDateTime(appearedAt)}`}>
                            <Typography
                               sx={{
-                                 color: 'rgba(255,255,255,0.62)',
+                                  color: theme.textSoft,
                                  fontSize: 10.5,
                                  lineHeight: 1.1,
                                  fontWeight: 400,
@@ -635,7 +678,7 @@ export default function LeadRow({ item, employees = [], currentEmployeeId = '', 
 
                      <Typography
                         sx={{
-                           color: 'rgba(255,255,255,0.55)',
+                            color: theme.textSoft,
                            fontSize: 10.5,
                            lineHeight: 1.1,
                         }}
@@ -653,7 +696,7 @@ export default function LeadRow({ item, employees = [], currentEmployeeId = '', 
                <Stack spacing={0.1} alignItems={{ xs: 'flex-start', lg: 'flex-end' }}>
                   <Typography
                      sx={{
-                        color: '#fff',
+                         color: theme.text,
                         fontWeight: 750,
                         fontSize: 12.3,
                         lineHeight: 1.1,
@@ -664,7 +707,7 @@ export default function LeadRow({ item, employees = [], currentEmployeeId = '', 
                   </Typography>
                   <Typography
                      sx={{
-                        color: 'rgba(255,255,255,0.5)',
+                         color: theme.textSoft,
                         fontSize: 10.5,
                         lineHeight: 1.1,
                      }}
@@ -676,15 +719,47 @@ export default function LeadRow({ item, employees = [], currentEmployeeId = '', 
 
                {/* ARROW */}
                <Stack alignItems={{ xs: 'flex-end', lg: 'center' }}>
+                  <Stack direction="row" spacing={0.4} sx={{ mb: 0.4 }}>
+                     <Tooltip title="Редагувати">
+                        <IconButton
+                           size="small"
+                           onClick={() => onEdit?.(item)}
+                           sx={{
+                              color: '#93c5fd',
+                              width: 26,
+                              height: 26,
+                              border: '1px solid rgba(147,197,253,0.18)',
+                              borderRadius: 2,
+                           }}
+                        >
+                           <EditRoundedIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                     </Tooltip>
+                     <Tooltip title="Видалити">
+                        <IconButton
+                           size="small"
+                           onClick={() => setDeleteOpen(true)}
+                           sx={{
+                              color: '#fca5a5',
+                              width: 26,
+                              height: 26,
+                              border: '1px solid rgba(252,165,165,0.18)',
+                              borderRadius: 2,
+                           }}
+                        >
+                           <DeleteOutlineRoundedIcon sx={{ fontSize: 16 }} />
+                        </IconButton>
+                     </Tooltip>
+                  </Stack>
                   <IconButton
                      onClick={() => setOpen((p) => !p)}
                      sx={{
-                        color: 'rgba(255,255,255,0.78)',
-                        border: '1px solid rgba(255,255,255,0.08)',
+                         color: theme.textSoft,
+                         border: `1px solid ${theme.border}`,
                         width: 34,
                         height: 34,
                         borderRadius: 2.5,
-                        bgcolor: 'rgba(255,255,255,0.03)',
+                         bgcolor: theme.hover,
                      }}
                   >
                      {open ? <ExpandLessRoundedIcon /> : <ExpandMoreRoundedIcon />}
@@ -698,8 +773,8 @@ export default function LeadRow({ item, employees = [], currentEmployeeId = '', 
                sx={{
                   p: 1,
                   borderRadius: 2.5,
-                  bgcolor: 'rgba(255,255,255,0.04)',
-                  border: '1px solid rgba(255,255,255,0.08)',
+                   bgcolor: theme.hover,
+                   border: `1px solid ${theme.border}`,
                   mb: 1,
                }}
             >
@@ -715,16 +790,7 @@ export default function LeadRow({ item, employees = [], currentEmployeeId = '', 
                      fullWidth
                      // multiline
                      minRows={2}
-                     sx={{
-                        '& .MuiOutlinedInput-root': {
-                           color: '#fff',
-                           bgcolor: 'rgba(255,255,255,0.04)',
-                           borderRadius: 2.5,
-                           '& fieldset': {
-                              borderColor: 'rgba(255,255,255,0.10)',
-                           },
-                        },
-                     }}
+                      sx={fieldSx}
                   />
 
                   <Stack direction={{ xs: 'column', md: 'row' }} spacing={1}>
@@ -733,20 +799,7 @@ export default function LeadRow({ item, employees = [], currentEmployeeId = '', 
                         label="Тип нотатки"
                         value={noteType}
                         onChange={(e) => setNoteType(e.target.value)}
-                        sx={{
-                           minWidth: 180,
-                           '& .MuiOutlinedInput-root': {
-                              color: '#fff',
-                              bgcolor: 'rgba(255,255,255,0.04)',
-                              borderRadius: 2.5,
-                           },
-                           '& .MuiInputLabel-root': {
-                              color: 'rgba(255,255,255,0.72)',
-                           },
-                           '& .MuiSelect-icon': {
-                              color: 'rgba(255,255,255,0.78)',
-                           },
-                        }}
+                         sx={{ minWidth: 180, ...fieldSx }}
                      >
                         <MenuItem value="positive">Позитивна</MenuItem>
                         <MenuItem value="negative">Негативна</MenuItem>
@@ -759,20 +812,7 @@ export default function LeadRow({ item, employees = [], currentEmployeeId = '', 
                         label="Хто вносить"
                         value={noteAuthor}
                         onChange={(e) => setNoteAuthor(e.target.value)}
-                        sx={{
-                           minWidth: 220,
-                           '& .MuiOutlinedInput-root': {
-                              color: '#fff',
-                              bgcolor: 'rgba(255,255,255,0.04)',
-                              borderRadius: 2.5,
-                           },
-                           '& .MuiInputLabel-root': {
-                              color: 'rgba(255,255,255,0.72)',
-                           },
-                           '& .MuiSelect-icon': {
-                              color: 'rgba(255,255,255,0.78)',
-                           },
-                        }}
+                         sx={{ minWidth: 220, ...fieldSx }}
                      >
                         <MenuItem value="">—</MenuItem>
                         {employees.map((emp) => (
@@ -789,8 +829,8 @@ export default function LeadRow({ item, employees = [], currentEmployeeId = '', 
                            size="small"
                            onClick={() => setNoteOpen(false)}
                            sx={{
-                              color: 'rgba(255,255,255,0.72)',
-                              border: '1px solid rgba(255,255,255,0.12)',
+                              color: theme.textSoft,
+                              border: `1px solid ${theme.border}`,
                               borderRadius: 2.5,
                            }}
                         >
@@ -805,8 +845,7 @@ export default function LeadRow({ item, employees = [], currentEmployeeId = '', 
                               color: '#111',
                               fontWeight: 800,
                               borderRadius: 2.5,
-                              background:
-                                 'linear-gradient(90deg, rgba(139,92,246,1), rgba(168,85,247,1))',
+                              background: `linear-gradient(90deg, ${theme.accent}, ${theme.accentLight})`,
                            }}
                         >
                            {savingNote ? 'Збереження...' : 'Зберегти'}
@@ -818,52 +857,42 @@ export default function LeadRow({ item, employees = [], currentEmployeeId = '', 
          )}
 
          <Collapse in={open} timeout="auto" unmountOnExit>
-            <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)' }} />
+            <Divider sx={{ borderColor: theme.border }} />
 
             <Box sx={{ p: 1.3 }}>
                <Grid container spacing={1.2}>
                   <Grid item xs={12} lg={7}>
                      <Stack spacing={1.1}>
                         <Box
-                           sx={{
-                              p: 1.2,
-                              borderRadius: 3,
-                              bgcolor: 'rgba(255,255,255,0.03)',
-                              border: '1px solid rgba(255,255,255,0.06)',
-                           }}
+                           sx={detailBoxSx}
                         >
-                           <Typography sx={{ color: '#fff', fontWeight: 850, mb: 0.7 }}>
+                           <Typography sx={{ color: theme.text, fontWeight: 850, mb: 0.7 }}>
                               Деталі пошуку
                            </Typography>
-                           <Typography sx={{ color: 'rgba(255,255,255,0.74)', lineHeight: 1.65 }}>
+                           <Typography sx={detailTextSx}>
                               {item.requestSummary}
                            </Typography>
                         </Box>
 
                         <Box
-                           sx={{
-                              p: 1.2,
-                              borderRadius: 3,
-                              bgcolor: 'rgba(255,255,255,0.03)',
-                              border: '1px solid rgba(255,255,255,0.06)',
-                           }}
+                           sx={detailBoxSx}
                         >
-                           <Typography sx={{ color: '#fff', fontWeight: 850, mb: 0.7 }}>
+                           <Typography sx={{ color: theme.text, fontWeight: 850, mb: 0.7 }}>
                               Джерело
                            </Typography>
 
                            <Stack spacing={0.6}>
-                              <Typography sx={{ color: 'rgba(255,255,255,0.74)' }}>
-                                 <b style={{ color: '#fff' }}>Канал:</b> {item.sourceChannel}
+                              <Typography sx={detailTextSx}>
+                                 <b style={detailLabelStyle}>Канал:</b> {item.sourceChannel}
                               </Typography>
-                              <Typography sx={{ color: 'rgba(255,255,255,0.74)' }}>
-                                 <b style={{ color: '#fff' }}>Об’єкт, що примагнітив:</b> {item.sourceObject}
+                              <Typography sx={detailTextSx}>
+                                 <b style={detailLabelStyle}>Об’єкт, що примагнітив:</b> {item.sourceObject}
                               </Typography>
-                              <Typography sx={{ color: 'rgba(255,255,255,0.74)' }}>
-                                 <b style={{ color: '#fff' }}>Нотатка до джерела:</b> {item.sourceNote}
+                              <Typography sx={detailTextSx}>
+                                 <b style={detailLabelStyle}>Нотатка до джерела:</b> {item.sourceNote}
                               </Typography>
-                              <Typography sx={{ color: 'rgba(255,255,255,0.74)' }}>
-                                 <b style={{ color: '#fff' }}>Хто вніс:</b> {createdBy?.name || '—'}
+                              <Typography sx={detailTextSx}>
+                                 <b style={detailLabelStyle}>Хто вніс:</b> {createdBy?.name || '—'}
                               </Typography>
                            </Stack>
                         </Box>
@@ -873,50 +902,40 @@ export default function LeadRow({ item, employees = [], currentEmployeeId = '', 
                   <Grid item xs={12} lg={5}>
                      <Stack spacing={1.1}>
                         <Box
-                           sx={{
-                              p: 1.2,
-                              borderRadius: 3,
-                              bgcolor: 'rgba(255,255,255,0.03)',
-                              border: '1px solid rgba(255,255,255,0.06)',
-                           }}
+                           sx={detailBoxSx}
                         >
-                           <Typography sx={{ color: '#fff', fontWeight: 850, mb: 0.8 }}>
+                           <Typography sx={{ color: theme.text, fontWeight: 850, mb: 0.8 }}>
                               Службова інформація
                            </Typography>
 
                            <Stack spacing={0.55}>
-                              <Typography sx={{ color: 'rgba(255,255,255,0.74)' }}>
-                                 <b style={{ color: '#fff' }}>Стадія:</b> {stage.label}
+                              <Typography sx={detailTextSx}>
+                                 <b style={detailLabelStyle}>Стадія:</b> {stage.label}
                               </Typography>
-                              <Typography sx={{ color: 'rgba(255,255,255,0.74)' }}>
-                                 <b style={{ color: '#fff' }}>Макс. бюджет:</b>{' '}
+                              <Typography sx={detailTextSx}>
+                                 <b style={detailLabelStyle}>Макс. бюджет:</b>{' '}
                                  {item.budgetMax ? `${item.budgetMax.toLocaleString('uk-UA')} $` : '—'}
                               </Typography>
 
-                              <Typography sx={{ color: 'rgba(255,255,255,0.74)' }}>
-                                 <b style={{ color: '#fff' }}>Остання дата актуальності:</b> {formatDateTime(item.lastActualizedAt)}
+                              <Typography sx={detailTextSx}>
+                                 <b style={detailLabelStyle}>Остання дата актуальності:</b> {formatDateTime(item.lastActualizedAt)}
                               </Typography>
-                              <Typography sx={{ color: 'rgba(255,255,255,0.74)' }}>
-                                 <b style={{ color: '#fff' }}>Статус актуальності:</b> {item.actualityStatus}
+                              <Typography sx={detailTextSx}>
+                                 <b style={detailLabelStyle}>Статус актуальності:</b> {item.actualityStatus}
                               </Typography>
-                              <Typography sx={{ color: 'rgba(255,255,255,0.74)' }}>
-                                 <b style={{ color: '#fff' }}>Дата появи ліда:</b> {formatDateTime(item.leadAppearedAt)}
+                              <Typography sx={detailTextSx}>
+                                 <b style={detailLabelStyle}>Дата появи ліда:</b> {formatDateTime(item.leadAppearedAt)}
                               </Typography>
-                              <Typography sx={{ color: 'rgba(255,255,255,0.74)' }}>
-                                 <b style={{ color: '#fff' }}>Дата внесення:</b> {formatDateTime(item.createdAt)}
+                              <Typography sx={detailTextSx}>
+                                 <b style={detailLabelStyle}>Дата внесення:</b> {formatDateTime(item.createdAt)}
                               </Typography>
                            </Stack>
                         </Box>
 
                         <Box
-                           sx={{
-                              p: 1.2,
-                              borderRadius: 3,
-                              bgcolor: 'rgba(255,255,255,0.03)',
-                              border: '1px solid rgba(255,255,255,0.06)',
-                           }}
+                           sx={detailBoxSx}
                         >
-                           <Typography sx={{ color: '#fff', fontWeight: 850, mb: 0.8 }}>
+                           <Typography sx={{ color: theme.text, fontWeight: 850, mb: 0.8 }}>
                               Нотатки
                            </Typography>
 
@@ -949,9 +968,9 @@ export default function LeadRow({ item, employees = [], currentEmployeeId = '', 
                                           label: 'Важлива',
                                        },
                                     }[note.type] || {
-                                       color: '#fff',
-                                       bg: 'rgba(255,255,255,0.06)',
-                                       border: '1px solid rgba(255,255,255,0.08)',
+                                       color: theme.text,
+                                       bg: theme.hover,
+                                       border: `1px solid ${theme.border}`,
                                        label: 'Нотатка',
                                     };
 
@@ -976,17 +995,17 @@ export default function LeadRow({ item, employees = [], currentEmployeeId = '', 
                                           </Typography>
                                           <Stack direction="row" spacing={1} alignItems="center">
                                              {note.createdByName && (
-                                                <Typography sx={{ color: 'rgba(255,255,255,0.6)', fontSize: 11 }}>
+                                                <Typography sx={{ color: theme.textSoft, fontSize: 11 }}>
                                                    {note.createdByName}
                                                 </Typography>
                                              )}
-                                             <Typography sx={{ color: 'rgba(255,255,255,0.46)', fontSize: 11 }}>
+                                             <Typography sx={{ color: theme.textSoft, fontSize: 11 }}>
                                                 {formatDateTime(note.createdAt)}
                                              </Typography>
                                           </Stack>
                                        </Stack>
 
-                                       <Typography sx={{ color: '#fff', lineHeight: 1.5 }}>
+                                       <Typography sx={{ color: theme.text, lineHeight: 1.5 }}>
                                           {note.text}
                                        </Typography>
                                     </Box>
@@ -1000,5 +1019,137 @@ export default function LeadRow({ item, employees = [], currentEmployeeId = '', 
             </Box>
          </Collapse>
       </Box>
+      <Dialog
+         open={stageOpen}
+         onClose={() => setStageOpen(false)}
+         maxWidth="sm"
+         fullWidth
+         PaperProps={{
+            sx: {
+               bgcolor: theme.bgPanel,
+               color: theme.text,
+               borderRadius: 3,
+               border: `1px solid ${theme.border}`,
+            },
+         }}
+      >
+         <DialogTitle sx={{ fontWeight: 950 }}>Змінити стадію</DialogTitle>
+         <DialogContent>
+            <Stack spacing={1.2} sx={{ pt: 0.5 }}>
+               {!!stageError && <Alert severity="error">{stageError}</Alert>}
+               <TextField
+                  select
+                  label="Стадія"
+                  value={nextStage}
+                  onChange={(e) => setNextStage(e.target.value)}
+                  fullWidth
+                  sx={{
+                     '& .MuiOutlinedInput-root': { color: theme.text, bgcolor: theme.hover },
+                     '& .MuiInputLabel-root': { color: theme.textSoft },
+                     '& .MuiSelect-icon': { color: theme.text },
+                  }}
+               >
+                  {stageSelectOptions.map((x) => (
+                     <MenuItem key={x.value} value={x.value}>{x.label}</MenuItem>
+                  ))}
+               </TextField>
+               <TextField
+                  select
+                  label="Відповідальний"
+                  value={stageAssignee}
+                  onChange={(e) => setStageAssignee(e.target.value)}
+                  fullWidth
+                  sx={{
+                     '& .MuiOutlinedInput-root': { color: theme.text, bgcolor: theme.hover },
+                     '& .MuiInputLabel-root': { color: theme.textSoft },
+                     '& .MuiSelect-icon': { color: theme.text },
+                  }}
+               >
+                  <MenuItem value="">—</MenuItem>
+                  {employees.map((emp) => (
+                     <MenuItem key={emp._id} value={emp._id}>{emp.name}</MenuItem>
+                  ))}
+               </TextField>
+               <TextField
+                  label="Нотатка"
+                  value={stageNoteText}
+                  onChange={(e) => setStageNoteText(e.target.value)}
+                  fullWidth
+                  minRows={2}
+                  sx={{
+                     '& .MuiOutlinedInput-root': { color: theme.text, bgcolor: theme.hover },
+                     '& .MuiInputLabel-root': { color: theme.textSoft },
+                  }}
+               />
+               <TextField
+                  select
+                  label="Тип нотатки"
+                  value={stageNoteType}
+                  onChange={(e) => setStageNoteType(e.target.value)}
+                  fullWidth
+                  sx={{
+                     '& .MuiOutlinedInput-root': { color: theme.text, bgcolor: theme.hover },
+                     '& .MuiInputLabel-root': { color: theme.textSoft },
+                     '& .MuiSelect-icon': { color: theme.text },
+                  }}
+               >
+                  <MenuItem value="positive">Позитивна</MenuItem>
+                  <MenuItem value="negative">Негативна</MenuItem>
+                  <MenuItem value="info">Інформуюча</MenuItem>
+                  <MenuItem value="important">Важлива</MenuItem>
+               </TextField>
+            </Stack>
+         </DialogContent>
+         <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setStageOpen(false)} sx={{ color: theme.textSoft }}>
+               Скасувати
+            </Button>
+            <Button
+               disabled={savingStage}
+               onClick={handleSaveStage}
+               sx={{ color: '#111', fontWeight: 900, bgcolor: '#a78bfa', '&:hover': { bgcolor: '#c4b5fd' } }}
+            >
+               {savingStage ? 'Збереження...' : 'Зберегти'}
+            </Button>
+         </DialogActions>
+      </Dialog>
+      <Dialog
+         open={deleteOpen}
+         onClose={() => setDeleteOpen(false)}
+         PaperProps={{
+            sx: {
+               bgcolor: theme.bgPanel,
+               color: theme.text,
+               borderRadius: 3,
+               border: `1px solid ${theme.border}`,
+            },
+         }}
+      >
+         <DialogTitle sx={{ fontWeight: 950 }}>Видалити ліда?</DialogTitle>
+         <DialogContent>
+            <Stack spacing={1}>
+               {!!deleteError && <Alert severity="error">{deleteError}</Alert>}
+               <Typography sx={{ color: theme.textSoft }}>
+                  {item.name}
+               </Typography>
+                <Typography sx={{ color: theme.textSoft, fontSize: 13 }}>
+                   {(item.phones || []).join(', ') || 'Без телефону'}
+                </Typography>
+            </Stack>
+         </DialogContent>
+         <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button onClick={() => setDeleteOpen(false)} sx={{ color: theme.textSoft }}>
+               Скасувати
+            </Button>
+            <Button
+               disabled={deleting}
+               onClick={handleDelete}
+               sx={{ color: '#111', fontWeight: 900, bgcolor: '#fca5a5', '&:hover': { bgcolor: '#fecaca' } }}
+            >
+               {deleting ? 'Видалення...' : 'Видалити'}
+            </Button>
+         </DialogActions>
+      </Dialog>
+      </>
    );
 }

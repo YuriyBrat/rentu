@@ -17,6 +17,7 @@ import {
 
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import { useCRMTheme } from '@/app/(crm)/crm/context/CRMThemeContext';
 
 const STAGES = [
    { value: 'lead', label: 'Холодний лід' },
@@ -119,48 +120,51 @@ function fieldsFromLead(item) {
    };
 }
 
-const fieldSx = {
+const getFieldSx = (theme) => ({
    '& .MuiOutlinedInput-root': {
-      bgcolor: 'rgba(255,255,255,0.04)',
+      bgcolor: theme.hover,
       borderRadius: 2.5,
-      color: '#fff',
+      color: theme.text,
       minHeight: 44,
       '& input': {
-         color: '#fff !important',
-         WebkitTextFillColor: '#fff',
+         color: `${theme.text} !important`,
+         WebkitTextFillColor: theme.text,
       },
       '& textarea': {
-         color: '#fff !important',
-         WebkitTextFillColor: '#fff',
+         color: `${theme.text} !important`,
+         WebkitTextFillColor: theme.text,
       },
       '& .MuiSelect-select': {
-         color: '#fff !important',
-         WebkitTextFillColor: '#fff',
+         color: `${theme.text} !important`,
+         WebkitTextFillColor: theme.text,
       },
-      '& fieldset': { borderColor: 'rgba(255,255,255,0.16)' },
-      '&:hover fieldset': { borderColor: 'rgba(139,92,246,0.38)' },
-      '&.Mui-focused fieldset': { borderColor: 'rgba(168,85,247,0.95)' },
+      '& fieldset': { borderColor: theme.border },
+      '&:hover fieldset': { borderColor: theme.accent },
+      '&.Mui-focused fieldset': { borderColor: theme.accentLight },
    },
    '& .MuiInputLabel-root': {
-      color: 'rgba(255,255,255,0.82) !important',
+      color: `${theme.textSoft} !important`,
       fontWeight: 700,
    },
    '& .MuiSelect-icon': {
-      color: 'rgba(255,255,255,0.75)',
+      color: theme.text,
    },
-};
+});
 
-const selectMenuProps = {
+const getSelectMenuProps = (theme) => ({
    PaperProps: {
       sx: {
-         bgcolor: '#151521',
-         color: '#fff',
-         border: '1px solid rgba(255,255,255,0.08)',
+         bgcolor: theme.bgPanel,
+         color: theme.text,
+         border: `1px solid ${theme.border}`,
       },
    },
-};
+});
 
 export default function LeadForm({ employees = [], item = null, onCancel, onCreated, onUpdated }) {
+   const { theme } = useCRMTheme();
+   const fieldSx = getFieldSx(theme);
+   const selectMenuProps = getSelectMenuProps(theme);
    const isEdit = Boolean(item?._id);
    const [fields, setFields] = useState(() => fieldsFromLead(item));
    const [loading, setLoading] = useState(false);
@@ -372,8 +376,8 @@ export default function LeadForm({ employees = [], item = null, onCancel, onCrea
                               onClick={() => (idx === 0 ? addArrayItem('phones') : removeArrayItem('phones', idx))}
                               sx={{
                                  alignSelf: 'center',
-                                 color: '#fff',
-                                 border: '1px solid rgba(255,255,255,0.10)',
+                                 color: theme.text,
+                                 border: `1px solid ${theme.border}`,
                                  borderRadius: 2.5,
                               }}
                            >
@@ -395,8 +399,8 @@ export default function LeadForm({ employees = [], item = null, onCancel, onCrea
                               onClick={() => (idx === 0 ? addArrayItem('emails') : removeArrayItem('emails', idx))}
                               sx={{
                                  alignSelf: 'center',
-                                 color: '#fff',
-                                 border: '1px solid rgba(255,255,255,0.10)',
+                                 color: theme.text,
+                                 border: `1px solid ${theme.border}`,
                                  borderRadius: 2.5,
                               }}
                            >
@@ -558,7 +562,7 @@ export default function LeadForm({ employees = [], item = null, onCancel, onCrea
                {!isEdit && (
                <Grid item xs={12}>
                   <Stack spacing={1}>
-                     <Typography sx={{ color: '#fff', fontWeight: 800 }}>
+                     <Typography sx={{ color: theme.text, fontWeight: 800 }}>
                         Початкові нотатки
                      </Typography>
 
@@ -598,8 +602,8 @@ export default function LeadForm({ employees = [], item = null, onCancel, onCrea
                                  onClick={() => (idx === 0 ? addInitialNote() : removeInitialNote(idx))}
                                  sx={{
                                     mt: { xs: 0, md: 0.4 },
-                                    color: '#fff',
-                                    border: '1px solid rgba(255,255,255,0.10)',
+                                    color: theme.text,
+                                    border: `1px solid ${theme.border}`,
                                     borderRadius: 2.5,
                                  }}
                               >
@@ -618,8 +622,8 @@ export default function LeadForm({ employees = [], item = null, onCancel, onCrea
                   onClick={onCancel}
                   sx={{
                      borderRadius: 3,
-                     color: 'rgba(255,255,255,0.76)',
-                     border: '1px solid rgba(255,255,255,0.10)',
+                     color: theme.textSoft,
+                     border: `1px solid ${theme.border}`,
                   }}
                >
                   Скасувати
