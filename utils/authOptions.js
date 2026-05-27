@@ -46,14 +46,15 @@ export const authOptions = {
             try {
                await connectDB();
 
-               const employee = await Employee.findOne({
+               const employee = await Employee.collection.findOne({
                   isActive: true,
                   $or: [
                      { login: loginValue },
-                     { emails: { $in: [loginValue] } },
-                     { phones: { $in: [loginValue] } },
+                     { emails: loginValue },
+                     { 'phones.number': loginValue },
+                     { phones: loginValue },
                   ],
-               }).lean();
+               });
 
                if (!employee) return null;
                if (!employee.passwordHash) return null;

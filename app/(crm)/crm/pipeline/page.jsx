@@ -63,6 +63,23 @@ function formatMoney(value) {
    return `${Number(value).toLocaleString('uk-UA')} $`;
 }
 
+function getNoteMeta(type, mode, theme) {
+   const light = {
+      positive: { label: 'Позитивна', color: '#047857', bg: '#ecfdf5', border: 'rgba(4,120,87,0.22)' },
+      negative: { label: 'Негативна', color: '#b91c1c', bg: '#fef2f2', border: 'rgba(185,28,28,0.20)' },
+      info: { label: 'Інформуюча', color: '#92400e', bg: '#fffbeb', border: 'rgba(146,64,14,0.22)' },
+      important: { label: 'Важлива', color: '#1d4ed8', bg: '#eff6ff', border: 'rgba(29,78,216,0.22)' },
+   };
+   const dark = {
+      positive: { label: 'Позитивна', color: '#86efac', bg: 'rgba(34,197,94,0.14)', border: 'rgba(34,197,94,0.24)' },
+      negative: { label: 'Негативна', color: '#fca5a5', bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.24)' },
+      info: { label: 'Інформуюча', color: '#fde68a', bg: 'rgba(250,204,21,0.12)', border: 'rgba(250,204,21,0.24)' },
+      important: { label: 'Важлива', color: '#93c5fd', bg: 'rgba(59,130,246,0.12)', border: 'rgba(59,130,246,0.24)' },
+   };
+   const fallback = { label: 'Нотатка', color: theme.text, bg: theme.hover, border: theme.border };
+   return (mode === 'light' ? light : dark)[type] || fallback;
+}
+
 const getFieldSx = (theme) => ({
    '& .MuiOutlinedInput-root': {
       bgcolor: theme.hover,
@@ -160,9 +177,9 @@ function LeadCard({ item, isMine, onOpen, theme, mode }) {
                   label={formatMoney(item.budgetMax)}
                   size="small"
                   sx={{
-                     bgcolor: 'rgba(17,24,39,0.92)',
-                     color: '#5eead4',
-                     border: '1px solid rgba(156,163,175,0.28)',
+                     bgcolor: mode === 'light' ? '#ecfdf5 !important' : 'rgba(17,24,39,0.92) !important',
+                     color: mode === 'light' ? '#047857' : '#5eead4',
+                     border: mode === 'light' ? '1px solid rgba(4,120,87,0.18)' : '1px solid rgba(156,163,175,0.28)',
                      fontWeight: 500,
                   }}
                />
@@ -248,8 +265,10 @@ function StageColumn({ stage, items, currentEmployeeId, onOpen, theme, mode }) {
                   label={items.length}
                   size="small"
                   sx={{
-                     bgcolor: theme.hover,
+                     bgcolor: mode === 'light' ? '#ffffff !important' : `${theme.hover} !important`,
                      color: theme.text,
+                     border: `1px solid ${theme.border}`,
+                     fontWeight: 900,
                   }}
                />
             </Stack>
@@ -636,11 +655,12 @@ export default function PipelinePage() {
                         sx={{
                            bgcolor:
                               filterType === x.value
-                                 ? theme.hover
-                                 : mode === 'light' ? 'rgba(17,24,39,0.04)' : 'rgba(255,255,255,0.05)',
-                           color: theme.text,
+                                 ? `${theme.accent} !important`
+                                 : mode === 'light' ? '#ffffff !important' : 'rgba(255,255,255,0.05) !important',
+                           color: filterType === x.value ? '#fff' : theme.text,
                            border: `1px solid ${filterType === x.value ? theme.accent : theme.border}`,
                            cursor: 'pointer',
+                           fontWeight: 800,
                         }}
                      />
                   ))}
@@ -775,24 +795,32 @@ export default function PipelinePage() {
                            <Typography sx={{ fontWeight: 850 }}>Нотатки</Typography>
 
                            <Stack spacing={0.8}>
-                              {selectedLead.notes.map((note, idx) => (
+                              {selectedLead.notes.map((note, idx) => {
+                                 const noteMeta = getNoteMeta(note.type, mode, theme);
+                                 return (
                                  <Box
                                     key={idx}
                                     sx={{
                                        p: 1,
                                        borderRadius: 2.5,
-                                       bgcolor: theme.hover,
-                                       border: `1px solid ${theme.border}`,
+                                       bgcolor: `${noteMeta.bg} !important`,
+                                       border: `1px solid ${noteMeta.border}`,
                                     }}
                                  >
+                                    <Stack direction="row" spacing={1} justifyContent="space-between" sx={{ mb: 0.45 }}>
+                                       <Typography sx={{ color: noteMeta.color, fontWeight: 900 }}>
+                                          {noteMeta.label}
+                                       </Typography>
+                                       <Typography sx={{ color: theme.textSoft, fontSize: 11 }}>
+                                          {note.createdByName || '—'}
+                                       </Typography>
+                                    </Stack>
                                     <Typography sx={{ color: theme.text, lineHeight: 1.45 }}>
                                        {note.text}
                                     </Typography>
-                                    <Typography sx={{ color: theme.textSoft, fontSize: 11, mt: 0.4 }}>
-                                       {note.createdByName || '—'}
-                                    </Typography>
                                  </Box>
-                              ))}
+                                 );
+                              })}
                            </Stack>
                         </>
                      )}

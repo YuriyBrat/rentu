@@ -26,6 +26,9 @@ import {
    Switch,
    Fade,
    Divider,
+   Dialog,
+   DialogContent,
+   Chip,
 } from '@mui/material';
 
 import DashboardIcon from '@mui/icons-material/Dashboard';
@@ -38,7 +41,10 @@ import MenuOpenIcon from '@mui/icons-material/MenuOpen';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LogoutIcon from '@mui/icons-material/Logout';
-import PersonIcon from '@mui/icons-material/Person';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
+import ArrowBackIosNewRoundedIcon from '@mui/icons-material/ArrowBackIosNewRounded';
+import ArrowForwardIosRoundedIcon from '@mui/icons-material/ArrowForwardIosRounded';
+import PhotoLibraryRoundedIcon from '@mui/icons-material/PhotoLibraryRounded';
 import HomeWorkRoundedIcon from '@mui/icons-material/HomeWorkRounded';
 import PersonSearchRoundedIcon from '@mui/icons-material/PersonSearchRounded';
 import ManageAccountsRoundedIcon from '@mui/icons-material/ManageAccountsRounded';
@@ -57,16 +63,75 @@ import FilterListIcon from '@mui/icons-material/FilterList';
 
 import { useCRMTheme } from './context/CRMThemeContext';
 
+const phoneTypeLabel = {
+   personal: 'Особистий',
+   work: 'Робочий',
+   other: 'Інший',
+};
+
+phoneTypeLabel.personal = 'Основний';
+phoneTypeLabel.work = 'Робочий';
+phoneTypeLabel.other = 'Інший';
+
+function normalizePhone(phone, idx = 0) {
+   if (typeof phone === 'string') {
+      return {
+         number: phone,
+         type: idx === 0 ? 'personal' : 'work',
+         note: '',
+         showInPortfolio: idx === 0,
+         isPrimary: idx === 0,
+      };
+   }
+
+   return {
+      number: phone?.number || phone?.value || '',
+      type: phone?.type || 'work',
+      note: phone?.note || '',
+      showInPortfolio: !!phone?.showInPortfolio,
+      isPrimary: !!phone?.isPrimary,
+   };
+}
+
+function getEmployeeAvatarUrl(user) {
+   const primaryPhoto = (user?.photos || []).find((photo) => photo.isPrimary && !photo.isHidden)
+      || (user?.photos || []).find((photo) => !photo.isHidden);
+
+   return user?.livePhoto?.url || primaryPhoto?.url || user?.avatarUrl || '';
+}
+
+function getEmployeeGalleryPhotos(user) {
+   const gallery = [
+      ...(user?.livePhoto?.url && !user.livePhoto.isHidden ? [user.livePhoto] : []),
+      ...(user?.photos || []).filter((photo) => photo?.url && !photo.isHidden),
+   ];
+
+   if (!gallery.length && user?.avatarUrl) {
+      gallery.push({ url: user.avatarUrl, caption: user.name || '' });
+   }
+
+   return gallery;
+}
+
 export default function CRMLayout({ children }) {
    const pathname = usePathname();
 
    const [open, setOpen] = useState(false);
    const [anchorEl, setAnchorEl] = useState(null);
+   const [profileGalleryOpen, setProfileGalleryOpen] = useState(false);
+   const [profileGalleryIndex, setProfileGalleryIndex] = useState(0);
 
    const { theme, mode, toggleTheme } = useCRMTheme();
    const { data: session } = useSession();
 
    const { user } = useCurrentUser();
+   const userPhones = (user?.phones || [])
+      .map(normalizePhone)
+      .filter((phone) => phone.number)
+      .map((phone) => ({ ...phone, isPrimary: false, showInPortfolio: false, note: '' }));
+   const userAvatarUrl = getEmployeeAvatarUrl(user) || session?.user?.avatarUrl || '';
+   const userGalleryPhotos = getEmployeeGalleryPhotos(user);
+   const activeProfilePhoto = userGalleryPhotos[profileGalleryIndex] || userGalleryPhotos[0] || null;
 
    const openMenu = Boolean(anchorEl);
    const handleMenuOpen = (e) => setAnchorEl(e.currentTarget);
@@ -359,6 +424,7 @@ export default function CRMLayout({ children }) {
                   {/* User */}
                   <IconButton onClick={handleMenuOpen} sx={{ p: 0.4 }}>
                      <Avatar
+                        src={userAvatarUrl}
                         sx={{
                            bgcolor: ACCENT,
                            color: '#0b0b12',
@@ -382,26 +448,69 @@ export default function CRMLayout({ children }) {
                            mt: 1.5,
                            borderRadius: 3,
                            boxShadow: '0 20px 45px rgba(0,0,0,0.55)',
-                           minWidth: 220,
+                           minWidth: 300,
                         },
                      }}
                   >
-                     <MenuItem disabled>
-                        <PersonIcon sx={{ mr: 1, color: ACCENT }} />
+                      <Box sx={{ px: 2, py: 1.2 }}>
                         {/* {session?.user?.name || 'Користувач'} */}
                         <Stack spacing={0}>
                            <Typography sx={{ color: ACCENT, fontWeight: 600 }}>
                               {user?.name || 'Користувач'}
                            </Typography>
 
+                           <Box
+                              onClick={(e) => {
+                                 e.stopPropagation();
+                                 if (userGalleryPhotos.length) {
+                                    setProfileGalleryIndex(0);
+                                    setProfileGalleryOpen(true);
+                                    handleMenuClose();
+                                 }
+                              }}
+                              sx={{
+                                 width: '100%',
+                                 height: 150,
+                                 my: 1,
+                                 borderRadius: 2,
+                                 overflow: 'hidden',
+                                 border: `1px solid ${BORDER}`,
+                                 bgcolor: 'rgba(255,255,255,0.04)',
+                                 cursor: userGalleryPhotos.length ? 'pointer' : 'default',
+                                 display: 'flex',
+                                 alignItems: 'center',
+                                 justifyContent: 'center',
+                              }}
+                           >
+                              {userAvatarUrl ? (
+                                 <Box component="img" src={userAvatarUrl} alt={user?.name || ''} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              ) : (
+                                 <PhotoLibraryRoundedIcon sx={{ color: 'rgba(255,255,255,0.55)', fontSize: 42 }} />
+                              )}
+                           </Box>
+
                            <Typography sx={{ color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>
                               {user?.position || '—'} · {user?.role || ''}
                            </Typography>
+                           <Stack spacing={0.35} sx={{ mt: 0.75 }}>
+                              {userPhones.length ? userPhones.map((phone, idx) => (
+                                 <Typography
+                                    key={`${phone.number}-${idx}`}
+                                    sx={{ color: 'rgba(255,255,255,0.68)', fontSize: 12, lineHeight: 1.2 }}
+                                 >
+                                    {phoneTypeLabel[phone.type] || 'Інший'}: {phone.number}
+                                 </Typography>
+                              )) : (
+                                 <Typography sx={{ color: 'rgba(255,255,255,0.45)', fontSize: 12 }}>
+                                    Телефони не вказані
+                                 </Typography>
+                              )}
+                           </Stack>
                            {user?.isFallbackAdmin && (
                               <Chip label="ENV" size="small" color="warning" />
                            )}
                         </Stack>
-                     </MenuItem>
+                      </Box>
 
                      <MenuItem onClick={handleLogout}>
                         <LogoutIcon sx={{ mr: 1, color: ACCENT }} /> Вийти
@@ -431,6 +540,132 @@ export default function CRMLayout({ children }) {
                {children}
             </Box>
          </Box>
+
+         <Dialog
+            fullScreen
+            open={profileGalleryOpen}
+            onClose={() => setProfileGalleryOpen(false)}
+            PaperProps={{
+               sx: {
+                  bgcolor: '#05050a',
+                  color: '#fff',
+               },
+            }}
+         >
+            <DialogContent
+               sx={{
+                  p: 0,
+                  minHeight: '100vh',
+                  position: 'relative',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden',
+               }}
+            >
+               <IconButton
+                  onClick={() => setProfileGalleryOpen(false)}
+                  sx={{
+                     position: 'absolute',
+                     top: 16,
+                     right: 16,
+                     zIndex: 3,
+                     color: '#fff',
+                     bgcolor: 'rgba(255,255,255,0.1)',
+                     '&:hover': { bgcolor: 'rgba(255,255,255,0.18)' },
+                  }}
+               >
+                  <CloseRoundedIcon />
+               </IconButton>
+
+               {userGalleryPhotos.length > 1 && (
+                  <>
+                     <IconButton
+                        onClick={() => setProfileGalleryIndex((idx) => (idx - 1 + userGalleryPhotos.length) % userGalleryPhotos.length)}
+                        sx={{
+                           position: 'absolute',
+                           left: { xs: 10, md: 24 },
+                           top: '50%',
+                           transform: 'translateY(-50%)',
+                           zIndex: 3,
+                           color: '#fff',
+                           bgcolor: 'rgba(255,255,255,0.1)',
+                           '&:hover': { bgcolor: 'rgba(255,255,255,0.18)' },
+                        }}
+                     >
+                        <ArrowBackIosNewRoundedIcon />
+                     </IconButton>
+
+                     <IconButton
+                        onClick={() => setProfileGalleryIndex((idx) => (idx + 1) % userGalleryPhotos.length)}
+                        sx={{
+                           position: 'absolute',
+                           right: { xs: 10, md: 24 },
+                           top: '50%',
+                           transform: 'translateY(-50%)',
+                           zIndex: 3,
+                           color: '#fff',
+                           bgcolor: 'rgba(255,255,255,0.1)',
+                           '&:hover': { bgcolor: 'rgba(255,255,255,0.18)' },
+                        }}
+                     >
+                        <ArrowForwardIosRoundedIcon />
+                     </IconButton>
+                  </>
+               )}
+
+               {activeProfilePhoto?.url ? (
+                  <Box
+                     component="img"
+                     src={activeProfilePhoto.url}
+                     alt={activeProfilePhoto.caption || user?.name || ''}
+                     sx={{
+                        width: '100%',
+                        height: '100%',
+                        maxWidth: '100vw',
+                        maxHeight: '100vh',
+                        objectFit: 'contain',
+                     }}
+                  />
+               ) : (
+                  <Stack alignItems="center" spacing={1}>
+                     <PhotoLibraryRoundedIcon sx={{ fontSize: 64, color: 'rgba(255,255,255,0.55)' }} />
+                     <Typography sx={{ color: 'rgba(255,255,255,0.72)', fontWeight: 700 }}>
+                        Фото поки немає
+                     </Typography>
+                  </Stack>
+               )}
+
+               <Stack
+                  alignItems="center"
+                  spacing={0.4}
+                  sx={{
+                     position: 'absolute',
+                     left: 16,
+                     right: 16,
+                     bottom: 18,
+                     zIndex: 2,
+                     textAlign: 'center',
+                     pointerEvents: 'none',
+                     textShadow: '0 2px 12px rgba(0,0,0,0.75)',
+                  }}
+               >
+                  <Typography sx={{ color: '#fff', fontWeight: 900 }}>
+                     {user?.name || session?.user?.name || ''}
+                  </Typography>
+                  {!!activeProfilePhoto?.caption && (
+                     <Typography sx={{ color: 'rgba(255,255,255,0.72)', fontSize: 13 }}>
+                        {activeProfilePhoto.caption}
+                     </Typography>
+                  )}
+                  {userGalleryPhotos.length > 1 && (
+                     <Typography sx={{ color: 'rgba(255,255,255,0.62)', fontSize: 12 }}>
+                        {profileGalleryIndex + 1} / {userGalleryPhotos.length}
+                     </Typography>
+                  )}
+               </Stack>
+            </DialogContent>
+         </Dialog>
       </Box>
    );
 }

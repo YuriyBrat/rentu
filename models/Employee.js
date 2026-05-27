@@ -50,6 +50,77 @@ const EmployeeLinkSchema = new Schema(
    { _id: false }
 );
 
+const EmployeePhoneSchema = new Schema(
+   {
+      number: {
+         type: String,
+         trim: true,
+         required: true,
+      },
+      type: {
+         type: String,
+         enum: ['personal', 'work', 'other'],
+         default: 'work',
+      },
+      note: {
+         type: String,
+         trim: true,
+         default: '',
+      },
+      showInPortfolio: {
+         type: Boolean,
+         default: false,
+      },
+      isPrimary: {
+         type: Boolean,
+         default: false,
+      },
+   },
+   { _id: false }
+);
+
+const EmployeePhotoSchema = new Schema(
+   {
+      url: {
+         type: String,
+         trim: true,
+         required: true,
+      },
+      publicId: {
+         type: String,
+         trim: true,
+         default: '',
+      },
+      kind: {
+         type: String,
+         enum: ['photo', 'live'],
+         default: 'photo',
+      },
+      caption: {
+         type: String,
+         trim: true,
+         default: '',
+      },
+      showInPortfolio: {
+         type: Boolean,
+         default: true,
+      },
+      isPrimary: {
+         type: Boolean,
+         default: false,
+      },
+      isHidden: {
+         type: Boolean,
+         default: false,
+      },
+      uploadedAt: {
+         type: Date,
+         default: Date.now,
+      },
+   },
+   { _id: false }
+);
+
 const EmployeeSchema = new Schema(
    {
       name: {
@@ -60,7 +131,7 @@ const EmployeeSchema = new Schema(
       },
 
       phones: {
-         type: [{ type: String, trim: true }],
+         type: [EmployeePhoneSchema],
          default: [],
       },
 
@@ -80,6 +151,13 @@ const EmployeeSchema = new Schema(
          type: String,
          enum: ['owner', 'admin', 'manager', 'realtor', 'callcenter', 'viewer'],
          default: 'viewer',
+         index: true,
+      },
+
+      manager: {
+         type: Schema.Types.ObjectId,
+         ref: 'Employee',
+         default: null,
          index: true,
       },
 
@@ -107,6 +185,16 @@ const EmployeeSchema = new Schema(
          type: String,
          trim: true,
          default: '',
+      },
+
+      photos: {
+         type: [EmployeePhotoSchema],
+         default: [],
+      },
+
+      livePhoto: {
+         type: EmployeePhotoSchema,
+         default: undefined,
       },
 
       careerStartAt: {
@@ -156,7 +244,7 @@ const EmployeeSchema = new Schema(
    { timestamps: true }
 );
 
-EmployeeSchema.index({ phones: 1 });
+EmployeeSchema.index({ 'phones.number': 1 });
 EmployeeSchema.index({ emails: 1 });
 
 export default models.Employee || model('Employee', EmployeeSchema);
