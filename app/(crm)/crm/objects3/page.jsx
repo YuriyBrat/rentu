@@ -102,6 +102,7 @@ export default function ObjectsPage() {
          const params = new URLSearchParams();
 
          params.set('mode', 'sale');
+         params.set('crmStage', 'work');
 
          if (query?.trim()) params.set('q', query.trim());
          if (nextFilters.assignee) params.set('assignee', nextFilters.assignee);

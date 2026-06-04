@@ -41,6 +41,10 @@ function getImageBestUrl(img) {
    );
 }
 
+function escapeRegex(value) {
+   return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 // function buildImageVariants(publicId, stage) {
 //    const preview = cloudinary.url(publicId, {
 //       width: 400,
@@ -167,6 +171,7 @@ export const GET = async (req) => {
 
       const assignee = sp.get('assignee');
       const actualityGroup = sp.get('actualityGroup');
+      const crmStage = sp.get('crmStage');
       const type_estate = sp.get('type_estate');
       const isPublic = sp.get('isPublic');
 
@@ -178,6 +183,22 @@ export const GET = async (req) => {
 
       if (actualityGroup) {
          filter.actualityGroup = actualityGroup;
+      }
+
+      if (crmStage) {
+         if (crmStage === 'work') {
+            filter.$and = [{
+               $or: [
+                  { crmStage: { $in: ['rs', 'ds', 'zs'] } },
+                  { crmStage: { $exists: false } },
+                  { crmStage: '' },
+               ],
+            }];
+         } else if (crmStage.includes(',')) {
+            filter.crmStage = { $in: crmStage.split(',').map((x) => x.trim()).filter(Boolean) };
+         } else {
+            filter.crmStage = crmStage;
+         }
       }
 
       if (type_estate) {
@@ -202,12 +223,22 @@ export const GET = async (req) => {
       }
 
       if (q) {
-         filter.$or = [
-            { title: { $regex: q, $options: 'i' } },
-            { 'rentOptions.rentTitle': { $regex: q, $options: 'i' } },
-            { location_text: { $regex: q, $options: 'i' } },
-            { 'location.city': { $regex: q, $options: 'i' } },
-         ];
+         const safeQ = escapeRegex(q);
+         const searchFilter = {
+            $or: [
+            { title: { $regex: safeQ, $options: 'i' } },
+            { 'rentOptions.rentTitle': { $regex: safeQ, $options: 'i' } },
+            { location_text: { $regex: safeQ, $options: 'i' } },
+            { 'location.city': { $regex: safeQ, $options: 'i' } },
+            { 'owners.phones': { $regex: safeQ, $options: 'i' } },
+            ],
+         };
+
+         if (Array.isArray(filter.$and)) {
+            filter.$and.push(searchFilter);
+         } else {
+            filter.$or = searchFilter.$or;
+         }
       }
 
       const total = await Property.countDocuments(filter);
@@ -409,6 +440,9 @@ export const POST = async (request) => {
          lastContactAt: toDate(formData.get('lastContactAt')),
          nextCheckAt: toDate(formData.get('nextCheckAt')),
          actualityNote: formData.get('actualityNote') || '',
+         crmStage: formData.get('crmStage') || 'rs',
+         crmStageReason: formData.get('crmStageReason') || '',
+         inspectedAt: toDate(formData.get('inspectedAt')),
 
          disadvantages,
 

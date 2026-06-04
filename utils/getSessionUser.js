@@ -12,6 +12,9 @@ export const getSessionUser = async () => {
       return {
          user: session.user,
          userId: session.user.userId || session.user.id || null,
+         employeeId: session.user.employeeId || null,
+         role: session.user.role || 'viewer',
+         isFallbackAdmin: !!session.user.isFallbackAdmin,
       };
    } catch (error) {
       console.error(error);

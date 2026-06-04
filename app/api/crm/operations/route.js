@@ -10,7 +10,7 @@ void Employee;
 void Lead;
 void Property;
 
-const VALID_TYPES = ['showing', 'review', 'call', 'meeting', 'other'];
+const VALID_TYPES = ['showing', 'inspection', 'review', 'call', 'meeting', 'other'];
 const VALID_OBJECT_RESULTS = [
    'new_object',
    'price_reduced',

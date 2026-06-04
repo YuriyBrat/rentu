@@ -10,6 +10,9 @@ export function buildPropertyFormData(payload) {
    appendIfDefined('actualityGroup', payload.actualityGroup || '');
    appendIfDefined('actualityStatus', payload.actualityStatus || '');
    appendIfDefined('actualityNote', payload.actualityNote || '');
+   appendIfDefined('crmStage', payload.crmStage || '');
+   appendIfDefined('crmStageReason', payload.crmStageReason || '');
+   appendIfDefined('inspectedAt', payload.inspectedAt || '');
 
    appendIfDefined('type_estate', payload.type_estate || '');
    appendIfDefined('type_deal', payload.type_deal || '');

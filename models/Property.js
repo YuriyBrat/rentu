@@ -1,6 +1,7 @@
 import { Schema, model, models } from "mongoose";
 
 const ACTUALITY_GROUPS = ["active", "paused", "inactive"];
+const CRM_STAGES = ["base", "inspection", "rs", "ds", "zs", "archived"];
 const ACTUALITY_STATUSES = [
   // "Оглянутий! В роботі",
   // "Продзвін",
@@ -398,6 +399,15 @@ const PropertySchema = new Schema(
 
     sourceLeadId: { type: Schema.Types.ObjectId, ref: "LeadProperty", index: true },
 
+    crmStage: {
+      type: String,
+      enum: CRM_STAGES,
+      default: "rs",
+      index: true,
+    },
+    crmStageReason: { type: String, trim: true, default: "" },
+    inspectedAt: { type: Date, default: null, index: true },
+
     assignee: { type: Schema.Types.ObjectId, ref: 'Employee', required: false, index: true },
     createdByEmployee: {
       type: Schema.Types.ObjectId, ref: 'Employee', required: false, index: true,
@@ -538,6 +548,7 @@ const PropertySchema = new Schema(
 );
 
 PropertySchema.index({ actualityGroup: 1, actualityStatus: 1, updatedAt: -1 });
+PropertySchema.index({ crmStage: 1, updatedAt: -1 });
 PropertySchema.index({ 'shareLinks.slug': 1 });
 
 const Property = models.Property || model("Property", PropertySchema);

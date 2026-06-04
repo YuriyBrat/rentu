@@ -258,6 +258,9 @@ export const PATCH = async (request, { params }) => {
       if (hasKey('actualityGroup')) existing.actualityGroup = formData.get('actualityGroup') || 'active';
       if (hasKey('actualityStatus')) existing.actualityStatus = formData.get('actualityStatus') || '';
       if (hasKey('actualityNote')) existing.actualityNote = formData.get('actualityNote') || '';
+      if (hasKey('crmStage')) existing.crmStage = formData.get('crmStage') || 'rs';
+      if (hasKey('crmStageReason')) existing.crmStageReason = formData.get('crmStageReason') || '';
+      if (hasKey('inspectedAt')) existing.inspectedAt = parseDate(formData.get('inspectedAt'));
       if (hasKey('isPublic')) existing.isPublic = formData.get('isPublic') === 'true';
 
       if (hasKey('lastContactAt')) existing.lastContactAt = parseDate(formData.get('lastContactAt'));
@@ -281,11 +284,13 @@ export const PATCH = async (request, { params }) => {
       // -------------------------
       // масиви
       // -------------------------
-      const advantages = formData.getAll('advantages').map((x) => String(x).trim()).filter(Boolean);
-      const disadvantages = formData.getAll('disadvantages').map((x) => String(x).trim()).filter(Boolean);
+      if (hasKey('advantages')) {
+         existing.advantages = formData.getAll('advantages').map((x) => String(x).trim()).filter(Boolean);
+      }
 
-      existing.advantages = advantages;
-      existing.disadvantages = disadvantages;
+      if (hasKey('disadvantages')) {
+         existing.disadvantages = formData.getAll('disadvantages').map((x) => String(x).trim()).filter(Boolean);
+      }
 
       // -------------------------
       // owners
@@ -357,68 +362,72 @@ export const PATCH = async (request, { params }) => {
          };
       }
 
-      // -------------------------
-      // existing images
-      // -------------------------
-      let existingImages = [];
-      try {
-         existingImages = JSON.parse(formData.get('existingImages') || '[]');
-         if (!Array.isArray(existingImages)) existingImages = [];
-      } catch {
-         existingImages = [];
-      }
-
-      let imagesMeta = [];
-      try {
-         imagesMeta = JSON.parse(formData.get('imagesMeta') || '[]');
-         if (!Array.isArray(imagesMeta)) imagesMeta = [];
-      } catch {
-         imagesMeta = [];
-      }
-
       const newFiles = formData.getAll('images').filter((f) => f && f.name).slice(0, MAX_FILES);
-      const uploadedImages = [];
+      const shouldUpdateImages = hasKey('existingImages') || hasKey('imagesMeta') || newFiles.length > 0;
 
-      for (let i = 0; i < newFiles.length; i++) {
-         const file = newFiles[i];
-         const meta = imagesMeta[i] || {};
-         const stage = meta?.stage || 'draft';
-         const folder = `karamax/properties/${existing._id}/${stage}`;
+      if (shouldUpdateImages) {
+         // -------------------------
+         // existing images
+         // -------------------------
+         let existingImages = [];
+         try {
+            existingImages = JSON.parse(formData.get('existingImages') || '[]');
+            if (!Array.isArray(existingImages)) existingImages = [];
+         } catch {
+            existingImages = [];
+         }
 
-         const result = await uploadToCloudinary(file, folder);
+         let imagesMeta = [];
+         try {
+            imagesMeta = JSON.parse(formData.get('imagesMeta') || '[]');
+            if (!Array.isArray(imagesMeta)) imagesMeta = [];
+         } catch {
+            imagesMeta = [];
+         }
 
-         uploadedImages.push({
-            url: result.secure_url,
-            public_id: result.public_id,
-            width: result.width,
-            height: result.height,
-            bytes: result.bytes,
-            format: result.format,
-            originalName: meta?.originalName || file.name,
-            isMain: !!meta?.isMain,
-            sortOrder: typeof meta?.sortOrder === 'number' ? meta.sortOrder : i,
-            stage,
-            processedUrl: stage === 'processed' ? result.secure_url : '',
-            brandedUrl: stage === 'branded' ? result.secure_url : '',
-            isHidden: false,
-            variants: buildImageVariants(result.public_id),
-         });
+         const uploadedImages = [];
+
+         for (let i = 0; i < newFiles.length; i++) {
+            const file = newFiles[i];
+            const meta = imagesMeta[i] || {};
+            const stage = meta?.stage || 'draft';
+            const folder = `karamax/properties/${existing._id}/${stage}`;
+
+            const result = await uploadToCloudinary(file, folder);
+
+            uploadedImages.push({
+               url: result.secure_url,
+               public_id: result.public_id,
+               width: result.width,
+               height: result.height,
+               bytes: result.bytes,
+               format: result.format,
+               originalName: meta?.originalName || file.name,
+               isMain: !!meta?.isMain,
+               sortOrder: typeof meta?.sortOrder === 'number' ? meta.sortOrder : i,
+               stage,
+               processedUrl: stage === 'processed' ? result.secure_url : '',
+               brandedUrl: stage === 'branded' ? result.secure_url : '',
+               isHidden: false,
+               variants: buildImageVariants(result.public_id),
+            });
+         }
+
+         const mergedImages = [...existingImages, ...uploadedImages]
+            .map((img, idx) => ({
+               ...img,
+               isMain: !!img.isMain,
+               sortOrder: img.sortOrder ?? idx,
+               stage: img.stage || 'draft',
+            }))
+            .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+
+         if (mergedImages.length > 0 && !mergedImages.some((img) => img.isMain)) {
+            mergedImages[0].isMain = true;
+         }
+
+         existing.images = mergedImages;
       }
-
-      const mergedImages = [...existingImages, ...uploadedImages]
-         .map((img, idx) => ({
-            ...img,
-            isMain: !!img.isMain,
-            sortOrder: img.sortOrder ?? idx,
-            stage: img.stage || 'draft',
-         }))
-         .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
-
-      if (mergedImages.length > 0 && !mergedImages.some((img) => img.isMain)) {
-         mergedImages[0].isMain = true;
-      }
-
-      existing.images = mergedImages;
 
       await existing.save();
 

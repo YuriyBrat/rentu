@@ -45,12 +45,12 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import ArrowBackIosNewRoundedIcon from '@mui/icons-material/ArrowBackIosNewRounded';
 import ArrowForwardIosRoundedIcon from '@mui/icons-material/ArrowForwardIosRounded';
 import PhotoLibraryRoundedIcon from '@mui/icons-material/PhotoLibraryRounded';
-import HomeWorkRoundedIcon from '@mui/icons-material/HomeWorkRounded';
 import PersonSearchRoundedIcon from '@mui/icons-material/PersonSearchRounded';
 import ManageAccountsRoundedIcon from '@mui/icons-material/ManageAccountsRounded';
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import BedRoundedIcon from '@mui/icons-material/BedRounded';
 import TimelineRoundedIcon from '@mui/icons-material/TimelineRounded';
+import PestControlRoundedIcon from '@mui/icons-material/PestControlRounded';
 
 // для наводок варіанти
 import TipsAndUpdatesIcon from '@mui/icons-material/TipsAndUpdates';
@@ -146,8 +146,10 @@ export default function CRMLayout({ children }) {
    const menuItems = [
       { label: 'Операційка', path: '/crm/operations', icon: <TimelineRoundedIcon /> },
       // { label: 'Дашборд', path: '/crm', icon: <DashboardIcon /> },
+      { label: 'Парсинг', path: '/crm/parsing', icon: <TravelExploreIcon /> },
+      { label: 'Hunter', path: '/crm/reamak-hunter', icon: <PestControlRoundedIcon /> },
+      { label: 'База', path: '/crm/base', icon: <AssignmentIcon /> },
       { label: "Об'єкти", path: '/crm/objects3', icon: <HomeWorkIcon /> },
-      // { label: 'Парсинг', path: '/crm/parsing', icon: <TravelExploreIcon /> },
       // { label: 'Клієнти', path: '/crm/clients', icon: <PeopleIcon />, badge: 3 },
       { label: 'Воронки', path: '/crm/pipeline', icon: <FilterListIcon />, badge: 5 },
       { label: 'Ліди', path: '/crm/leads3', icon: <PersonSearchRoundedIcon />, badge: 15 },

@@ -48,7 +48,7 @@ const OperationEventSchema = new Schema(
    {
       type: {
          type: String,
-         enum: ['showing', 'review', 'call', 'meeting', 'other'],
+         enum: ['showing', 'inspection', 'review', 'call', 'meeting', 'other'],
          default: 'showing',
          index: true,
       },
