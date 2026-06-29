@@ -19,6 +19,8 @@ import {
    COMMUNICATION_TYPE_OPTIONS,
    toDatetimeLocal,
 } from '@/crm_components/communications/communicationMeta';
+import DriveEtaRoundedIcon from '@mui/icons-material/DriveEtaRounded';
+import { getParsingStageKey, isInspectionReservationActive } from './ParsingRowCard';
 
 const STATUS_OPTIONS = [
    { value: 'duplicate', label: 'Дубль' },
@@ -143,11 +145,20 @@ export default function ParsingStatusDialog({
    duplicateCandidates,
    duplicateLoading,
    onDuplicateSearchChange,
+   onReserveInspection,
+   canReserveInspection,
+   reservingInspection,
 }) {
    const fieldSx = getFieldSx(theme, mode);
    const status = form?.status || 'raw';
    const needsCommunication = ['base', 'inactive', 'paused', 'duplicate', 'fake'].includes(status);
    const showCallCenter = ['base', 'paused'].includes(status);
+   const parsingStage = getParsingStageKey(item);
+   const showReserveInspection = !isInspectionReservationActive(item) &&
+      (
+         parsingStage === 'inspection_ready' ||
+         (!!canReserveInspection && ['raw', 'base'].includes(parsingStage))
+      );
    const possibleObjects = [
       ...(item?.phoneIntel?.relatedObjects || []),
       ...(duplicateCandidates || []),
@@ -184,8 +195,31 @@ export default function ParsingStatusDialog({
             },
          }}
       >
-         <DialogTitle sx={{ fontWeight: 950 }}>
-            Зміна статусу
+         <DialogTitle sx={{ fontWeight: 950, pr: 3 }}>
+            <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+               <Typography component="span" sx={{ fontWeight: 950, fontSize: 20 }}>
+                  Зміна статусу
+               </Typography>
+               {showReserveInspection && (
+                  <Button
+                     onClick={onReserveInspection}
+                     disabled={saving || reservingInspection}
+                     startIcon={<DriveEtaRoundedIcon />}
+                     sx={{
+                        borderRadius: 3,
+                        fontWeight: 950,
+                        color: '#083344',
+                        bgcolor: '#67e8f9',
+                        border: '1px solid rgba(34,211,238,0.82)',
+                        whiteSpace: 'nowrap',
+                        boxShadow: '0 8px 22px rgba(34,211,238,0.20)',
+                        '&:hover': { bgcolor: '#22d3ee' },
+                     }}
+                  >
+                     ЇДУ НА ОГЛЯД
+                  </Button>
+               )}
+            </Stack>
          </DialogTitle>
          <DialogContent>
             <Stack spacing={1.4} sx={{ mt: 0.5 }}>
@@ -469,11 +503,11 @@ export default function ParsingStatusDialog({
                )}
             </Stack>
          </DialogContent>
-         <DialogActions sx={{ px: 3, pb: 2 }}>
-            <Button onClick={onClose} disabled={saving} sx={{ color: theme.textSoft }}>
-               Скасувати
-            </Button>
-            <Button
+          <DialogActions sx={{ px: 3, pb: 2 }}>
+             <Button onClick={onClose} disabled={saving} sx={{ color: theme.textSoft }}>
+                Скасувати
+             </Button>
+             <Button
                onClick={onSubmit}
                disabled={saving}
                sx={{

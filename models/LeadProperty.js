@@ -140,6 +140,17 @@ const LeadPropertyCallCenterSchema = new Schema(
    { _id: false }
 );
 
+const LeadPropertyInspectionReservationSchema = new Schema(
+   {
+      reservedByEmployee: { type: Schema.Types.ObjectId, ref: "Employee", default: null },
+      reservedByName: { type: String, trim: true, default: "" },
+      reservedByRole: { type: String, trim: true, default: "" },
+      reservedAt: { type: Date, default: null },
+      expiresAt: { type: Date, default: null, index: true },
+   },
+   { _id: false }
+);
+
 const LeadPropertySchema = new Schema(
    {
       source: { type: String, default: "manual", index: true }, // olx/telegram/...
@@ -171,6 +182,7 @@ const LeadPropertySchema = new Schema(
       callResult: { type: String, trim: true, default: "" },
       reviewNote: { type: String, trim: true, default: "" },
       callCenter: { type: LeadPropertyCallCenterSchema, default: () => ({}) },
+      inspectionReservation: { type: LeadPropertyInspectionReservationSchema, default: () => ({}) },
       lastCallAt: { type: Date, default: null, index: true },
       assignedToEmployee: { type: Schema.Types.ObjectId, ref: "Employee", default: null, index: true },
       duplicateOf: { type: Schema.Types.ObjectId, ref: "LeadProperty", default: null, index: true },

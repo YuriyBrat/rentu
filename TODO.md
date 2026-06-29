@@ -147,3 +147,23 @@
 - [x] Save `callCenter` together with status transitions and required communication.
 - [ ] Show compact call-center indicators in the parsing row/card.
 - [ ] Add filters by interest, urgency, inspection loyalty and cooperation warmth.
+- [x] Split parsing workflow display into `БАЗА`, `Чекає огляд` and `Обʼєкти`.
+- [x] Highlight inspection-ready parsing records as a realtor priority queue.
+- [x] Add 24-hour `ЇДУ НА ОГЛЯД` reservation for eligible parsing records.
+- [x] Lock parsing and linked Property status changes during an active inspection reservation.
+- [ ] Add a dedicated report of inspection reservations and completed inspections.
+
+## CRM activity log
+
+- [x] Create `models/CRMActivityLog.js`.
+- [x] Create `utils/crm/activityLog.js`.
+- [x] Add `GET /api/crm/activity`.
+- [x] Log parsing manual create/import.
+- [x] Log parsing edit/status change/move/delete.
+- [x] Log communication creation.
+- [ ] Add activity logging to `Property` edits.
+- [x] Add activity logging to `OperationEvent` create/edit/delete.
+- [x] Show the CRM page name in `/crm/activity` after the action source.
+- [ ] Add activity logging to leads/pipeline.
+- [x] Build first `/crm/activity` report page.
+- [ ] Add compact activity timeline to parsing/property drawers.

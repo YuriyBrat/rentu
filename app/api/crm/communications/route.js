@@ -6,11 +6,19 @@ import Communication, {
 } from '@/models/Communication';
 import Employee from '@/models/Employee';
 import OperationEvent from '@/models/OperationEvent';
+import { logActivity } from '@/utils/crm/activityLog';
 import { getSessionUser } from '@/utils/getSessionUser';
 import { Types } from 'mongoose';
 
 void Employee;
 void OperationEvent;
+
+const COMMUNICATION_TYPE_LABELS = {
+   call: 'Дзвінок',
+   sms: 'SMS',
+   messenger: 'Месенджер',
+   note: 'Нотатка',
+};
 
 function objectIdOrNull(value) {
    if (!value) return null;
@@ -105,6 +113,29 @@ export const POST = async (request) => {
          createdByEmployee: objectIdOrNull(body?.createdByEmployee) || sessionEmployeeId,
          operationEvent: objectIdOrNull(body?.operationEvent),
          meta: body?.meta && typeof body.meta === 'object' ? body.meta : {},
+      });
+      await logActivity({
+         entityType: 'communication',
+         entityId: item._id,
+         action: 'communication_added',
+         sessionUser,
+         source: 'manual',
+         title: String(body?.text || '').trim().slice(0, 120),
+         message: `Додано комунікацію: ${COMMUNICATION_TYPE_LABELS[item.type] || item.type}`,
+         after: {
+            entityType: item.entityType,
+            entityId: item.entityId?.toString?.() || item.entityId,
+            type: item.type,
+            tone: item.tone,
+            happenedAt: item.happenedAt,
+            text: item.text,
+         },
+         meta: {
+            targetEntityType: item.entityType,
+            targetEntityId: item.entityId,
+            operationEvent: item.operationEvent,
+            ...(item.meta || {}),
+         },
       });
 
       const populated = await Communication.findById(item._id)

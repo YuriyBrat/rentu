@@ -39,7 +39,7 @@ import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import { useCRMTheme } from '@/app/(crm)/crm/context/CRMThemeContext';
 import CommunicationDialog, { EMPTY_COMMUNICATION_FORM } from '@/crm_components/communications/CommunicationDialog';
 import CommunicationTimeline from '@/crm_components/communications/CommunicationTimeline';
-import ParsingRowCard, { STAGE_META } from './ParsingRowCard';
+import ParsingRowCard, { getParsingStageKey, STAGE_META } from './ParsingRowCard';
 import ParsingStatusDialog, { buildInitialStatusForm } from './ParsingStatusDialog';
 
 const DEMO_ITEMS = [
@@ -108,8 +108,10 @@ const STAGE_OPTIONS = [
    ['raw', 'Нові'],
    ['duplicate', 'Дублі'],
    ['fake', 'Фейки'],
-   ['qualified', 'БАЗА'],
-   ['moved', 'Обʼєкти'],
+   ['base', 'БАЗА'],
+   ['inspection_ready', 'Чекає огляд'],
+   ['inspection_reserved', 'Їде на огляд'],
+   ['objects', 'Обʼєкти'],
 ];
 
 const COMMUNICATION_FILTER_OPTIONS = [
@@ -204,12 +206,6 @@ const DIMRIA_DEFAULT_FORM = {
    contactType: 'owner',
    limit: '1',
 };
-
-function normalizeStageKey(stage) {
-   if (stage === 'processing' || stage === 'called') return 'raw';
-   if (stage === 'rejected') return 'fake';
-   return stage || 'raw';
-}
 
 const EMPTY_MANUAL_FORM = {
    source: 'olx',
@@ -552,6 +548,8 @@ export default function ParsingPage() {
    const [savingEdit, setSavingEdit] = useState(false);
    const [deleteItem, setDeleteItem] = useState(null);
    const [deleting, setDeleting] = useState(false);
+   const [reservationNow, setReservationNow] = useState(() => Date.now());
+   const [reservingInspection, setReservingInspection] = useState(false);
 
    const canDeleteParsing = !!currentUser?.isFallbackAdmin || currentUser?.role === 'owner';
 
@@ -610,19 +608,29 @@ export default function ParsingPage() {
       };
    }, []);
 
+   useEffect(() => {
+      const timer = setInterval(() => setReservationNow(Date.now()), 1000);
+      return () => clearInterval(timer);
+   }, []);
+
    const visibleItems = useMemo(() => {
-      if (items.length) return items;
-      if (loading || error) return [];
-      return DEMO_ITEMS;
-   }, [items, loading, error]);
+      const sourceItems = items.length
+         ? items
+         : loading || error
+            ? []
+            : DEMO_ITEMS;
+
+      if (!stage || stage === 'all') return sourceItems;
+      return sourceItems.filter((item) => getParsingStageKey(item, reservationNow) === stage);
+   }, [items, loading, error, stage, reservationNow]);
 
    const stats = useMemo(() => {
       return visibleItems.reduce((acc, item) => {
-         const key = normalizeStageKey(item.stage);
+         const key = getParsingStageKey(item, reservationNow);
          acc[key] = (acc[key] || 0) + 1;
          return acc;
       }, {});
-   }, [visibleItems]);
+   }, [visibleItems, reservationNow]);
 
    const patchItem = async (item, payload) => {
       if (String(item?._id || '').startsWith('demo-')) {
@@ -828,6 +836,31 @@ export default function ParsingPage() {
          setStatusError(e?.message || 'Не вдалося змінити статус');
       } finally {
          setSavingStatus(false);
+      }
+   };
+
+   const handleReserveInspection = async (targetItem = statusItem) => {
+      const target = targetItem?._id ? targetItem : statusItem;
+      if (!target) return;
+
+      setReservingInspection(true);
+      setStatusError('');
+      setError('');
+
+      try {
+         await patchItem(target, { action: 'reserveInspection' });
+         if (statusItem?._id === target._id) {
+            setStatusItem(null);
+            setStatusForm(null);
+            setDuplicateSearch('');
+            setDuplicateCandidates([]);
+         }
+      } catch (e) {
+         console.error(e);
+         setStatusError(e?.message || 'Не вдалося поставити обʼєкт у резерв на огляд');
+         setError(e?.message || 'Не вдалося поставити обʼєкт у резерв на огляд');
+      } finally {
+         setReservingInspection(false);
       }
    };
 
@@ -1079,6 +1112,28 @@ export default function ParsingPage() {
             <Typography variant="h5" fontWeight={950} sx={{ color: theme.text, whiteSpace: 'nowrap', mr: 0.5 }}>
                Парсинг
             </Typography>
+
+            <Tooltip title="REAMAK Hunter">
+               <IconButton
+                  component="a"
+                  href="/crm/reamak-hunter"
+                  size="small"
+                  sx={{
+                     width: 34,
+                     height: 34,
+                     borderRadius: 2,
+                     color: theme.accent,
+                     border: `1px solid ${theme.border}`,
+                     bgcolor: mode === 'light' ? 'rgba(124,58,237,0.06)' : 'rgba(139,92,246,0.12)',
+                     '&:hover': {
+                        bgcolor: mode === 'light' ? 'rgba(124,58,237,0.12)' : 'rgba(139,92,246,0.20)',
+                        borderColor: theme.accent,
+                     },
+                  }}
+               >
+                  <PestControlRoundedIcon fontSize="small" />
+               </IconButton>
+            </Tooltip>
 
             <TextField
                placeholder="Пошук"
@@ -1401,18 +1456,27 @@ export default function ParsingPage() {
 
          <Stack spacing={0.85}>
             {visibleItems.map((item) => (
-               <ParsingRowCard
+                <ParsingRowCard
                   key={item._id}
                   item={item}
-                  expanded={expandedId === item._id}
-                  onToggleExpand={(nextItem) => setExpandedId((current) => current === nextItem._id ? '' : nextItem._id)}
-                  onStatus={openStatus}
-                  onHistory={openHistory}
+                   expanded={expandedId === item._id}
+                   onToggleExpand={(nextItem) => setExpandedId((current) => current === nextItem._id ? '' : nextItem._id)}
+                   onStatus={openStatus}
+                   onHistory={openHistory}
                   onQuickCommunication={openQuickCommunication}
                   onEdit={openEdit}
-                  onDelete={setDeleteItem}
-                  canDelete={canDeleteParsing}
-               />
+                   onDelete={setDeleteItem}
+                   canDelete={canDeleteParsing}
+                   canManageReservation={
+                      !!item?.inspectionReservation?.expiresAt &&
+                      (
+                         currentUser?.isFallbackAdmin ||
+                         ['owner', 'admin'].includes(currentUser?.role) ||
+                         String(item?.inspectionReservation?.reservedByEmployee?._id || item?.inspectionReservation?.reservedByEmployee || '') === String(currentUser?._id || '')
+                      )
+                   }
+                   now={reservationNow}
+                />
             ))}
          </Stack>
 
@@ -2209,19 +2273,22 @@ export default function ParsingPage() {
           <ParsingStatusDialog
             open={!!statusItem}
             item={statusItem}
-            form={statusForm}
-            onChange={setStatusForm}
-            onClose={() => {
-               if (savingStatus) return;
+             form={statusForm}
+             onChange={setStatusForm}
+             onClose={() => {
+                if (savingStatus || reservingInspection) return;
                setStatusItem(null);
                setStatusForm(null);
                setStatusError('');
                setDuplicateSearch('');
                setDuplicateCandidates([]);
             }}
-            onSubmit={handleSubmitStatus}
-            saving={savingStatus}
-            error={statusError}
+             onSubmit={handleSubmitStatus}
+             saving={savingStatus || reservingInspection}
+             onReserveInspection={() => handleReserveInspection(statusItem)}
+             canReserveInspection={['owner', 'admin', 'manager', 'realtor'].includes(currentUser?.role)}
+             reservingInspection={reservingInspection}
+             error={statusError}
             theme={theme}
             mode={mode}
             duplicateSearch={duplicateSearch}
@@ -2310,11 +2377,11 @@ export default function ParsingPage() {
                      </Box>
 
                      <Chip
-                        label={(STAGE_META[selected.stage] || STAGE_META.raw).label}
+                        label={(STAGE_META[getParsingStageKey(selected, reservationNow)] || STAGE_META.raw).label}
                         sx={{
                            fontWeight: 950,
-                           color: (STAGE_META[selected.stage] || STAGE_META.raw).color,
-                           bgcolor: `${(STAGE_META[selected.stage] || STAGE_META.raw).color}18`,
+                           color: (STAGE_META[getParsingStageKey(selected, reservationNow)] || STAGE_META.raw).color,
+                           bgcolor: `${(STAGE_META[getParsingStageKey(selected, reservationNow)] || STAGE_META.raw).color}18`,
                         }}
                      />
                   </Stack>

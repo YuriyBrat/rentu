@@ -56,6 +56,33 @@ const noteTypeMap = {
    }
 };
 
+const activityTypeMap = {
+   note: {
+      label: 'Нотатка',
+      bg: 'rgba(148, 163, 184, 0.16)',
+      border: 'rgba(148, 163, 184, 0.34)',
+      color: '#cbd5e1'
+   },
+   call: {
+      label: 'Дзвінок',
+      bg: 'rgba(34, 197, 94, 0.16)',
+      border: 'rgba(34, 197, 94, 0.34)',
+      color: '#86efac'
+   },
+   message: {
+      label: 'Переписка',
+      bg: 'rgba(59, 130, 246, 0.16)',
+      border: 'rgba(59, 130, 246, 0.34)',
+      color: '#93c5fd'
+   },
+   meeting: {
+      label: 'Зустріч',
+      bg: 'rgba(168, 85, 247, 0.16)',
+      border: 'rgba(168, 85, 247, 0.34)',
+      color: '#d8b4fe'
+   }
+};
+
 const statusMap = {
    active: {
       label: 'Активна',
@@ -125,6 +152,21 @@ function formatDate(dateStr) {
    return new Date(dateStr).toLocaleDateString('uk-UA');
 }
 
+function formatDateTime(dateStr) {
+   if (!dateStr) return '';
+
+   const date = new Date(dateStr);
+   if (Number.isNaN(date.getTime())) return '';
+
+   return date.toLocaleString('uk-UA', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+   });
+}
+
 function MiniMeta({ icon, text, color = 'text.secondary', strong = false }) {
    return (
       <Stack direction="row" spacing={0.8} alignItems="center" sx={{ minWidth: 0 }}>
@@ -148,7 +190,9 @@ function MiniMeta({ icon, text, color = 'text.secondary', strong = false }) {
 }
 
 function NoteBadge({ note }) {
-   const config = noteTypeMap[note.type] || noteTypeMap.info;
+   const config = noteTypeMap[note.type || note.noteType] || noteTypeMap.info;
+   const activity = activityTypeMap[note.activityType] || activityTypeMap.note;
+   const contactDate = note.contactDate || note.createdAt;
 
    return (
       <Box
@@ -160,13 +204,28 @@ function NoteBadge({ note }) {
          }}
       >
          <Stack direction="row" justifyContent="space-between" spacing={1} sx={{ mb: 0.4 }}>
-            <Typography sx={{ fontSize: 12, fontWeight: 800, color: config.color }}>
-               {config.label}
-            </Typography>
+            <Stack direction="row" spacing={0.7} alignItems="center" useFlexGap flexWrap="wrap">
+               <Box
+                  sx={{
+                     px: 0.9,
+                     py: 0.25,
+                     borderRadius: 999,
+                     bgcolor: activity.bg,
+                     border: `1px solid ${activity.border}`,
+                     color: activity.color,
+                     fontSize: 11,
+                     fontWeight: 900,
+                     lineHeight: 1.25
+                  }}
+               >
+                  {activity.label}
+               </Box>
+               <Typography sx={{ fontSize: 12, fontWeight: 800, color: config.color }}>
+                  {config.label}
+               </Typography>
+            </Stack>
             <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>
-               {note.createdAt
-                  ? new Date(note.createdAt).toLocaleString('uk-UA')
-                  : ''}
+               {formatDateTime(contactDate)}
             </Typography>
          </Stack>
 
@@ -194,9 +253,7 @@ function NoteBadge({ note }) {
                      color: 'rgba(148,163,184,0.6)'
                   }}
                >
-                  {note.createdAt
-                     ? new Date(note.createdAt).toLocaleDateString('uk-UA')
-                     : ''}
+                  {note.createdAt ? `Внесено: ${formatDateTime(note.createdAt)}` : ''}
                </Typography>
             </Stack>
          </Typography>
@@ -257,6 +314,13 @@ function getEmployeeName(employee) {
 
 
 
+function getNoteSortTime(note) {
+   const date = new Date(note.contactDate || note.createdAt || 0);
+   const time = date.getTime();
+
+   return Number.isNaN(time) ? 0 : time;
+}
+
 export default function NavodkaRowCard({
    item,
    onCreateNote,
@@ -269,6 +333,9 @@ export default function NavodkaRowCard({
    const status = statusMap[item.status] || statusMap.active;
    const overdue = isOverdue(item.nextContactAt);
    const today = isToday(item.nextContactAt);
+   const sortedNotes = [...(item.notes || [])].sort(
+      (a, b) => getNoteSortTime(b) - getNoteSortTime(a)
+   );
 
    const nextContactColor = overdue
       ? '#ff8b8b'
@@ -577,8 +644,8 @@ export default function NavodkaRowCard({
                            </Typography>
 
                            <Stack spacing={1}>
-                              {item.notes?.length ? (
-                                 item.notes.map(note => <NoteBadge key={note._id} note={note} />)
+                              {sortedNotes.length ? (
+                                 sortedNotes.map(note => <NoteBadge key={note._id} note={note} />)
                               ) : (
                                  <Typography sx={{ color: '#94a3b8', fontSize: 14 }}>
                                     Нотаток ще немає

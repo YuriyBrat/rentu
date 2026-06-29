@@ -3,13 +3,20 @@ import Employee from '@/models/Employee';
 import Lead from '@/models/Lead';
 import OperationEvent from '@/models/OperationEvent';
 import Property from '@/models/Property';
+import {
+   OPERATION_EVENT_FIELDS,
+   buildActivityDiff,
+   logActivity,
+   pickActivitySnapshot,
+} from '@/utils/crm/activityLog';
+import { getSessionUser } from '@/utils/getSessionUser';
 import { Types } from 'mongoose';
 
 void Employee;
 void Lead;
 void Property;
 
-const VALID_TYPES = ['showing', 'review', 'call', 'meeting', 'other'];
+const VALID_TYPES = ['showing', 'inspection', 'review', 'call', 'meeting', 'other'];
 const VALID_OBJECT_RESULTS = [
    'new_object',
    'price_reduced',
@@ -94,10 +101,17 @@ function populateEvent(query) {
       .populate('lead', 'name phones stage status requestSummary budgetMax assignee actualityStatus');
 }
 
+function operationTitle(item) {
+   const propertyTitle = item?.property?.title || item?.property?.location_text;
+   const leadName = item?.lead?.name;
+   return [propertyTitle, leadName].filter(Boolean).join(' · ') || `Операційна подія: ${item?.type || 'подія'}`;
+}
+
 export const PATCH = async (request, { params }) => {
    try {
       await connectDB();
 
+      const sessionUser = await getSessionUser().catch(() => null);
       const id = params?.id;
       if (!Types.ObjectId.isValid(id)) {
          return Response.json({ error: 'invalid id' }, { status: 400 });
@@ -110,6 +124,12 @@ export const PATCH = async (request, { params }) => {
       if (!propertyId && !leadId) {
          return Response.json({ error: 'property or lead required' }, { status: 400 });
       }
+
+      const existing = await OperationEvent.findById(id);
+      if (!existing) {
+         return Response.json({ error: 'not found' }, { status: 404 });
+      }
+      const beforeSnapshot = pickActivitySnapshot(existing, OPERATION_EVENT_FIELDS);
 
       const update = {
          type: pick(body?.type, VALID_TYPES, 'showing'),
@@ -149,6 +169,27 @@ export const PATCH = async (request, { params }) => {
       }
 
       const populated = await populateEvent(OperationEvent.findById(updated._id)).lean();
+      const afterSnapshot = pickActivitySnapshot(updated, OPERATION_EVENT_FIELDS);
+      await logActivity({
+         entityType: 'operation',
+         entityId: updated._id,
+         action: 'updated',
+         sessionUser,
+         source: 'manual',
+         title: operationTitle(populated),
+         message: 'Оновлено операційну подію',
+         before: beforeSnapshot,
+         after: afterSnapshot,
+         diff: buildActivityDiff(beforeSnapshot, afterSnapshot, OPERATION_EVENT_FIELDS),
+         meta: {
+            pageName: 'Операційка',
+            pagePath: '/crm/operations',
+            operationType: updated.type,
+            propertyId: updated.property,
+            leadId: updated.lead,
+         },
+      });
+
       return Response.json({ item: mapEvent(populated) }, { status: 200 });
    } catch (error) {
       console.error(error);
@@ -160,16 +201,37 @@ export const DELETE = async (_request, { params }) => {
    try {
       await connectDB();
 
+      const sessionUser = await getSessionUser().catch(() => null);
       const id = params?.id;
       if (!Types.ObjectId.isValid(id)) {
          return Response.json({ error: 'invalid id' }, { status: 400 });
       }
 
-      const deleted = await OperationEvent.findByIdAndDelete(id).lean();
+      const existing = await OperationEvent.findById(id);
 
-      if (!deleted) {
+      if (!existing) {
          return Response.json({ error: 'not found' }, { status: 404 });
       }
+
+      const populated = await populateEvent(OperationEvent.findById(id)).lean();
+      await logActivity({
+         entityType: 'operation',
+         entityId: existing._id,
+         action: 'deleted',
+         sessionUser,
+         source: 'manual',
+         title: operationTitle(populated),
+         message: 'Видалено операційну подію',
+         before: pickActivitySnapshot(existing, OPERATION_EVENT_FIELDS),
+         meta: {
+            pageName: 'Операційка',
+            pagePath: '/crm/operations',
+            operationType: existing.type,
+            propertyId: existing.property,
+            leadId: existing.lead,
+         },
+      });
+      await existing.deleteOne();
 
       return Response.json({ ok: true }, { status: 200 });
    } catch (error) {

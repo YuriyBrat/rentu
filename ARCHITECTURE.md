@@ -265,3 +265,43 @@ Fields:
 - `note` - call-center technical note.
 
 The manual parsing modal and parsing status modal can save this block. The status modal also requires a `Communication` when a lead is processed into base/inactive/paused/duplicate/fake.
+
+## CRM activity log
+
+`models/CRMActivityLog.js` is the shared CRM activity journal. It stores operational/audit events across CRM modules and is designed as the future source for employee activity reports and object history.
+
+Core fields:
+
+- `entityType` and `entityId` - what record the event belongs to.
+- `action` - created, imported, updated, deleted, status_changed, communication_added, moved.
+- `actorEmployee`, `actorUserId`, `actorName`, `actorRole` - who performed the action.
+- `source` - manual, system, dimria, reamak, api, import.
+- `before`, `after`, `diff` - compact tracked-field snapshots, not full documents.
+- `meta` - technical details such as `propertyId`, `deletedImages`, source IDs, import data.
+
+`utils/crm/activityLog.js` provides:
+
+- `logActivity(...)`;
+- `pickActivitySnapshot(...)`;
+- `buildActivityDiff(...)`.
+
+Current first integrations:
+
+- parsing create/import;
+- parsing edit/status change/move/delete;
+- communication create.
+
+`GET /api/crm/activity` returns activity logs with filters by entity, action, source, actor and date range.
+
+## Inspection reservation
+
+`LeadProperty.inspectionReservation` stores a temporary 24-hour inspection reservation:
+
+- `reservedByEmployee`;
+- `reservedByName`;
+- `reservedByRole`;
+- `reservedAt`;
+- `expiresAt`.
+
+Reservation is created through `PATCH /api/crm/parsing/[id]` with `action = reserveInspection`.
+Active reservations lock parsing updates and linked Property status fields. Expiration is evaluated from `expiresAt`, so restoring the previous derived status does not require a background job.

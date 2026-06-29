@@ -3,6 +3,11 @@ import Employee from '@/models/Employee';
 import Lead from '@/models/Lead';
 import OperationEvent from '@/models/OperationEvent';
 import Property from '@/models/Property';
+import {
+   OPERATION_EVENT_FIELDS,
+   logActivity,
+   pickActivitySnapshot,
+} from '@/utils/crm/activityLog';
 import { getSessionUser } from '@/utils/getSessionUser';
 import { Types } from 'mongoose';
 
@@ -81,6 +86,12 @@ function mapEvent(item) {
          }
          : null,
    };
+}
+
+function operationTitle(item) {
+   const propertyTitle = item?.property?.title || item?.property?.location_text;
+   const leadName = item?.lead?.name;
+   return [propertyTitle, leadName].filter(Boolean).join(' · ') || `Операційна подія: ${item?.type || 'подія'}`;
 }
 
 export const GET = async (req) => {
@@ -211,6 +222,24 @@ export const POST = async (request) => {
          .populate('property', 'title location_text location rooms square_tot floor floors cost currency images assignee actualityStatus actualityGroup')
          .populate('lead', 'name phones stage status requestSummary budgetMax assignee actualityStatus')
          .lean();
+
+      await logActivity({
+         entityType: 'operation',
+         entityId: item._id,
+         action: 'created',
+         sessionUser,
+         source: 'manual',
+         title: operationTitle(populated),
+         message: 'Створено операційну подію',
+         after: pickActivitySnapshot(item, OPERATION_EVENT_FIELDS),
+         meta: {
+            pageName: 'Операційка',
+            pagePath: '/crm/operations',
+            operationType: item.type,
+            propertyId: item.property,
+            leadId: item.lead,
+         },
+      });
 
       return Response.json({ item: mapEvent(populated) }, { status: 201 });
    } catch (error) {

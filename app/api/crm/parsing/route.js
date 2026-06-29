@@ -3,7 +3,10 @@ import cloudinary from '@/config/cloudinary';
 import Communication from '@/models/Communication';
 import Employee from '@/models/Employee';
 import LeadProperty from '@/models/LeadProperty';
+import Property from '@/models/Property';
+import { logActivity, pickActivitySnapshot } from '@/utils/crm/activityLog';
 import { attachPhoneIntel, buildPhoneIntelMap, normalizePhone } from '@/utils/crm/phoneIntel';
+import { getSessionUser } from '@/utils/getSessionUser';
 import { randomUUID } from 'crypto';
 
 function parseNumber(value) {
@@ -451,8 +454,77 @@ export const GET = async (req) => {
 
       const filter = {};
       const phoneIntelMap = await buildPhoneIntelMap();
+      const now = new Date();
 
-      if (stage && stage !== 'all') filter.stage = stage;
+      if (stage && stage !== 'all') {
+         if (stage === 'inspection_reserved') {
+            addAndFilter(filter, { 'inspectionReservation.expiresAt': { $gt: now } });
+         } else if (stage === 'base') {
+            const basePropertyIds = await Property.distinct('_id', { crmStage: 'base' });
+            addAndFilter(filter, {
+               $or: [
+                  {
+                     stage: 'qualified',
+                     'callCenter.inspectionLoyalty': { $ne: 'yes' },
+                  },
+                  {
+                     stage: 'moved',
+                     propertyId: { $in: basePropertyIds },
+                     'callCenter.inspectionLoyalty': { $ne: 'yes' },
+                  },
+                  {
+                     stage: 'moved',
+                     propertyId: null,
+                     'callCenter.inspectionLoyalty': { $ne: 'yes' },
+                  },
+               ],
+            });
+         } else if (stage === 'inspection_ready') {
+            const [basePropertyIds, inspectionPropertyIds] = await Promise.all([
+               Property.distinct('_id', { crmStage: 'base' }),
+               Property.distinct('_id', { crmStage: 'inspection' }),
+            ]);
+
+            addAndFilter(filter, {
+               $or: [
+                  {
+                     stage: 'qualified',
+                     'callCenter.inspectionLoyalty': 'yes',
+                  },
+                  {
+                     stage: 'moved',
+                     propertyId: { $in: inspectionPropertyIds },
+                  },
+                  {
+                     stage: 'moved',
+                     propertyId: { $in: basePropertyIds },
+                     'callCenter.inspectionLoyalty': 'yes',
+                  },
+               ],
+            });
+         } else if (stage === 'objects') {
+            const objectPropertyIds = await Property.distinct('_id', {
+               $or: [
+                  { crmStage: { $in: ['rs', 'ds', 'zs'] } },
+                  { crmStage: { $exists: false } },
+                  { crmStage: '' },
+               ],
+            });
+            addAndFilter(filter, { stage: 'moved', propertyId: { $in: objectPropertyIds } });
+         } else {
+            filter.stage = stage;
+         }
+
+         if (stage !== 'inspection_reserved') {
+            addAndFilter(filter, {
+               $or: [
+                  { 'inspectionReservation.expiresAt': { $exists: false } },
+                  { 'inspectionReservation.expiresAt': null },
+                  { 'inspectionReservation.expiresAt': { $lte: now } },
+               ],
+            });
+         }
+      }
       if (source && source !== 'all') filter.source = source;
 
       if (q) {
@@ -509,7 +581,8 @@ export const GET = async (req) => {
 
       const rawItems = await LeadProperty.find(filter)
          .populate('assignedToEmployee', 'name fullName surname role')
-         .populate('propertyId', 'title actualityGroup crmStage')
+         .populate('propertyId', 'title actualityGroup crmStage assignee')
+         .populate('inspectionReservation.reservedByEmployee', 'name fullName surname role color avatarUrl')
          .populate('duplicateOf', 'title source sourceUrl')
          .populate('duplicatePropertyId', 'title location_text crmStage actualityGroup')
          .sort({ importedAt: -1, updatedAt: -1 })
@@ -533,6 +606,7 @@ export const POST = async (request) => {
    try {
       await connectDB();
 
+      const sessionUser = await getSessionUser().catch(() => null);
       const contentType = request.headers.get('content-type') || '';
 
       if (contentType.includes('multipart/form-data')) {
@@ -558,6 +632,20 @@ export const POST = async (request) => {
 
          const created = await LeadProperty.create(doc);
          const item = await attachUploadedImages(created, formData);
+         await logActivity({
+            entityType: 'leadProperty',
+            entityId: item._id,
+            action: 'created',
+            sessionUser,
+            source: 'manual',
+            title: item.title || item.location_text || item.sourceUrl || '',
+            message: 'Створено запис парсингу вручну',
+            after: pickActivitySnapshot(item),
+            meta: {
+               entryMethod: 'manual',
+               imagesCount: Array.isArray(item.images) ? item.images.length : 0,
+            },
+         });
 
          return Response.json({
             item,
@@ -597,6 +685,20 @@ export const POST = async (request) => {
 
             const item = await LeadProperty.create(doc);
             created.push(item);
+            await logActivity({
+               entityType: 'leadProperty',
+               entityId: item._id,
+               action: 'imported',
+               sessionUser,
+               source: item.source || 'import',
+               title: item.title || item.location_text || item.sourceUrl || '',
+               message: `Імпортовано запис парсингу${item.source ? ` (${item.source})` : ''}`,
+               after: pickActivitySnapshot(item),
+               meta: {
+                  source: item.source || '',
+                  sourceId: item.sourceId || '',
+               },
+            });
          } catch (error) {
             if (error?.code === 11000) {
                duplicateItems.push({

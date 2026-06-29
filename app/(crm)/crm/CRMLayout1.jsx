@@ -50,7 +50,7 @@ import ManageAccountsRoundedIcon from '@mui/icons-material/ManageAccountsRounded
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import BedRoundedIcon from '@mui/icons-material/BedRounded';
 import TimelineRoundedIcon from '@mui/icons-material/TimelineRounded';
-import PestControlRoundedIcon from '@mui/icons-material/PestControlRounded';
+import AutoGraphRoundedIcon from '@mui/icons-material/AutoGraphRounded';
 
 // для наводок варіанти
 import TipsAndUpdatesIcon from '@mui/icons-material/TipsAndUpdates';
@@ -145,9 +145,9 @@ export default function CRMLayout({ children }) {
    // ✅ Пункт "Об'єкти" додано
    const menuItems = [
       { label: 'Операційка', path: '/crm/operations', icon: <TimelineRoundedIcon /> },
+      { label: 'Активність', path: '/crm/activity', icon: <AutoGraphRoundedIcon /> },
       // { label: 'Дашборд', path: '/crm', icon: <DashboardIcon /> },
       { label: 'Парсинг', path: '/crm/parsing', icon: <TravelExploreIcon /> },
-      { label: 'Hunter', path: '/crm/reamak-hunter', icon: <PestControlRoundedIcon /> },
       { label: 'База', path: '/crm/base', icon: <AssignmentIcon /> },
       { label: "Об'єкти", path: '/crm/objects3', icon: <HomeWorkIcon /> },
       // { label: 'Клієнти', path: '/crm/clients', icon: <PeopleIcon />, badge: 3 },
@@ -214,6 +214,12 @@ export default function CRMLayout({ children }) {
                   borderRight: `1px solid ${BORDER}`,
                   color: TEXT_SOFT,
                   overflowX: 'hidden',
+                  overflowY: 'auto',
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none',
+                  '&::-webkit-scrollbar': {
+                     display: 'none',
+                  },
                },
             }}
          >

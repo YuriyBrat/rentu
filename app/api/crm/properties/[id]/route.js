@@ -1,4 +1,5 @@
 import connectDB from '@/config/database';
+import LeadProperty from '@/models/LeadProperty';
 import Property from '@/models/Property';
 import { getSessionUser } from '@/utils/getSessionUser';
 import cloudinary from '@/config/cloudinary';
@@ -216,6 +217,31 @@ export const PATCH = async (request, { params }) => {
 
 
       const hasKey = (key) => formData.get(key) !== null;
+
+      const changesLockedStatus = [
+         'actualityGroup',
+         'actualityStatus',
+         'crmStage',
+         'crmStageReason',
+         'inspectedAt',
+      ].some(hasKey);
+
+      if (changesLockedStatus && existing.sourceLeadId) {
+         const sourceLead = await LeadProperty.findById(existing.sourceLeadId)
+            .select('inspectionReservation')
+            .lean();
+         const expiresAt = sourceLead?.inspectionReservation?.expiresAt
+            ? new Date(sourceLead.inspectionReservation.expiresAt)
+            : null;
+
+         if (expiresAt && !Number.isNaN(expiresAt.getTime()) && expiresAt > new Date()) {
+            return Response.json({
+               error: 'inspection reservation active',
+               expiresAt,
+               reservedByName: sourceLead?.inspectionReservation?.reservedByName || '',
+            }, { status: 423 });
+         }
+      }
 
       // -------------------------
       // прості поля

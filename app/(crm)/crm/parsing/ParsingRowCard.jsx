@@ -370,11 +370,51 @@ export const STAGE_META = {
    processing: { label: 'Нові', compact: 'Нові', color: '#60a5fa' },
    called: { label: 'Нові', compact: 'Нові', color: '#60a5fa' },
    qualified: { label: 'БАЗА', compact: 'БАЗА', color: '#22c55e' },
+   base: { label: 'БАЗА', compact: 'БАЗА', color: '#22c55e' },
+   inspection_ready: { label: 'Чекає огляд', compact: 'Чекає огляд', color: '#f59e0b' },
+   inspection_reserved: { label: 'Їде на огляд', compact: 'Їде на огляд', color: '#22d3ee' },
+   objects: { label: 'Обʼєкти', compact: 'Обʼєкти', color: '#14b8a6' },
    duplicate: { label: 'Дубль', compact: 'Дубль', color: '#94a3b8' },
    fake: { label: 'Фейк', compact: 'Фейк', color: '#ef4444' },
    rejected: { label: 'Фейк', compact: 'Фейк', color: '#ef4444' },
-   moved: { label: 'Обʼєкти', compact: 'Обʼєкти', color: '#14b8a6' },
+   moved: { label: 'БАЗА', compact: 'БАЗА', color: '#22c55e' },
 };
+
+export function isInspectionReservationActive(item, now = Date.now()) {
+   const expiresAt = item?.inspectionReservation?.expiresAt;
+   if (!expiresAt) return false;
+   const expires = new Date(expiresAt).getTime();
+   return Number.isFinite(expires) && expires > now;
+}
+
+function formatReservationCountdown(item, now) {
+   const expires = new Date(item?.inspectionReservation?.expiresAt || 0).getTime();
+   const remaining = Math.max(0, expires - now);
+   const hours = Math.floor(remaining / 3600000);
+   const minutes = Math.floor((remaining % 3600000) / 60000);
+   const seconds = Math.floor((remaining % 60000) / 1000);
+   return [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':');
+}
+
+export function getParsingStageKey(item, now = Date.now()) {
+   if (isInspectionReservationActive(item, now)) return 'inspection_reserved';
+
+   const sourceStage = item?.stage || 'raw';
+   if (sourceStage === 'qualified') {
+      return item?.callCenter?.inspectionLoyalty === 'yes' ? 'inspection_ready' : 'base';
+   }
+
+   if (sourceStage === 'moved') {
+      const crmStage = item?.propertyId?.crmStage || '';
+      if (['rs', 'ds', 'zs'].includes(crmStage)) return 'objects';
+      if (crmStage === 'inspection' || item?.callCenter?.inspectionLoyalty === 'yes') return 'inspection_ready';
+      return 'base';
+   }
+
+   if (sourceStage === 'processing' || sourceStage === 'called') return 'raw';
+   if (sourceStage === 'rejected') return 'fake';
+   return sourceStage;
+}
 
 function CommunicationClock({ item, theme, onClick }) {
    const age = getCommunicationAgeMeta(getDaysSince(item?.lastCommunicationAt), theme);
@@ -450,12 +490,19 @@ function ContactCell({ item, theme }) {
    );
 }
 
-export default function ParsingRowCard({ item, expanded, onToggleExpand, onStatus, onHistory, onQuickCommunication, onEdit, onDelete, canDelete }) {
+export default function ParsingRowCard({ item, expanded, onToggleExpand, onStatus, onHistory, onQuickCommunication, onEdit, onDelete, canDelete, canManageReservation = false, now = Date.now() }) {
    if (item?.sourceStatus === 'unknown') {
       item = { ...item, sourceStatus: 'не перевірено' };
    }
    const { theme, mode } = useCRMTheme();
-   const meta = STAGE_META[item?.stage] || STAGE_META.raw;
+   const displayStage = getParsingStageKey(item, now);
+   const meta = STAGE_META[displayStage] || STAGE_META.raw;
+   const awaitsInspection = displayStage === 'inspection_ready';
+   const reservationActive = displayStage === 'inspection_reserved';
+   const reservationName = item?.inspectionReservation?.reservedByEmployee?.name ||
+      item?.inspectionReservation?.reservedByEmployee?.fullName ||
+      item?.inspectionReservation?.reservedByName ||
+      'рієлтор';
    const [lightboxIndex, setLightboxIndex] = useState(0);
    const [lightboxOpen, setLightboxOpen] = useState(false);
    const galleryImages = useMemo(() => normalizeLightboxImages(item?.images), [item?.images]);
@@ -480,16 +527,30 @@ export default function ParsingRowCard({ item, expanded, onToggleExpand, onStatu
             px: 1.05,
             py: 0.8,
             borderRadius: 2,
-            border: `1px solid ${theme.border}`,
-            bgcolor: mode === 'light' ? 'rgba(255,255,255,0.78)' : 'rgba(255,255,255,0.025)',
+            border: `1px solid ${
+               reservationActive
+                  ? 'rgba(34,211,238,0.68)'
+                  : awaitsInspection
+                     ? 'rgba(245,158,11,0.62)'
+                     : theme.border
+            }`,
+            bgcolor: reservationActive
+               ? (mode === 'light' ? 'rgba(34,211,238,0.10)' : 'rgba(34,211,238,0.085)')
+               : awaitsInspection
+                  ? (mode === 'light' ? 'rgba(245,158,11,0.085)' : 'rgba(245,158,11,0.07)')
+                  : (mode === 'light' ? 'rgba(255,255,255,0.78)' : 'rgba(255,255,255,0.025)'),
              display: 'grid',
              gridTemplateColumns: {
                 xs: '36px 42px 1fr',
-                lg: '36px 44px minmax(190px, 1.32fr) 84px 72px 94px minmax(145px, 0.75fr) 74px 72px minmax(166px, auto)',
+                lg: '36px 44px minmax(190px, 1.32fr) 84px 72px 94px minmax(145px, 0.75fr) 74px 92px minmax(166px, auto)',
              },
             gap: 0.8,
             alignItems: 'center',
-            boxShadow: mode === 'light' ? '0 10px 24px rgba(124,58,237,0.05)' : 'none',
+            boxShadow: reservationActive
+               ? '0 8px 24px rgba(34,211,238,0.16)'
+               : awaitsInspection
+                  ? '0 8px 24px rgba(245,158,11,0.12)'
+                  : (mode === 'light' ? '0 10px 24px rgba(124,58,237,0.05)' : 'none'),
          }}
       >
          <CommunicationClock item={item} theme={theme} onClick={onQuickCommunication} />
@@ -577,12 +638,23 @@ export default function ParsingRowCard({ item, expanded, onToggleExpand, onStatu
             )}
          </Stack>
 
-         <Button
-            onClick={() => onStatus?.(item)}
+          <Button
+             onClick={() => {
+                if (!reservationActive || canManageReservation) onStatus?.(item);
+             }}
+            title={
+                reservationActive
+                   ? canManageReservation
+                      ? `Резерв за ${reservationName}. Ви можете змінювати статус цього запису.`
+                      : `Резерв за ${reservationName}. Зміна статусу заблокована до завершення таймера.`
+                  : awaitsInspection
+                     ? 'Власник готовий до огляду. Рієлтору варто терміново взяти запис у роботу.'
+                     : meta.label
+            }
             sx={{
                justifySelf: { xs: 'start', lg: 'stretch' },
                display: { xs: 'none', lg: 'inline-flex' },
-               height: 27,
+               height: reservationActive ? 38 : 27,
                minWidth: 0,
                px: 0.8,
                borderRadius: 1.5,
@@ -594,10 +666,22 @@ export default function ParsingRowCard({ item, expanded, onToggleExpand, onStatu
                textTransform: 'none',
                overflow: 'hidden',
                textOverflow: 'ellipsis',
+                cursor: reservationActive && !canManageReservation ? 'not-allowed' : 'pointer',
                '&:hover': { bgcolor: `${meta.color}22`, borderColor: meta.color },
             }}
          >
-            {meta.compact || meta.label}
+            {reservationActive ? (
+               <Stack spacing={0.05} alignItems="center">
+                  <Typography sx={{ fontSize: 10.5, fontWeight: 950, lineHeight: 1 }}>
+                     {meta.compact}
+                  </Typography>
+                  <Typography sx={{ fontSize: 9.5, fontWeight: 700, lineHeight: 1 }}>
+                     {formatReservationCountdown(item, now)}
+                  </Typography>
+               </Stack>
+            ) : (
+               meta.compact || meta.label
+            )}
          </Button>
 
          <Stack
@@ -611,9 +695,9 @@ export default function ParsingRowCard({ item, expanded, onToggleExpand, onStatu
                flexWrap: 'nowrap',
             }}
          >
-            <Typography sx={{ color: theme.textSoft, fontSize: 11, mr: 'auto', display: { xs: 'block', lg: 'none' } }}>
-               {meta.label} · {item?.phone || 'контакт -'}
-            </Typography>
+             <Typography sx={{ color: theme.textSoft, fontSize: 11, mr: 'auto', display: { xs: 'block', lg: 'none' } }}>
+                {meta.label} · {item?.phone || 'контакт -'}
+             </Typography>
 
              <Tooltip title="Редагувати">
                 <IconButton onClick={() => onEdit?.(item)} sx={iconButtonSx}>

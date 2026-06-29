@@ -250,7 +250,7 @@ export default function NavodkaNoteDialog({ open, onClose, item, onCreated }) {
                   <TextField
                      fullWidth
                      label="Дата контакту"
-                     type="date"
+                     type="datetime-local"
                      InputLabelProps={{ shrink: true }}
                      value={form.contactDate}
                      onChange={e => handleChange('contactDate', e.target.value)}
@@ -262,7 +262,7 @@ export default function NavodkaNoteDialog({ open, onClose, item, onCreated }) {
                   <TextField
                      fullWidth
                      label="Наступний контакт"
-                     type="date"
+                     type="datetime-local"
                      InputLabelProps={{ shrink: true }}
                      value={form.nextContactAt}
                      onChange={e => handleChange('nextContactAt', e.target.value)}

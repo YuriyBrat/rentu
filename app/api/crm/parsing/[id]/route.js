@@ -2,11 +2,14 @@ import connectDB from '@/config/database';
 import cloudinary from '@/config/cloudinary';
 import LeadProperty from '@/models/LeadProperty';
 import Property from '@/models/Property';
+import { buildActivityDiff, logActivity, pickActivitySnapshot } from '@/utils/crm/activityLog';
 import { attachPhoneIntel, buildPhoneIntelMap } from '@/utils/crm/phoneIntel';
 import { getSessionUser } from '@/utils/getSessionUser';
 import { randomUUID } from 'crypto';
 
 const STAGES = ['raw', 'processing', 'called', 'qualified', 'duplicate', 'fake', 'rejected', 'moved'];
+const INSPECTION_RESERVATION_HOURS = 24;
+const INSPECTION_RESERVATION_ROLES = ['owner', 'admin', 'manager', 'realtor'];
 
 function parseDate(value) {
    if (!value) return null;
@@ -60,6 +63,43 @@ function normalizeKey(value) {
 function canDeleteParsing(sessionUser) {
    const role = sessionUser?.role || sessionUser?.user?.role || '';
    return !!sessionUser?.isFallbackAdmin || role === 'owner';
+}
+
+function isInspectionReservationActive(item, now = new Date()) {
+   const expiresAt = item?.inspectionReservation?.expiresAt;
+   if (!expiresAt) return false;
+   const expires = new Date(expiresAt);
+   return !Number.isNaN(expires.getTime()) && expires > now;
+}
+
+function canManageInspectionReservation(item, sessionUser) {
+   if (!isInspectionReservationActive(item)) return true;
+
+   const role = sessionUser?.role || sessionUser?.user?.role || '';
+   if (sessionUser?.isFallbackAdmin || ['owner', 'admin'].includes(role)) return true;
+
+   const currentEmployeeId = String(sessionUser?.employeeId || '');
+   const reservedEmployeeId = String(
+      item?.inspectionReservation?.reservedByEmployee?._id ||
+      item?.inspectionReservation?.reservedByEmployee ||
+      ''
+   );
+
+   return !!currentEmployeeId && currentEmployeeId === reservedEmployeeId;
+}
+
+async function canReserveForInspection(item) {
+   if (!item || isInspectionReservationActive(item)) return false;
+   if (['duplicate', 'fake', 'rejected'].includes(item.stage)) return false;
+   if (['raw', 'processing', 'called', 'qualified'].includes(item.stage)) return true;
+   if (item.stage !== 'moved' || !item.propertyId) return false;
+
+   const property = await Property.findById(item.propertyId)
+      .select('crmStage actualityGroup')
+      .lean();
+
+   if (!property || ['paused', 'inactive'].includes(property.actualityGroup)) return false;
+   return ['base', 'inspection'].includes(property.crmStage);
 }
 
 function applyEditableFields(item, body) {
@@ -182,7 +222,8 @@ export const GET = async (_request, { params }) => {
 
       const item = await LeadProperty.findById(params.id)
          .populate('assignedToEmployee', 'name fullName surname role')
-         .populate('propertyId', 'title actualityGroup crmStage')
+         .populate('propertyId', 'title actualityGroup crmStage assignee')
+         .populate('inspectionReservation.reservedByEmployee', 'name fullName surname role color avatarUrl')
          .populate('duplicateOf', 'title source sourceUrl')
          .populate('duplicatePropertyId', 'title location_text crmStage actualityGroup')
          .lean();
@@ -204,9 +245,76 @@ export const PATCH = async (request, { params }) => {
       await connectDB();
 
       const body = await request.json();
+      const sessionUser = await getSessionUser().catch(() => null);
       const item = await LeadProperty.findById(params.id);
 
       if (!item) return new Response('Parsed property not found', { status: 404 });
+      const beforeSnapshot = pickActivitySnapshot(item);
+      const beforeStage = item.stage;
+
+      if (body?.action === 'reserveInspection') {
+         const role = sessionUser?.role || sessionUser?.user?.role || '';
+         const employeeId = sessionUser?.employeeId || null;
+
+         if (!sessionUser?.user || !INSPECTION_RESERVATION_ROLES.includes(role)) {
+            return Response.json({ error: 'inspection reservation forbidden' }, { status: 403 });
+         }
+
+         if (!(await canReserveForInspection(item))) {
+            return Response.json({ error: 'record is not available for inspection reservation' }, { status: 409 });
+         }
+
+         const reservedAt = new Date();
+         const expiresAt = new Date(reservedAt.getTime() + INSPECTION_RESERVATION_HOURS * 60 * 60 * 1000);
+
+         item.inspectionReservation = {
+            reservedByEmployee: employeeId,
+            reservedByName: sessionUser?.user?.name || '',
+            reservedByRole: role,
+            reservedAt,
+            expiresAt,
+         };
+         await item.save();
+
+         const afterSnapshot = pickActivitySnapshot(item);
+         await logActivity({
+            entityType: 'leadProperty',
+            entityId: item._id,
+            action: 'status_changed',
+            sessionUser,
+            source: 'manual',
+            title: item.title || item.location_text || item.sourceUrl || '',
+            message: `Резерв на огляд до ${expiresAt.toLocaleString('uk-UA')}`,
+            before: beforeSnapshot,
+            after: afterSnapshot,
+            diff: buildActivityDiff(beforeSnapshot, afterSnapshot),
+            meta: {
+               inspectionReservation: true,
+               reservedAt,
+               expiresAt,
+            },
+         });
+
+         const reserved = await LeadProperty.findById(item._id)
+            .populate('assignedToEmployee', 'name fullName surname role')
+            .populate('propertyId', 'title actualityGroup crmStage assignee')
+            .populate('inspectionReservation.reservedByEmployee', 'name fullName surname role color avatarUrl')
+            .populate('duplicateOf', 'title source sourceUrl')
+            .populate('duplicatePropertyId', 'title location_text crmStage actualityGroup')
+            .lean();
+
+         const phoneIntelMap = await buildPhoneIntelMap();
+         const [reservedWithPhoneCount] = attachPhoneIntel([reserved], phoneIntelMap);
+         return Response.json({ item: reservedWithPhoneCount }, { status: 200 });
+      }
+
+       if (!canManageInspectionReservation(item, sessionUser)) {
+         return Response.json({
+            error: 'inspection reservation active',
+            expiresAt: item.inspectionReservation.expiresAt,
+            reservedByName: item.inspectionReservation.reservedByName || '',
+         }, { status: 423 });
+      }
 
       if (body?.action === 'moveToObjects') {
          const callCenterPatch = normalizeCallCenterPatch(body.callCenter);
@@ -221,6 +329,20 @@ export const PATCH = async (request, { params }) => {
             item.stage = 'moved';
             ensureSourceId(item);
             await item.save();
+            const afterSnapshot = pickActivitySnapshot(item);
+            await logActivity({
+               entityType: 'leadProperty',
+               entityId: item._id,
+               action: 'moved',
+               sessionUser,
+               source: 'manual',
+               title: item.title || item.location_text || item.sourceUrl || '',
+               message: 'Повторно підтверджено перенос парсингу в Property',
+               before: beforeSnapshot,
+               after: afterSnapshot,
+               diff: buildActivityDiff(beforeSnapshot, afterSnapshot),
+               meta: { propertyId: item.propertyId },
+            });
             return Response.json({ item, propertyId: item.propertyId }, { status: 200 });
          }
 
@@ -236,6 +358,24 @@ export const PATCH = async (request, { params }) => {
          item.lastCallAt = item.lastCallAt || new Date();
          ensureSourceId(item);
          await item.save();
+         const afterSnapshot = pickActivitySnapshot(item);
+         await logActivity({
+            entityType: 'leadProperty',
+            entityId: item._id,
+            action: 'moved',
+            sessionUser,
+            source: 'manual',
+            title: item.title || item.location_text || item.sourceUrl || '',
+            message: 'Перенесено запис парсингу в Property',
+            before: beforeSnapshot,
+            after: afterSnapshot,
+            diff: buildActivityDiff(beforeSnapshot, afterSnapshot),
+            meta: {
+               propertyId: property._id,
+               actualityGroup: body?.actualityGroup || 'active',
+               marketReason: body?.marketReason || '',
+            },
+         });
 
          return Response.json({ item, property }, { status: 200 });
       }
@@ -273,10 +413,32 @@ export const PATCH = async (request, { params }) => {
 
       ensureSourceId(item);
       await item.save();
+      const afterSnapshot = pickActivitySnapshot(item);
+      const diff = buildActivityDiff(beforeSnapshot, afterSnapshot);
+      const action = beforeStage !== item.stage ? 'status_changed' : 'updated';
+      await logActivity({
+         entityType: 'leadProperty',
+         entityId: item._id,
+         action,
+         sessionUser,
+         source: 'manual',
+         title: item.title || item.location_text || item.sourceUrl || '',
+         message: action === 'status_changed'
+            ? `Змінено статус парсингу: ${beforeStage || ''} -> ${item.stage || ''}`
+            : 'Оновлено запис парсингу',
+         before: beforeSnapshot,
+         after: afterSnapshot,
+         diff,
+         meta: {
+            editableFields: !!body?.editableFields,
+            payloadAction: body?.action || '',
+         },
+      });
 
       const saved = await LeadProperty.findById(item._id)
          .populate('assignedToEmployee', 'name fullName surname role')
-         .populate('propertyId', 'title actualityGroup crmStage')
+         .populate('propertyId', 'title actualityGroup crmStage assignee')
+         .populate('inspectionReservation.reservedByEmployee', 'name fullName surname role color avatarUrl')
          .populate('duplicateOf', 'title source sourceUrl')
          .populate('duplicatePropertyId', 'title location_text crmStage actualityGroup')
          .lean();
@@ -302,6 +464,7 @@ export const DELETE = async (_request, { params }) => {
 
       const item = await LeadProperty.findById(params.id);
       if (!item) return new Response('Parsed property not found', { status: 404 });
+      const beforeSnapshot = pickActivitySnapshot(item);
 
       const publicIds = (Array.isArray(item.images) ? item.images : [])
          .map((image) => image?.public_id)
@@ -316,6 +479,21 @@ export const DELETE = async (_request, { params }) => {
       }
 
       await item.deleteOne();
+      await logActivity({
+         entityType: 'leadProperty',
+         entityId: item._id,
+         action: 'deleted',
+         sessionUser,
+         source: 'manual',
+         title: item.title || item.location_text || item.sourceUrl || '',
+         message: 'Видалено запис парсингу разом із фото',
+         before: beforeSnapshot,
+         meta: {
+            deletedImages: publicIds.length,
+            source: item.source || '',
+            sourceId: item.sourceId || '',
+         },
+      });
 
       return Response.json({ ok: true, deletedImages: publicIds.length }, { status: 200 });
    } catch (error) {

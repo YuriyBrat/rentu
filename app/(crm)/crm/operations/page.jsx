@@ -32,9 +32,12 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import ExploreRoundedIcon from '@mui/icons-material/ExploreRounded';
+import AccessTimeRoundedIcon from '@mui/icons-material/AccessTimeRounded';
+import HandshakeRoundedIcon from '@mui/icons-material/HandshakeRounded';
 import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded';
 import PersonSearchRoundedIcon from '@mui/icons-material/PersonSearchRounded';
 import PestControlRoundedIcon from '@mui/icons-material/PestControlRounded';
+import GavelRoundedIcon from '@mui/icons-material/GavelRounded';
 import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
@@ -111,6 +114,45 @@ const STAGE_LABELS = {
    inactive: 'неактуальний',
 };
 
+const FINANCE_EVENT_TYPES = {
+   deposit: {
+      label: 'Завдаток',
+      icon: HandshakeRoundedIcon,
+   },
+};
+
+const FINANCE_STATUS_LABELS = {
+   waiting: 'Чекає',
+   completed_success: 'Виконано успішно',
+   completed_improved: 'Виконано з покращенням',
+   completed_worse: 'Виконано з погіршенням',
+   failed: 'Зірвано',
+};
+
+const FINANCE_STATUS_COLORS = {
+   waiting: '#86efac',
+   completed_success: '#16a34a',
+   completed_improved: '#22c55e',
+   completed_worse: '#f59e0b',
+   failed: '#ef4444',
+};
+
+const TENSION_LABELS = {
+   1: 'дуже напружено',
+   2: 'напружено',
+   3: 'нормально',
+   4: 'легко',
+   5: 'дуже легко',
+};
+
+const TENSION_EMOJIS = {
+   1: '😬',
+   2: '😟',
+   3: '🙂',
+   4: '😌',
+   5: '😎',
+};
+
 const emptyForm = {
    type: 'showing',
    occurredAt: '',
@@ -139,6 +181,10 @@ const emptyForm = {
 
 function labelOf(options, value) {
    return options.find((item) => item.value === value)?.label || value || '—';
+}
+
+function financeTypeLabel(item) {
+   return FINANCE_EVENT_TYPES[item?.financeType]?.label || item?.financeType || 'Фінансова подія';
 }
 
 function employeeName(emp) {
@@ -275,6 +321,100 @@ function sortOperationEvents(items) {
 
       return bTime - aTime;
    });
+}
+
+function pickDemoItem(items, index, fallback) {
+   return items?.[index] || items?.[0] || fallback;
+}
+
+function buildDemoFinanceEvents({ properties, leads, employees }) {
+   const fallbackEmployees = [
+      { _id: 'demo-emp-1', fullName: 'Марія Савчук' },
+      { _id: 'demo-emp-2', fullName: 'Андрій Коваль' },
+      { _id: 'demo-emp-3', fullName: 'Олена Романюк' },
+   ];
+   const fallbackProperties = [
+      { _id: 'demo-prop-1', title: '2к квартира, Центр', cost: 62000, currency: 'USD', location_text: 'Центр, вул. Шевченка' },
+      { _id: 'demo-prop-2', title: 'Будинок біля парку', cost: 98000, currency: 'USD', location_text: 'Парк, тиха вулиця' },
+      { _id: 'demo-prop-3', title: '1к новобудова', cost: 43500, currency: 'USD', location_text: 'Південний район' },
+   ];
+   const fallbackLeads = [
+      { _id: 'demo-lead-1', name: 'Ірина Мельник', phones: ['+38 067 111 22 33'], stage: 'zs' },
+      { _id: 'demo-lead-2', name: 'Олег Данилюк', phones: ['+38 050 444 55 66'], stage: 'zs' },
+      { _id: 'demo-lead-3', name: 'Сімʼя Петренків', phones: ['+38 093 777 88 99'], stage: 'zs' },
+   ];
+   const employeePool = employees?.length ? employees : fallbackEmployees;
+   const propertyPool = properties?.length ? properties : fallbackProperties;
+   const leadPool = leads?.length ? leads : fallbackLeads;
+
+   return [
+      {
+         _id: 'demo-finance-deposit-waiting',
+         kind: 'financeEvent',
+         financeType: 'deposit',
+         occurredAt: '2026-06-18T13:30:00.000Z',
+         property: pickDemoItem(propertyPool, 0, fallbackProperties[0]),
+         lead: pickDemoItem(leadPool, 0, fallbackLeads[0]),
+         responsibleEmployee: pickDemoItem(employeePool, 0, fallbackEmployees[0]),
+         processedByEmployee: pickDemoItem(employeePool, 1, fallbackEmployees[1]),
+         objectRealtorEmployee: pickDemoItem(employeePool, 0, fallbackEmployees[0]),
+         buyerRealtorEmployee: pickDemoItem(employeePool, 1, fallbackEmployees[1]),
+         tensionLevel: 3,
+         location: 'Офіс Karamax, переговорна',
+         deadlineAt: '2026-06-27T20:59:00.000Z',
+         notary: 'Нотаріус Гнатюк О. В.',
+         status: 'waiting',
+         scheduledReregistrationAt: '2026-06-27T08:00:00.000Z',
+         sellerConditions: ['підготувати довідку про зареєстрованих', 'погодити виписку до переоформлення'],
+         buyerConditions: ['внести залишок коштів у день нотаріуса', 'підтвердити банк до дедлайну'],
+         agencyConditions: ['перевірити документи', 'синхронізувати продавця й покупця'],
+         notes: [{ color: '#22c55e', text: 'Умови спокійні, всі сторони на звʼязку.' }],
+      },
+      {
+         _id: 'demo-finance-deposit-completed',
+         kind: 'financeEvent',
+         financeType: 'deposit',
+         occurredAt: '2026-05-24T10:10:00.000Z',
+         property: pickDemoItem(propertyPool, 1, fallbackProperties[1]),
+         lead: pickDemoItem(leadPool, 1, fallbackLeads[1]),
+         responsibleEmployee: pickDemoItem(employeePool, 1, fallbackEmployees[1]),
+         processedByEmployee: pickDemoItem(employeePool, 1, fallbackEmployees[1]),
+         objectRealtorEmployee: pickDemoItem(employeePool, 2, fallbackEmployees[2]),
+         buyerRealtorEmployee: pickDemoItem(employeePool, 1, fallbackEmployees[1]),
+         tensionLevel: 4,
+         location: 'Нотаріальна контора, вул. Соборна',
+         deadlineAt: '2026-06-03T20:59:00.000Z',
+         notary: 'Нотаріус Левченко Н. М.',
+         status: 'completed_improved',
+         scheduledReregistrationAt: '2026-06-02T11:30:00.000Z',
+         sellerConditions: ['передати оригінали документів', 'підписати згоду подружжя'],
+         buyerConditions: ['підготувати аванс і паспортні дані'],
+         agencyConditions: ['контроль розписок', 'фінальна звірка умов'],
+         notes: [{ color: '#16a34a', text: 'Завдаток пройшов рівно, переоформлення виконано.' }],
+      },
+      {
+         _id: 'demo-finance-deposit-failed',
+         kind: 'financeEvent',
+         financeType: 'deposit',
+         occurredAt: '2026-05-08T15:45:00.000Z',
+         property: pickDemoItem(propertyPool, 2, fallbackProperties[2]),
+         lead: pickDemoItem(leadPool, 2, fallbackLeads[2]),
+         responsibleEmployee: pickDemoItem(employeePool, 2, fallbackEmployees[2]),
+         processedByEmployee: pickDemoItem(employeePool, 0, fallbackEmployees[0]),
+         objectRealtorEmployee: pickDemoItem(employeePool, 2, fallbackEmployees[2]),
+         buyerRealtorEmployee: pickDemoItem(employeePool, 0, fallbackEmployees[0]),
+         tensionLevel: 1,
+         location: 'Офіс партнера',
+         deadlineAt: '2026-05-17T20:59:00.000Z',
+         notary: 'не погоджено',
+         status: 'failed',
+         scheduledReregistrationAt: '2026-05-17T09:00:00.000Z',
+         sellerConditions: ['продавець мав зняти арешт'],
+         buyerConditions: ['покупець чекав підтвердження документів'],
+         agencyConditions: ['юридична перевірка до підписання'],
+         notes: [{ color: '#ef4444', text: 'Зірвалося через невиконання умови продавцем.' }],
+      },
+   ];
 }
 
 function MiniMetric({ label, value, accent, theme }) {
@@ -857,6 +997,322 @@ function OperationRowCompact({ item, theme, mode, onEdit, onDelete }) {
    );
 }
 
+function FinanceEventRowCompact({ item, theme, mode }) {
+   const [expanded, setExpanded] = useState(false);
+   const financeType = FINANCE_EVENT_TYPES[item.financeType] || FINANCE_EVENT_TYPES.deposit;
+   const EventIcon = financeType.icon;
+   const photo = getPropertyImage(item.property);
+   const dateParts = formatDateParts(item.occurredAt);
+   const deadlineParts = formatDateParts(item.deadlineAt);
+   const scheduledParts = formatDateParts(item.scheduledReregistrationAt);
+   const statusColor = FINANCE_STATUS_COLORS[item.status] || FINANCE_STATUS_COLORS.waiting;
+   const statusLabel = FINANCE_STATUS_LABELS[item.status] || item.status || 'Чекає';
+   const panelBg = mode === 'light' ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.038)';
+   const cellBg = mode === 'light' ? 'rgba(34,197,94,0.045)' : 'rgba(34,197,94,0.06)';
+   const isWaiting = item.status === 'waiting';
+
+   const statusBorder =
+      item.status === 'failed'
+         ? 'rgba(239,68,68,0.32)'
+         : item.status === 'completed_worse'
+            ? 'rgba(245,158,11,0.36)'
+            : item.status?.startsWith?.('completed')
+               ? 'rgba(22,163,74,0.38)'
+               : 'rgba(134,239,172,0.34)';
+
+   const statusShadow =
+      item.status === 'failed'
+         ? '0 14px 30px rgba(239,68,68,0.10)'
+         : item.status === 'completed_worse'
+            ? '0 14px 30px rgba(245,158,11,0.10)'
+            : item.status?.startsWith?.('completed')
+               ? '0 14px 30px rgba(22,163,74,0.12)'
+               : '0 14px 30px rgba(134,239,172,0.12)';
+
+   const conditionBlock = (title, values) => (
+      <Stack spacing={0.45} sx={{ p: 1, borderRadius: 1.8, border: `1px solid ${theme.border}`, bgcolor: cellBg, minWidth: 0 }}>
+         <Typography sx={{ color: theme.textSoft, fontSize: 11, fontWeight: 900, textTransform: 'uppercase' }}>
+            {title}
+         </Typography>
+         <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+            {(values?.length ? values : ['не вказано']).slice(0, 5).map((text) => (
+               <Chip key={text} size="small" label={text} sx={{ height: 23, color: theme.text, bgcolor: 'rgba(34,197,94,0.12)' }} />
+            ))}
+         </Stack>
+      </Stack>
+   );
+
+   return (
+      <Box
+         sx={{
+            p: 0.42,
+            borderRadius: 2.2,
+            border: `1px solid ${statusBorder}`,
+            bgcolor: panelBg,
+            boxShadow: statusShadow,
+         }}
+      >
+         <Box
+            sx={{
+               display: 'grid',
+               gridTemplateColumns: {
+                  xs: '1fr',
+                  lg: '86px minmax(210px,1.2fr) minmax(190px,0.9fr) minmax(250px,1.05fr) 132px',
+               },
+               gap: 0.45,
+               alignItems: 'center',
+            }}
+         >
+            <Stack
+               spacing={0.25}
+               sx={{
+                  minHeight: 54,
+                  borderRadius: 1.6,
+                  border: `1px solid ${statusBorder}`,
+                  bgcolor: mode === 'light' ? 'rgba(34,197,94,0.08)' : 'rgba(34,197,94,0.09)',
+                  px: 0.8,
+                  py: 0.3,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+               }}
+            >
+               <Stack direction="row" spacing={0.45} alignItems="center" justifyContent="center" sx={{ width: '100%' }}>
+                  <EventIcon sx={{ color: statusColor, fontSize: 16 }} />
+                  <Typography sx={{ color: theme.text, fontWeight: 950, fontSize: 11 }} noWrap>
+                     {financeType.label}
+                  </Typography>
+               </Stack>
+               <Typography sx={{ color: theme.text, fontWeight: 950, fontSize: 14, lineHeight: 1.05, textAlign: 'center', width: '100%' }}>
+                  {dateParts.date}
+               </Typography>
+               <Typography sx={{ color: theme.textSoft, fontSize: 10.5, fontWeight: 800, lineHeight: 1.05, textAlign: 'center', width: '100%' }}>
+                  {dateParts.time}
+               </Typography>
+            </Stack>
+
+            <Stack
+               direction="row"
+               spacing={0.55}
+               sx={{
+                  minWidth: 0,
+                  minHeight: 54,
+                  p: 0.4,
+                  borderRadius: 1.6,
+                  bgcolor: mode === 'light' ? 'rgba(34,197,94,0.052)' : 'rgba(34,197,94,0.07)',
+                  border: `1px solid ${statusColor}44`,
+                  alignItems: 'flex-start',
+               }}
+            >
+               <Box
+                  sx={{
+                     width: 42,
+                     height: 42,
+                     minWidth: 42,
+                     borderRadius: 1.3,
+                     overflow: 'hidden',
+                     bgcolor: 'rgba(255,255,255,0.06)',
+                     border: `1px solid ${theme.border}`,
+                     display: 'flex',
+                     alignItems: 'center',
+                     justifyContent: 'center',
+                  }}
+               >
+                  {photo ? (
+                     <Box component="img" src={photo} alt="" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                     <ApartmentRoundedIcon sx={{ color: theme.textSoft, fontSize: 22 }} />
+                  )}
+               </Box>
+               <Stack spacing={0.14} sx={{ minWidth: 0, justifyContent: 'flex-start', pt: 0 }}>
+                  <Tooltip title={propertyTitle(item.property)}>
+                     <Typography sx={{ color: theme.text, fontWeight: 950, fontSize: 12.5, lineHeight: 1.14 }} noWrap>
+                        {propertyTitle(item.property)}
+                     </Typography>
+                  </Tooltip>
+                  <Typography sx={{ color: theme.textSoft, fontSize: 11, fontWeight: 750, lineHeight: 1.16 }} noWrap>
+                     {propertyMeta(item.property) || 'характеристики не внесені'}
+                  </Typography>
+                  <Typography sx={{ color: theme.textSoft, fontSize: 10.5, fontWeight: 800, lineHeight: 1.14 }} noWrap>
+                     рієлтор: <Box component="span" sx={{ color: theme.text }}>{employeeName(item.objectRealtorEmployee) || '—'}</Box>
+                  </Typography>
+               </Stack>
+            </Stack>
+
+            <Stack
+               direction="row"
+               spacing={0.55}
+               sx={{
+                  minWidth: 0,
+                  minHeight: 54,
+                  p: 0.4,
+                  borderRadius: 1.6,
+                  border: `1px solid ${theme.border}`,
+                  bgcolor: cellBg,
+                  alignItems: 'flex-start',
+               }}
+            >
+               <Box
+                  sx={{
+                     width: 36,
+                     height: 36,
+                     minWidth: 36,
+                     borderRadius: '50%',
+                     display: 'flex',
+                     alignItems: 'center',
+                     justifyContent: 'center',
+                     bgcolor: 'rgba(34,197,94,0.13)',
+                     border: `1px solid ${theme.border}`,
+                     fontSize: 20,
+                     lineHeight: 1,
+                  }}
+               >
+                  🤝
+               </Box>
+               <Stack spacing={0.14} sx={{ minWidth: 0, alignSelf: 'stretch', justifyContent: 'flex-start', pt: 0 }}>
+                  <Typography sx={{ color: theme.text, fontWeight: 950, fontSize: 12.5, lineHeight: 1.14 }} noWrap>
+                     {item.lead?.name || 'Без клієнта'}
+                  </Typography>
+                  <Typography sx={{ color: theme.textSoft, fontSize: 11, fontWeight: 750, lineHeight: 1.16 }} noWrap>
+                     {item.lead?.phones?.[0] || item.lead?.requestSummary || '—'}
+                  </Typography>
+                  <Typography sx={{ color: theme.textSoft, fontSize: 10.5, fontWeight: 800, lineHeight: 1.14 }} noWrap>
+                     рієлтор: <Box component="span" sx={{ color: theme.text }}>{employeeName(item.buyerRealtorEmployee) || '—'}</Box>
+                  </Typography>
+               </Stack>
+            </Stack>
+
+            <Box
+               sx={{
+                  minWidth: 0,
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                  gap: 0.45,
+                  alignSelf: 'stretch',
+               }}
+            >
+               <Stack spacing={0.14} justifyContent="center" sx={{ minHeight: 54, px: 0.55, py: 0.28, borderRadius: 1.45, border: `1px solid ${theme.border}`, bgcolor: cellBg, minWidth: 0 }}>
+                  <Typography sx={{ color: theme.text, fontSize: 10.5, fontWeight: 950, lineHeight: 1.1 }} noWrap>
+                     {employeeName(item.processedByEmployee) || '—'}
+                  </Typography>
+                  <Stack direction="row" spacing={0.35} alignItems="center" sx={{ minWidth: 0 }}>
+                     <Box component="span" sx={{ fontSize: 15, lineHeight: 1, flexShrink: 0 }}>
+                        {TENSION_EMOJIS[item.tensionLevel] || '🙂'}
+                     </Box>
+                     <Typography sx={{ color: theme.textSoft, fontSize: 10, fontWeight: 850, lineHeight: 1.1 }} noWrap>
+                        {TENSION_LABELS[item.tensionLevel] || 'напруженість не вказана'}
+                     </Typography>
+                  </Stack>
+                  <Typography sx={{ color: theme.textSoft, fontSize: 10, fontWeight: 750, lineHeight: 1.1 }} noWrap>
+                     {item.location || 'місце не вказано'}
+                  </Typography>
+               </Stack>
+
+               <Stack spacing={0.18} justifyContent="center" sx={{ minHeight: 54, px: 0.55, py: 0.28, borderRadius: 1.45, border: `1px solid ${theme.border}`, bgcolor: cellBg, minWidth: 0 }}>
+                  <Typography sx={{ color: statusColor, fontSize: 10.5, fontWeight: 950, lineHeight: 1.1 }} noWrap>
+                     дедлайн: {deadlineParts.date}
+                  </Typography>
+                  <Stack direction="row" spacing={0.35} alignItems="center" sx={{ minWidth: 0 }}>
+                     <GavelRoundedIcon sx={{ color: theme.textSoft, fontSize: 14, minWidth: 14 }} />
+                     <Typography sx={{ color: theme.textSoft, fontSize: 10, fontWeight: 750, lineHeight: 1.1 }} noWrap>
+                        {item.notary || '—'}
+                     </Typography>
+                  </Stack>
+               </Stack>
+
+               <Stack spacing={0.32} alignItems="center" justifyContent="center" sx={{ minHeight: 54, px: 0.55, py: 0.28, borderRadius: 1.45, border: `1px solid ${statusBorder}`, bgcolor: `${statusColor}22`, minWidth: 0 }}>
+                  <Typography
+                     sx={{
+                        color: theme.text,
+                        fontSize: 10.2,
+                        fontWeight: 950,
+                        lineHeight: 1.04,
+                        textAlign: 'center',
+                        maxWidth: '100%',
+                        overflowWrap: 'anywhere',
+                     }}
+                  >
+                     {statusLabel}
+                  </Typography>
+                  {isWaiting && <AccessTimeRoundedIcon sx={{ color: statusColor, fontSize: 17, filter: `drop-shadow(0 0 8px ${statusColor}66)` }} />}
+                  <Typography sx={{ color: isWaiting ? statusColor : theme.textSoft, fontSize: 10, fontWeight: 850, lineHeight: 1.08 }} noWrap>
+                     {scheduledParts.date} {scheduledParts.time}
+                  </Typography>
+               </Stack>
+            </Box>
+
+            <Stack spacing={0.25} alignItems={{ xs: 'flex-start', lg: 'flex-end' }}>
+               <Typography
+                  sx={{
+                     color: theme.textSoft,
+                     fontSize: 10.5,
+                     fontWeight: 850,
+                     lineHeight: 1.1,
+                     maxWidth: 132,
+                  }}
+                  noWrap
+               >
+                  {employeeName(item.responsibleEmployee) || '—'}
+               </Typography>
+               <Stack direction="row" spacing={0.2} justifyContent={{ xs: 'flex-start', lg: 'flex-end' }}>
+                  <Tooltip title={expanded ? 'Згорнути' : 'Деталі'}>
+                     <IconButton
+                        size="small"
+                        onClick={() => setExpanded((value) => !value)}
+                        sx={{
+                           color: theme.text,
+                           border: `1px solid ${theme.border}`,
+                           borderRadius: 1.35,
+                           width: 28,
+                           height: 28,
+                           transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                           transition: 'transform 0.18s ease',
+                        }}
+                     >
+                        <KeyboardArrowDownRoundedIcon fontSize="small" />
+                     </IconButton>
+                  </Tooltip>
+               </Stack>
+            </Stack>
+         </Box>
+
+         <Collapse in={expanded} timeout="auto" unmountOnExit>
+            <Box
+               sx={{
+                  mt: 0.75,
+                  display: 'grid',
+                  gridTemplateColumns: { xs: '1fr', md: '1fr 1fr 1fr' },
+                  gap: 0.75,
+               }}
+            >
+               {conditionBlock('Умови продавця', item.sellerConditions)}
+               {conditionBlock('Умови покупця', item.buyerConditions)}
+               {conditionBlock('Умови агентства', item.agencyConditions)}
+               <Stack spacing={0.45} sx={{ p: 1, borderRadius: 1.8, border: `1px solid ${theme.border}`, bgcolor: cellBg, minWidth: 0, gridColumn: { md: '1 / -1' } }}>
+                  <Typography sx={{ color: theme.textSoft, fontSize: 11, fontWeight: 900, textTransform: 'uppercase' }}>
+                     Нотатки
+                  </Typography>
+                  <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+                     {(item.notes?.length ? item.notes : [{ color: theme.accent, text: 'нотаток поки немає' }]).map((note) => (
+                        <Chip
+                           key={`${note.color}-${note.text}`}
+                           size="small"
+                           label={note.text}
+                           sx={{
+                              height: 24,
+                              color: theme.text,
+                              bgcolor: `${note.color || theme.accent}22`,
+                              border: `1px solid ${note.color || theme.accent}66`,
+                           }}
+                        />
+                     ))}
+                  </Stack>
+               </Stack>
+            </Box>
+         </Collapse>
+      </Box>
+   );
+}
+
 export default function OperationsPage() {
    const { theme, mode } = useCRMTheme();
    const { user } = useCurrentUser();
@@ -891,17 +1347,75 @@ export default function OperationsPage() {
       },
    };
 
+   const demoFinanceEvents = useMemo(
+      () => buildDemoFinanceEvents({ properties, leads, employees }),
+      [properties, leads, employees]
+   );
+
+   const visibleFinanceEvents = useMemo(() => {
+      if (typeFilter && typeFilter !== 'finance_deposit') return [];
+
+      const needle = q.trim().toLowerCase();
+      return demoFinanceEvents.filter((item) => {
+         if (typeFilter === 'finance_deposit' && item.financeType !== 'deposit') return false;
+         if (employeeFilter) {
+            const employeeIds = [
+               idOf(item.responsibleEmployee),
+               idOf(item.processedByEmployee),
+               idOf(item.objectRealtorEmployee),
+               idOf(item.buyerRealtorEmployee),
+            ];
+            if (!employeeIds.includes(employeeFilter)) return false;
+         }
+         if (propertyFilter && idOf(item.property) !== propertyFilter) return false;
+         if (leadFilter && idOf(item.lead) !== leadFilter) return false;
+         if (!needle) return true;
+
+         return [
+            financeTypeLabel(item),
+            propertyTitle(item.property),
+            propertyMeta(item.property),
+            item.lead?.name,
+            item.lead?.phones?.[0],
+            employeeName(item.responsibleEmployee),
+            employeeName(item.processedByEmployee),
+            item.location,
+            item.notary,
+            FINANCE_STATUS_LABELS[item.status],
+            ...(item.sellerConditions || []),
+            ...(item.buyerConditions || []),
+            ...(item.agencyConditions || []),
+            ...(item.notes || []).map((note) => note.text),
+         ]
+            .filter(Boolean)
+            .join(' ')
+            .toLowerCase()
+            .includes(needle);
+      });
+   }, [demoFinanceEvents, employeeFilter, leadFilter, propertyFilter, q, typeFilter]);
+
+   const visibleOperationItems = useMemo(
+      () => (typeFilter === 'finance_deposit' ? [] : items),
+      [items, typeFilter]
+   );
+
+   const timelineItems = useMemo(
+      () => sortOperationEvents([...visibleOperationItems, ...visibleFinanceEvents]),
+      [visibleOperationItems, visibleFinanceEvents]
+   );
+
    const metrics = useMemo(() => {
       const today = new Date();
       const todayKey = today.toISOString().slice(0, 10);
       return {
-         total: items.length,
-         showings: items.filter((x) => x.type === 'showing').length,
-         reviews: items.filter((x) => x.type === 'review').length,
-         today: items.filter((x) => x.occurredAt?.slice?.(0, 10) === todayKey).length,
-         objections: items.filter((x) => x.resultShowing === 'objections_found').length,
+         total: timelineItems.length,
+         showings: visibleOperationItems.filter((x) => x.type === 'showing').length,
+         reviews: visibleOperationItems.filter((x) => x.type === 'review').length,
+         deposits: visibleFinanceEvents.length,
+         today: timelineItems.filter((x) => x.occurredAt?.slice?.(0, 10) === todayKey).length,
+         objections: visibleOperationItems.filter((x) => x.resultShowing === 'objections_found').length,
       };
-   }, [items]);
+   }, [timelineItems, visibleFinanceEvents, visibleOperationItems]);
 
    const loadOperations = async () => {
       try {
@@ -909,7 +1423,7 @@ export default function OperationsPage() {
          const params = new URLSearchParams();
          params.set('pageSize', '50');
          if (q.trim()) params.set('q', q.trim());
-         if (typeFilter) params.set('type', typeFilter);
+         if (typeFilter && typeFilter !== 'finance_deposit') params.set('type', typeFilter);
          if (resultFilter) params.set('resultShowing', resultFilter);
          if (employeeFilter) params.set('employee', employeeFilter);
          if (propertyFilter) params.set('property', propertyFilter);
@@ -1100,6 +1614,7 @@ export default function OperationsPage() {
                   <MiniMetric label="всього" value={metrics.total} theme={theme} />
                   <MiniMetric label="покази" value={metrics.showings} theme={theme} accent={theme.accentLight} />
                   <MiniMetric label="огляди" value={metrics.reviews} theme={theme} />
+                  <MiniMetric label="завдатки" value={metrics.deposits} theme={theme} accent="#22c55e" />
                   <MiniMetric label="сьогодні" value={metrics.today} theme={theme} />
                   <MiniMetric label="заперечення" value={metrics.objections} theme={theme} accent="#facc15" />
                </Stack>
@@ -1175,6 +1690,7 @@ export default function OperationsPage() {
                   {EVENT_TYPES.map((x) => (
                      <MenuItem key={x.value} value={x.value}>{x.label}</MenuItem>
                   ))}
+                  <MenuItem value="finance_deposit">Завдаток</MenuItem>
                </TextField>
 
                <TextField
@@ -1260,7 +1776,7 @@ export default function OperationsPage() {
                <Stack alignItems="center" sx={{ py: 8 }}>
                   <CircularProgress />
                </Stack>
-            ) : items.length === 0 ? (
+            ) : timelineItems.length === 0 ? (
                <Box
                   sx={{
                      py: 8,
@@ -1275,16 +1791,25 @@ export default function OperationsPage() {
                </Box>
             ) : (
                <Stack spacing={1}>
-                  {items.map((item) => (
-                     <OperationRowCompact
-                        key={item._id}
-                        item={item}
-                        theme={theme}
-                        mode={mode}
-                        onEdit={openEditDialog}
-                        onDelete={setDeleteItem}
-                     />
-                  ))}
+                  {timelineItems.map((item) =>
+                     item.kind === 'financeEvent' ? (
+                        <FinanceEventRowCompact
+                           key={item._id}
+                           item={item}
+                           theme={theme}
+                           mode={mode}
+                        />
+                     ) : (
+                        <OperationRowCompact
+                           key={item._id}
+                           item={item}
+                           theme={theme}
+                           mode={mode}
+                           onEdit={openEditDialog}
+                           onDelete={setDeleteItem}
+                        />
+                     )
+                  )}
                </Stack>
             )}
          </Stack>

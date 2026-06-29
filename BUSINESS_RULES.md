@@ -279,3 +279,41 @@ Urgency in this layer is intentionally simple and separate from deeper object mo
 - `5` - very urgent.
 
 Interest and cooperation warmth also use 1-5 scales, where `3` is normal.
+
+## CRM activity journal
+
+Important CRM actions should write to `CRMActivityLog`. The log is not a replacement for domain models like `Communication` or `OperationEvent`; it is a unified history layer for audit and analytics.
+
+Rules:
+
+- Log only meaningful CRM actions, not every internal recalculation.
+- Store compact snapshots/diffs, not full raw parser payloads or large photo arrays.
+- Manual employee actions should include actor information from the session.
+- System/import actions should still log source and technical meta.
+- Deleting a record should write a log before the physical delete.
+- Communication creation should create both a `Communication` record and a `communication_added` activity log.
+
+## Parsing workflow display
+
+The parsing page derives its operational status from both `LeadProperty` and linked `Property`:
+
+- `БАЗА` - a qualified/moved record that is still in `Property.crmStage = base` and is not marked ready for inspection.
+- `Чекає огляд` - the owner is ready for a realtor inspection (`callCenter.inspectionLoyalty = yes`) or the linked property is already in `crmStage = inspection`.
+- `Обʼєкти` - the linked property is on a working stage `rs`, `ds` or `zs`, matching the separate Objects page.
+
+`Чекає огляд` is a priority queue for realtors and should be visually highlighted.
+
+## Inspection reservation
+
+Eligible parsing records can be temporarily reserved with `ЇДУ НА ОГЛЯД`.
+
+Rules:
+
+- Reservation is available only for New, Base and Waiting for inspection records.
+- Duplicate, fake, paused, inactive, deposit and working-object records cannot be reserved.
+- The reservation belongs to the authenticated owner/admin/manager/realtor who starts it.
+- Default reservation duration is 24 hours.
+- During an active reservation, parsing PATCH operations and linked Property status changes are blocked with HTTP `423`.
+- Communications remain available because they use the separate communications API.
+- The UI displays `Їде на огляд` with a live countdown.
+- After expiration, no cron is required: the derived display status automatically returns to Base or Waiting for inspection.
