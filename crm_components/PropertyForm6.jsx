@@ -46,6 +46,12 @@ const DEAL_TYPES = [
 
 const CURRENCIES = ['USD', 'UAH', 'EUR'];
 
+const ORIGIN_ACTION_OPTIONS = [
+   { value: '', label: 'не вказано' },
+   { value: 'review', label: 'огляд' },
+   { value: 'showing', label: 'наслідок показу' },
+];
+
 const USING_COMMERCE = [
    'Офіс',
    'Кафе/ресторан',
@@ -361,6 +367,13 @@ function emptyFields(type_estate = 'flat', type_deal = 'продаж') {
       },
 
       source: '',
+      inspectedAt: '',
+      originAction: {
+         kind: '',
+         occurredAt: '',
+         sourceOperationEvent: '',
+         note: '',
+      },
       strategyApprovedBy: '',
       strategyApprovedAt: '',
    };
@@ -409,6 +422,13 @@ function normalizeFormData(data) {
          ...(data.businessScore || {}),
       },
       source: data.source || '',
+      inspectedAt: data.inspectedAt ? String(data.inspectedAt).slice(0, 10) : '',
+      originAction: {
+         kind: data.originAction?.kind || '',
+         occurredAt: data.originAction?.occurredAt ? String(data.originAction.occurredAt).slice(0, 10) : '',
+         sourceOperationEvent: data.originAction?.sourceOperationEvent?._id || data.originAction?.sourceOperationEvent || '',
+         note: data.originAction?.note || '',
+      },
       strategyApprovedBy: data.strategyApprovedBy?._id || data.strategyApprovedBy || '',
       strategyApprovedAt: data.strategyApprovedAt
          ? String(data.strategyApprovedAt).slice(0, 10)
@@ -447,6 +467,8 @@ export default function PropertyForm({
    const [imgWarn, setImgWarn] = useState('');
    const [imgProcessing, setImgProcessing] = useState(false);
    const [imgProcessingText, setImgProcessingText] = useState('');
+   const [originShowings, setOriginShowings] = useState([]);
+   const [originShowingsLoading, setOriginShowingsLoading] = useState(false);
 
    const type = fields.type_estate;
 
@@ -513,6 +535,8 @@ export default function PropertyForm({
             actualityGroup: p.actualityGroup,
             actualityStatus: p.actualityStatus,
             actualityNote: p.actualityNote,
+            inspectedAt: p.inspectedAt,
+            originAction: p.originAction,
 
             title: p.title,
             location_text: p.location_text,
@@ -555,8 +579,92 @@ export default function PropertyForm({
 
    const set = (name, value) => setFields((p) => ({ ...p, [name]: value }));
 
+   const setOriginAction = (key, value) =>
+      setFields((p) => {
+         const nextOrigin = { ...(p.originAction || {}), [key]: value };
+         if (key === 'kind') {
+            nextOrigin.sourceOperationEvent = '';
+            if (value === 'review' && nextOrigin.occurredAt) {
+               return { ...p, originAction: nextOrigin, inspectedAt: p.inspectedAt || nextOrigin.occurredAt };
+            }
+         }
+         if (key === 'occurredAt') {
+            nextOrigin.sourceOperationEvent = '';
+            return {
+               ...p,
+               originAction: nextOrigin,
+               inspectedAt: (p.originAction?.kind === 'review' || nextOrigin.kind === 'review') ? value : p.inspectedAt,
+            };
+         }
+         return { ...p, originAction: nextOrigin };
+      });
+
    const setLoc = (key, value) =>
       setFields((p) => ({ ...p, location: { ...p.location, [key]: value } }));
+
+   const employeeLabel = (employee) => {
+      if (!employee) return '';
+      if (typeof employee === 'string') return '';
+      return [employee.surname, employee.name].filter(Boolean).join(' ') || employee.fullName || employee.email || '';
+   };
+
+   const showingOptionLabel = (item) => {
+      if (!item) return '';
+      const property = item.property?.title || item.property?.location_text || 'об’єкт без назви';
+      const lead = item.lead?.name || 'без покупця';
+      const responsible = employeeLabel(item.responsibleEmployee);
+      const date = item.occurredAt
+         ? new Intl.DateTimeFormat('uk-UA', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(item.occurredAt))
+         : '';
+      return [property, date, lead, responsible].filter(Boolean).join(' · ');
+   };
+
+   const showingOptionMeta = (item) => {
+      if (!item) return '';
+      const lead = item.lead?.name || 'без покупця';
+      const responsible = employeeLabel(item.responsibleEmployee) || 'відповідальний —';
+      const date = item.occurredAt
+         ? new Intl.DateTimeFormat('uk-UA', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(item.occurredAt))
+         : 'дата —';
+      return `${date} · ${lead} · ${responsible}`;
+   };
+
+   useEffect(() => {
+      const kind = fields.originAction?.kind || '';
+      const date = fields.originAction?.occurredAt || '';
+      if (kind !== 'showing' || !date) {
+         setOriginShowings([]);
+         return;
+      }
+
+      const controller = new AbortController();
+      const load = async () => {
+         try {
+            setOriginShowingsLoading(true);
+            const from = new Date(`${date}T00:00:00`);
+            const to = new Date(from);
+            to.setDate(to.getDate() + 1);
+            const params = new URLSearchParams();
+            params.set('type', 'showing');
+            params.set('pageSize', '20');
+            params.set('occurredFrom', from.toISOString());
+            params.set('occurredTo', to.toISOString());
+            const res = await fetch(`/api/crm/operations?${params.toString()}`, { cache: 'no-store', signal: controller.signal });
+            const data = res.ok ? await res.json() : { items: [] };
+            setOriginShowings(Array.isArray(data?.items) ? data.items : []);
+         } catch (error) {
+            if (error?.name !== 'AbortError') {
+               console.error(error);
+               setOriginShowings([]);
+            }
+         } finally {
+            if (!controller.signal.aborted) setOriginShowingsLoading(false);
+         }
+      };
+
+      load();
+      return () => controller.abort();
+   }, [fields.originAction?.kind, fields.originAction?.occurredAt]);
 
 
    const setMainImage = (index) => {
@@ -824,6 +932,13 @@ export default function PropertyForm({
                   },
 
             source: fields.source?.trim() || '',
+            inspectedAt: fields.inspectedAt || '',
+            originAction: {
+               kind: fields.originAction?.kind || '',
+               occurredAt: fields.originAction?.occurredAt || '',
+               sourceOperationEvent: fields.originAction?.kind === 'showing' ? fields.originAction?.sourceOperationEvent || '' : '',
+               note: fields.originAction?.note?.trim() || '',
+            },
             strategyApprovedBy: fields.strategyApprovedBy || '',
             strategyApprovedAt: fields.strategyApprovedAt || '',
 
@@ -1777,6 +1892,119 @@ export default function PropertyForm({
 
 
 
+
+            <Grid item xs={12}>
+               <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)', my: 0.5 }} />
+            </Grid>
+
+            <Grid item xs={12}>
+               <Box
+                  sx={{
+                     p: 1.4,
+                     borderRadius: 3,
+                     border: '1px solid rgba(45,212,191,0.28)',
+                     bgcolor: 'rgba(20,184,166,0.07)',
+                  }}
+               >
+                  <Stack spacing={1.1}>
+                     <Stack spacing={0.15}>
+                        <Typography sx={{ color: '#fff', fontWeight: 950 }}>
+                           Огляд
+                        </Typography>
+                        <Typography sx={{ color: 'rgba(255,255,255,0.62)', fontSize: 12.5 }}>
+                           Зафіксуй, звідки об’єкт потрапив у роботу: після огляду або як наслідок показу.
+                        </Typography>
+                     </Stack>
+
+                     <Grid container spacing={1}>
+                        <Grid item xs={12} md={3}>
+                           <TextField
+                              select
+                              fullWidth
+                              label="Вид огляду"
+                              value={fields.originAction?.kind || ''}
+                              onChange={(e) => setOriginAction('kind', e.target.value)}
+                              sx={fieldSx}
+                              SelectProps={{ MenuProps: selectMenuProps }}
+                           >
+                              {ORIGIN_ACTION_OPTIONS.map((x) => (
+                                 <MenuItem key={x.value} value={x.value}>{x.label}</MenuItem>
+                              ))}
+                           </TextField>
+                        </Grid>
+
+                        <Grid item xs={12} md={3}>
+                           <TextField
+                              fullWidth
+                              type="date"
+                              label={fields.originAction?.kind === 'showing' ? 'Дата показу' : 'Дата огляду'}
+                              value={fields.originAction?.occurredAt || ''}
+                              onChange={(e) => setOriginAction('occurredAt', e.target.value)}
+                              sx={fieldSx}
+                              InputLabelProps={{ shrink: true }}
+                              disabled={!fields.originAction?.kind}
+                           />
+                        </Grid>
+
+                        {fields.originAction?.kind === 'showing' && (
+                           <Grid item xs={12} md={6}>
+                              <TextField
+                                 select
+                                 fullWidth
+                                 label="Пов’язаний показ"
+                                 value={fields.originAction?.sourceOperationEvent || ''}
+                                 onChange={(e) => setOriginAction('sourceOperationEvent', e.target.value)}
+                                 sx={fieldSx}
+                                 SelectProps={{
+                                    MenuProps: selectMenuProps,
+                                    renderValue: (value) => {
+                                       const selected = originShowings.find((item) => item._id === value);
+                                       return selected ? showingOptionLabel(selected) : '—';
+                                    },
+                                 }}
+                                 disabled={!fields.originAction?.occurredAt || originShowingsLoading}
+                                 helperText={
+                                    !fields.originAction?.occurredAt
+                                       ? 'Спочатку вибери дату — тоді підтягнемо покази цього дня'
+                                       : originShowingsLoading
+                                          ? 'Завантажую покази...'
+                                          : originShowings.length
+                                             ? 'Обери показ, під час якого об’єкт взяли в роботу'
+                                             : 'На цю дату показів не знайдено'
+                                 }
+                              >
+                                  <MenuItem value="">—</MenuItem>
+                                  {originShowings.map((item) => (
+                                     <MenuItem key={item._id} value={item._id} sx={{ alignItems: 'flex-start', py: 0.9 }}>
+                                        <Stack spacing={0.15} sx={{ minWidth: 0, maxWidth: 640 }}>
+                                           <Typography sx={{ color: '#fff', fontWeight: 950, fontSize: 15, lineHeight: 1.16 }} noWrap>
+                                              {item.property?.title || item.property?.location_text || 'об’єкт без назви'}
+                                           </Typography>
+                                           <Typography sx={{ color: 'rgba(255,255,255,0.68)', fontSize: 12.5, lineHeight: 1.2 }} noWrap>
+                                              {showingOptionMeta(item)}
+                                           </Typography>
+                                        </Stack>
+                                     </MenuItem>
+                                  ))}
+                              </TextField>
+                           </Grid>
+                        )}
+
+                        <Grid item xs={12} md={fields.originAction?.kind === 'showing' ? 12 : 6}>
+                           <TextField
+                              fullWidth
+                              label="Коментар до огляду"
+                              placeholder={fields.originAction?.kind === 'showing' ? 'Наприклад: під час показу побачили сусідній об’єкт і домовились взяти в роботу' : 'Наприклад: огляд проведено, власник погодив правила роботи'}
+                              value={fields.originAction?.note || ''}
+                              onChange={(e) => setOriginAction('note', e.target.value)}
+                              sx={fieldSx}
+                              disabled={!fields.originAction?.kind}
+                           />
+                        </Grid>
+                     </Grid>
+                  </Stack>
+               </Box>
+            </Grid>
 
             <Grid item xs={12}>
                <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)', my: 0.5 }} />

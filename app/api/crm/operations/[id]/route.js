@@ -16,7 +16,22 @@ void Employee;
 void Lead;
 void Property;
 
-const VALID_TYPES = ['showing', 'inspection', 'review', 'call', 'meeting', 'other'];
+const VALID_TYPES = ['showing', 'inspection', 'review', 'call', 'meeting', 'other', 'pzs'];
+const VALID_FINANCIAL_PRODUCTS = ['OO', 'OP', 'PP', 'PO', ''];
+const VALID_PZS_STATUSES = ['active', 'deposit', 'failed', 'paused'];
+const VALID_PZS_STEP_TYPES = ['created', 'negotiation', 'next_step', 'deposit', 'failed', 'note'];
+const VALID_REVIEW_RESULTS = ['not_taken', 'new_object', 'historical'];
+const VALID_REVIEW_OBJECT_RESULTS = [
+   'not_our_format',
+   'owner_not_ready',
+   'problematic_object',
+   'problematic_owner',
+   'hard_loyalty',
+   'dirty_advertising',
+   'cosmic_price',
+   'documents_risk',
+   'other',
+];
 const VALID_OBJECT_RESULTS = [
    'new_object',
    'price_reduced',
@@ -46,6 +61,7 @@ const VALID_SHOWING_RESULTS = [
    'refusal',
 ];
 const VALID_SHOWING_KINDS = [
+   'passive',
    'primary',
    'repeat',
    'initiative',
@@ -68,6 +84,67 @@ function objectIdOrNull(value) {
 
 function pick(value, options, fallback) {
    return options.includes(value) ? value : fallback;
+}
+
+async function inheritedFinancialProduct(body, fallback = '') {
+   const direct = pick(body?.financialProduct, VALID_FINANCIAL_PRODUCTS, '');
+   if (direct) return direct;
+
+   const sourceOperationId = objectIdOrNull(body?.sourceOperationEvent || body?.pzs?.sourceOperationEvent);
+   if (!sourceOperationId) return pick(fallback, VALID_FINANCIAL_PRODUCTS, '');
+
+   const source = await OperationEvent.findById(sourceOperationId).select('financialProduct').lean();
+   return pick(source?.financialProduct, VALID_FINANCIAL_PRODUCTS, pick(fallback, VALID_FINANCIAL_PRODUCTS, ''));
+}
+
+function stringArray(value) {
+   if (Array.isArray(value)) return value.map((x) => String(x || '').trim()).filter(Boolean);
+   if (typeof value === 'string') return value.split('\n').map((x) => x.trim()).filter(Boolean);
+   return [];
+}
+
+function pzsPayload(body, createdByEmployee = null) {
+   const raw = body?.pzs || body || {};
+   const steps = Array.isArray(raw?.steps)
+      ? raw.steps
+         .map((step) => ({
+            at: parseDate(step?.at) || new Date(),
+            type: pick(step?.type, VALID_PZS_STEP_TYPES, 'note'),
+            text: String(step?.text || '').trim(),
+            createdByEmployee: objectIdOrNull(step?.createdByEmployee) || createdByEmployee,
+         }))
+         .filter((step) => step.text)
+      : [];
+   const noteSteps = stringArray(raw?.stepsText).map((text) => ({
+      at: new Date(),
+      type: 'note',
+      text,
+      createdByEmployee,
+   }));
+
+   return {
+      status: pick(raw?.status, VALID_PZS_STATUSES, 'active'),
+      condition: String(raw?.condition || raw?.conditionText || '').trim(),
+      sourceLabel: String(raw?.sourceLabel || '').trim(),
+      sourceOperationEvent: objectIdOrNull(raw?.sourceOperationEvent || body?.sourceOperationEvent),
+      resultFinanceEvent: objectIdOrNull(raw?.resultFinanceEvent || body?.resultFinanceEvent),
+      nextStepAt: parseDate(raw?.nextStepAt) || null,
+      closedAt: parseDate(raw?.closedAt) || null,
+      steps: [...steps, ...noteSteps],
+   };
+}
+
+function reviewPayload(body) {
+   const raw = body?.review || body || {};
+   return {
+      result: pick(raw?.result, VALID_REVIEW_RESULTS, 'not_taken'),
+      objectResult: pick(raw?.objectResult || body?.resultObject, VALID_REVIEW_OBJECT_RESULTS, 'owner_not_ready'),
+      source: pick(raw?.source, ['operations', 'properties'], 'operations'),
+      sourceLabel: String(raw?.sourceLabel || 'Операційка · не взято').trim(),
+      reason: String(raw?.reason || body?.resultDescription || '').trim(),
+      note: String(raw?.note || '').trim(),
+      linkedPropertyStatus: String(raw?.linkedPropertyStatus || '').trim(),
+   };
 }
 
 function mapEvent(item) {
@@ -97,6 +174,8 @@ function populateEvent(query) {
       .populate('objectRealtorEmployee', 'name fullName surname role color avatarUrl')
       .populate('buyerRealtorEmployee', 'name fullName surname role color avatarUrl')
       .populate('createdByEmployee', 'name fullName surname role')
+       .populate('pzs.sourceOperationEvent', 'type occurredAt resultShowing financialProduct showingKind')
+       .populate('pzs.resultFinanceEvent', 'financeType occurredAt status financialProduct')
       .populate('property', 'title location_text location rooms square_tot floor floors cost currency images assignee actualityStatus actualityGroup')
       .populate('lead', 'name phones stage status requestSummary budgetMax assignee actualityStatus');
 }
@@ -131,11 +210,14 @@ export const PATCH = async (request, { params }) => {
       }
       const beforeSnapshot = pickActivitySnapshot(existing, OPERATION_EVENT_FIELDS);
 
+      const operationType = pick(body?.type, VALID_TYPES, 'showing');
+      const financialProduct = await inheritedFinancialProduct(body, existing.financialProduct || '');
       const update = {
-         type: pick(body?.type, VALID_TYPES, 'showing'),
+         type: operationType,
          occurredAt: parseDate(body?.occurredAt) || new Date(),
          responsibleEmployee: objectIdOrNull(body?.responsibleEmployee),
-         showingKind: pick(body?.showingKind, VALID_SHOWING_KINDS, 'primary'),
+         showingKind: pick(body?.showingKind, VALID_SHOWING_KINDS, 'passive'),
+         financialProduct,
          presenceType: pick(body?.presenceType, VALID_PRESENCE_TYPES, 'me'),
          shownByEmployee: objectIdOrNull(body?.shownByEmployee),
          facilitatedByEmployee: objectIdOrNull(body?.facilitatedByEmployee),
@@ -158,6 +240,25 @@ export const PATCH = async (request, { params }) => {
          objectionArguments: String(body?.objectionArguments || '').trim(),
          resultDescription: String(body?.resultDescription || '').trim(),
       };
+
+      if (operationType === 'pzs') {
+         const rawPzs = body?.pzs || body || {};
+         const nextPzs = pzsPayload(body, existing.createdByEmployee || sessionUser?.employeeId || null);
+         const hasIncomingSteps = Array.isArray(rawPzs?.steps) || stringArray(rawPzs?.stepsText).length > 0;
+         const existingPzs = existing.pzs?.toObject?.() || existing.pzs || {};
+         update.pzs = {
+            ...existingPzs,
+            ...nextPzs,
+            steps: hasIncomingSteps ? [...(existingPzs.steps || []), ...nextPzs.steps] : existingPzs.steps || [],
+            resultFinanceEvent: nextPzs.resultFinanceEvent || existingPzs.resultFinanceEvent || null,
+            nextStepAt: nextPzs.nextStepAt || existingPzs.nextStepAt || null,
+            closedAt: nextPzs.closedAt || existingPzs.closedAt || null,
+         };
+      }
+
+      if (operationType === 'review') {
+         update.review = reviewPayload(body);
+      }
 
       const updated = await OperationEvent.findByIdAndUpdate(id, update, {
          new: true,

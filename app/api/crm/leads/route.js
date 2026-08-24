@@ -2,6 +2,13 @@ import connectDB from '@/config/database';
 import Lead from '@/models/Lead';
 import Employee from '@/models/Employee';
 import { getSessionUser } from '@/utils/getSessionUser';
+import { Types } from 'mongoose';
+
+const STAGE_ORDER = ['lead', 'hot', 'ps', 'rs', 'ds', 'pzs', 'zs', 'pers'];
+
+function escapeRegex(value) {
+   return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
 
 function parseDate(value) {
    if (!value) return undefined;
@@ -23,6 +30,9 @@ export const GET = async (req) => {
 
       const q = (sp.get('q') || '').trim();
       const stage = (sp.get('stage') || '').trim();
+      const stageMin = (sp.get('stageMin') || '').trim();
+      const actuality = (sp.get('actuality') || '').trim();
+      const searchFields = (sp.get('searchFields') || '').trim();
       const status = (sp.get('status') || '').trim();
 
       const page = Math.max(parseInt(sp.get('page') || '1', 10), 1);
@@ -33,24 +43,41 @@ export const GET = async (req) => {
 
       if (stage && stage !== 'all') {
          filter.stage = stage;
+      } else if (stageMin && STAGE_ORDER.includes(stageMin)) {
+         filter.stage = { $in: STAGE_ORDER.slice(STAGE_ORDER.indexOf(stageMin)) };
       }
 
       if (status && status !== 'all') {
          filter.status = status;
       }
 
+      if (actuality === 'active') {
+         filter.actualityStatus = { $regex: '^Актуальний\\.', $options: 'i' };
+      }
+
       if (q) {
-         filter.$or = [
-            { name: { $regex: q, $options: 'i' } },
-            { phones: { $elemMatch: { $regex: q, $options: 'i' } } },
-            { emails: { $elemMatch: { $regex: q, $options: 'i' } } },
-            { requestSummary: { $regex: q, $options: 'i' } },
-            { sourceChannel: { $regex: q, $options: 'i' } },
-            { sourceObject: { $regex: q, $options: 'i' } },
-            { sourceNote: { $regex: q, $options: 'i' } },
-            { actualityStatus: { $regex: q, $options: 'i' } },
-            { createdByName: { $regex: q, $options: 'i' } },
+         const safeQ = escapeRegex(q);
+         const identitySearch = [
+            { name: { $regex: safeQ, $options: 'i' } },
+            { phones: { $elemMatch: { $regex: safeQ, $options: 'i' } } },
+            { emails: { $elemMatch: { $regex: safeQ, $options: 'i' } } },
          ];
+
+         if (Types.ObjectId.isValid(q)) {
+            identitySearch.push({ _id: q });
+         }
+
+         filter.$or = searchFields === 'identity'
+            ? identitySearch
+            : [
+               ...identitySearch,
+               { requestSummary: { $regex: safeQ, $options: 'i' } },
+               { sourceChannel: { $regex: safeQ, $options: 'i' } },
+               { sourceObject: { $regex: safeQ, $options: 'i' } },
+               { sourceNote: { $regex: safeQ, $options: 'i' } },
+               { actualityStatus: { $regex: safeQ, $options: 'i' } },
+               { createdByName: { $regex: safeQ, $options: 'i' } },
+            ];
       }
 
       const total = await Lead.countDocuments(filter);

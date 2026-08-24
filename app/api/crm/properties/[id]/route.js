@@ -3,6 +3,7 @@ import LeadProperty from '@/models/LeadProperty';
 import Property from '@/models/Property';
 import { getSessionUser } from '@/utils/getSessionUser';
 import cloudinary from '@/config/cloudinary';
+import { Types } from 'mongoose';
 
 const MAX_FILES = 25;
 
@@ -200,6 +201,28 @@ export const PATCH = async (request, { params }) => {
          return Number.isNaN(d.getTime()) ? null : d;
       };
 
+      const parseObjectId = (value) => {
+         if (!value) return null;
+         return Types.ObjectId.isValid(value) ? value : null;
+      };
+
+      const parseOriginAction = () => {
+         let raw = {};
+         try {
+            raw = JSON.parse(formData.get('originAction') || '{}');
+            if (!raw || typeof raw !== 'object') raw = {};
+         } catch {
+            raw = {};
+         }
+         const kind = ['review', 'showing', 'manual'].includes(raw.kind) ? raw.kind : '';
+         return {
+            kind,
+            occurredAt: parseDate(raw.occurredAt),
+            sourceOperationEvent: kind === 'showing' ? parseObjectId(raw.sourceOperationEvent) : null,
+            note: String(raw.note || '').trim(),
+         };
+      };
+
 
       let businessScore = {};
       try {
@@ -287,6 +310,7 @@ export const PATCH = async (request, { params }) => {
       if (hasKey('crmStage')) existing.crmStage = formData.get('crmStage') || 'rs';
       if (hasKey('crmStageReason')) existing.crmStageReason = formData.get('crmStageReason') || '';
       if (hasKey('inspectedAt')) existing.inspectedAt = parseDate(formData.get('inspectedAt'));
+      if (hasKey('originAction')) existing.originAction = parseOriginAction();
       if (hasKey('isPublic')) existing.isPublic = formData.get('isPublic') === 'true';
 
       if (hasKey('lastContactAt')) existing.lastContactAt = parseDate(formData.get('lastContactAt'));

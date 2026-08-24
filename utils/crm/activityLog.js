@@ -47,6 +47,7 @@ const OPERATION_EVENT_FIELDS = [
    "occurredAt",
    "responsibleEmployee",
    "showingKind",
+   "financialProduct",
    "presenceType",
    "shownByEmployee",
    "facilitatedByEmployee",
@@ -66,6 +67,41 @@ const OPERATION_EVENT_FIELDS = [
    "objections",
    "objectionArguments",
    "resultDescription",
+   "pzs",
+   "review",
+];
+
+const FINANCE_EVENT_FIELDS = [
+   "financeType",
+   "deposit",
+   "reregistrationEvent",
+   "sourceOperationEvent",
+   "sourcePreDepositEvent",
+   "financialProduct",
+   "occurredAt",
+   "responsibleEmployee",
+   "processedByEmployee",
+   "property",
+   "lead",
+   "objectRealtorKind",
+   "objectRealtorEmployee",
+   "objectPartnerName",
+   "buyerRealtorKind",
+   "buyerRealtorEmployee",
+   "buyerPartnerName",
+   "tensionLevel",
+   "location",
+   "status",
+   "deadlineAt",
+   "scheduledReregistrationAt",
+   "notary",
+   "reregistrationPlaceType",
+   "reregistrationPlaceName",
+   "sellerConditions",
+   "buyerConditions",
+   "agencyConditions",
+   "resultSummary",
+   "notes",
 ];
 
 function normalizeId(value) {
@@ -163,4 +199,4 @@ export async function logActivity(payload = {}) {
    }
 }
 
-export { LEAD_PROPERTY_FIELDS, OPERATION_EVENT_FIELDS };
+export { LEAD_PROPERTY_FIELDS, OPERATION_EVENT_FIELDS, FINANCE_EVENT_FIELDS };

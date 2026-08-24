@@ -13,6 +13,7 @@ export function buildPropertyFormData(payload) {
    appendIfDefined('crmStage', payload.crmStage || '');
    appendIfDefined('crmStageReason', payload.crmStageReason || '');
    appendIfDefined('inspectedAt', payload.inspectedAt || '');
+   fd.append('originAction', JSON.stringify(payload.originAction || {}));
 
    appendIfDefined('type_estate', payload.type_estate || '');
    appendIfDefined('type_deal', payload.type_deal || '');

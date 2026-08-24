@@ -34,6 +34,10 @@ import ApartmentRoundedIcon from '@mui/icons-material/ApartmentRounded';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import PaidRoundedIcon from '@mui/icons-material/PaidRounded';
 import HomeWorkRoundedIcon from '@mui/icons-material/HomeWorkRounded';
+import HandshakeRoundedIcon from '@mui/icons-material/HandshakeRounded';
+import GavelRoundedIcon from '@mui/icons-material/GavelRounded';
+import MovingRoundedIcon from '@mui/icons-material/MovingRounded';
+import PersonAddAlt1RoundedIcon from '@mui/icons-material/PersonAddAlt1Rounded';
 
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 
@@ -160,6 +164,15 @@ function getNowLocal() {
 
    const pad = (n) => String(n).padStart(2, '0');
 
+   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+function toLocalInputValue(value) {
+   if (!value) return getNowLocal();
+   const d = new Date(value);
+   if (Number.isNaN(d.getTime())) return getNowLocal();
+
+   const pad = (n) => String(n).padStart(2, '0');
    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
 
@@ -680,10 +693,153 @@ function getRatingMeta(rating) {
    return { label: 'Слабкий', color: '#ef4444' };
 }
 
+function getOperationMarker(summary = {}) {
+   if ((summary?.persCount || 0) > 0) {
+      return {
+         label: 'ПЕРС',
+         title: 'ПЕРС по об’єкту',
+         color: '#a855f7',
+         glow: 'rgba(168,85,247,0.42)',
+         icon: <GavelRoundedIcon sx={{ fontSize: 54 }} />,
+      };
+   }
+
+   if ((summary?.activeDepositCount || 0) > 0) {
+      return {
+         label: 'ЗС',
+         title: 'Завдаток по об’єкту',
+         color: '#22c55e',
+         glow: 'rgba(34,197,94,0.38)',
+         icon: <HandshakeRoundedIcon sx={{ fontSize: 56 }} />,
+      };
+   }
+
+   if ((summary?.activePzsCount || 0) > 0) {
+      return {
+         label: 'ПЗС',
+         title: 'Активний ПЗС по об’єкту',
+         color: '#e879f9',
+         glow: 'rgba(232,121,249,0.34)',
+         icon: <MovingRoundedIcon sx={{ fontSize: 56 }} />,
+      };
+   }
+
+   return null;
+}
+
+function OperationPhotoMarker({ marker }) {
+   if (!marker) return null;
+
+   return (
+      <Tooltip title={marker.title}>
+         <Box
+            sx={{
+               position: 'absolute',
+               inset: 0,
+               display: 'flex',
+               alignItems: 'center',
+               justifyContent: 'center',
+               pointerEvents: 'none',
+               zIndex: 1,
+            }}
+         >
+            <Box
+               sx={{
+                  width: 78,
+                  height: 78,
+                  borderRadius: '50%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: marker.color,
+                  bgcolor: 'rgba(10,10,18,0.32)',
+                  border: `1px solid ${marker.color}55`,
+                  boxShadow: `0 0 34px ${marker.glow}, inset 0 0 22px rgba(255,255,255,0.06)`,
+                  backdropFilter: 'blur(2px)',
+                  opacity: 0.76,
+                  textShadow: '0 4px 16px rgba(0,0,0,0.55)',
+               }}
+            >
+               {marker.icon}
+            </Box>
+         </Box>
+      </Tooltip>
+   );
+}
+
+function MiniCounter({ icon, label, value, color, theme, mode }) {
+   if (!value) return null;
+
+   return (
+      <Tooltip title={label}>
+         <Stack
+            direction="row"
+            spacing={0.45}
+            alignItems="center"
+            sx={{
+               height: 28,
+               px: 0.75,
+               borderRadius: 2,
+               color,
+               bgcolor: mode === 'light' ? 'rgba(255,255,255,0.74)' : 'rgba(255,255,255,0.045)',
+               border: `1px solid ${color}44`,
+               boxShadow: mode === 'light' ? '0 5px 14px rgba(15,23,42,0.06)' : 'none',
+               flexShrink: 0,
+            }}
+         >
+            <Box sx={{ display: 'flex', color }}>
+               {icon}
+            </Box>
+            <Typography sx={{ color: theme.text, fontSize: 12, fontWeight: 950, lineHeight: 1 }}>
+               {value}
+            </Typography>
+         </Stack>
+      </Tooltip>
+   );
+}
+
+function OperationCounters({ summary = {}, theme, mode }) {
+   const hasCounters =
+      (summary?.showingsCount || 0) ||
+      (summary?.pzsCount || 0) ||
+      (summary?.newClientsCount || 0);
+
+   if (!hasCounters) return null;
+
+   return (
+      <Stack direction="row" spacing={0.45} alignItems="center" flexWrap="wrap" useFlexGap>
+         <MiniCounter
+            icon={<VisibilityRoundedIcon sx={{ fontSize: 15 }} />}
+            label="Покази"
+            value={summary.showingsCount}
+            color="#38bdf8"
+            theme={theme}
+            mode={mode}
+         />
+         <MiniCounter
+            icon={<MovingRoundedIcon sx={{ fontSize: 15 }} />}
+            label="ПЗС"
+            value={summary.pzsCount}
+            color="#e879f9"
+            theme={theme}
+            mode={mode}
+         />
+         <MiniCounter
+            icon={<PersonAddAlt1RoundedIcon sx={{ fontSize: 15 }} />}
+            label="Нові клієнти"
+            value={summary.newClientsCount}
+            color="#f59e0b"
+            theme={theme}
+            mode={mode}
+         />
+      </Stack>
+   );
+}
 
 
 
-export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRefresh }) {
+
+export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRefresh, showAdvertisingRows = true }) {
    const [open, setOpen] = useState(false);
 
    const [adTitle, setAdTitle] = useState('');
@@ -714,6 +870,11 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
    const [noteText, setNoteText] = useState('');
    const [noteType, setNoteType] = useState('note');
    const [noteTone, setNoteTone] = useState('info');
+   const [noteCreatedAt, setNoteCreatedAt] = useState(getNowLocal());
+   const [editingWorkNote, setEditingWorkNote] = useState(null);
+   const [selectedWorkNote, setSelectedWorkNote] = useState(null);
+   const [workNoteDeleteOpen, setWorkNoteDeleteOpen] = useState(false);
+   const [workNoteDeleting, setWorkNoteDeleting] = useState(false);
 
    const [openShare, setOpenShare] = useState(false);
    const [shareLoading, setShareLoading] = useState(false);
@@ -882,13 +1043,16 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
    const handleAddNote = async () => {
       if (!noteText.trim()) return;
 
+      const noteId = editingWorkNote?._id || '';
       const res = await fetch(`/api/crm/properties/${item._id}/add-note`, {
-         method: 'POST',
+         method: noteId ? 'PATCH' : 'POST',
          headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify({
+            noteId,
             text: noteText.trim(),
             type: noteType,
             tone: noteTone,
+            createdAt: noteCreatedAt ? new Date(noteCreatedAt).toISOString() : '',
          }),
       });
 
@@ -900,8 +1064,61 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
       setNoteText('');
       setNoteType('note');
       setNoteTone('info');
+      setNoteCreatedAt(getNowLocal());
+      setEditingWorkNote(null);
       setOpenWorkNote(false);
 
+      await onRefresh?.();
+   };
+
+   const openCreateWorkNote = () => {
+      setEditingWorkNote(null);
+      setNoteText('');
+      setNoteType('note');
+      setNoteTone('info');
+      setNoteCreatedAt(getNowLocal());
+      setOpenWorkNote(true);
+   };
+
+   const openEditWorkNote = (note) => {
+      setEditingWorkNote(note || null);
+      setNoteText(note?.text || '');
+      setNoteType(note?.type || 'note');
+      setNoteTone(note?.tone || 'info');
+      setNoteCreatedAt(toLocalInputValue(note?.createdAt));
+      setOpenWorkNote(true);
+   };
+
+   const closeWorkNoteDialog = () => {
+      setOpenWorkNote(false);
+      setEditingWorkNote(null);
+   };
+
+   const handleDeleteWorkNote = async (note) => {
+      if (!note?._id) return;
+
+      setSelectedWorkNote(note);
+      setWorkNoteDeleteOpen(true);
+   };
+
+   const confirmDeleteWorkNote = async () => {
+      if (!selectedWorkNote?._id) return;
+
+      setWorkNoteDeleting(true);
+      const res = await fetch(`/api/crm/properties/${item._id}/add-note`, {
+         method: 'DELETE',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ noteId: selectedWorkNote._id }),
+      });
+      setWorkNoteDeleting(false);
+
+      if (!res.ok) {
+         alert('Не вдалося видалити запис');
+         return;
+      }
+
+      setSelectedWorkNote(null);
+      setWorkNoteDeleteOpen(false);
       await onRefresh?.();
    };
 
@@ -1284,6 +1501,7 @@ ${url}`;
 
    const rating = getObjectRating(item?.businessScore);
    const ratingMeta = getRatingMeta(rating);
+   const operationMarker = getOperationMarker(item?.operationSummary);
 
 
 
@@ -1340,6 +1558,8 @@ ${url}`;
                         setPhotoOpen(true);
                      }}
                   />
+
+                  <OperationPhotoMarker marker={operationMarker} />
 
                   <Stack
                      direction="row"
@@ -1509,6 +1729,12 @@ ${url}`;
                         />
                      )}
 
+                     <OperationCounters
+                        summary={item?.operationSummary}
+                        theme={theme}
+                        mode={mode}
+                     />
+
                      {/* <InfoPill
                         icon={<PersonRoundedIcon sx={{ fontSize: 16 }} />}
                         label="Відповідальний"
@@ -1562,19 +1788,21 @@ ${url}`;
             </Box>
          </Box>
 
-         <ObjectAdvertisingPanel
-            item={item}
-            theme={theme}
-            mode={mode}
-            actionIconSx={actionIconSx}
-            open={showAdvertisingPanel}
-            onToggleOpen={() => setShowAdvertisingPanel((p) => !p)}
-            onAddLink={() => {
-               setAdCreatedAt(getNowLocal());
-               setOpenAddLink(true);
-            }}
-            onAddText={() => setOpenAdText(true)}
-         />
+         <Collapse in={showAdvertisingRows} timeout="auto" unmountOnExit>
+            <ObjectAdvertisingPanel
+               item={item}
+               theme={theme}
+               mode={mode}
+               actionIconSx={actionIconSx}
+               open={showAdvertisingPanel}
+               onToggleOpen={() => setShowAdvertisingPanel((p) => !p)}
+               onAddLink={() => {
+                  setAdCreatedAt(getNowLocal());
+                  setOpenAddLink(true);
+               }}
+               onAddText={() => setOpenAdText(true)}
+            />
+         </Collapse>
 
 
          <Collapse in={open || showAdsPanel} timeout="auto" unmountOnExit>
@@ -1666,7 +1894,9 @@ ${url}`;
                   theme={theme}
                   mode={mode}
                   actionIconSx={actionIconSx}
-                  onAdd={() => setOpenWorkNote(true)}
+                  onAdd={openCreateWorkNote}
+                  onEdit={openEditWorkNote}
+                  onDelete={handleDeleteWorkNote}
                />
             </Grid>
          </Collapse>
@@ -1934,7 +2164,7 @@ ${url}`;
 
          <Dialog
             open={openWorkNote}
-            onClose={() => setOpenWorkNote(false)}
+            onClose={closeWorkNoteDialog}
             fullWidth
             maxWidth="sm"
             PaperProps={{
@@ -1947,10 +2177,16 @@ ${url}`;
             }}
          >
             <DialogTitle sx={{ fontWeight: 950 }}>
-               Додати запис в історію
+               {editingWorkNote ? 'Редагувати запис в історії' : 'Додати запис в історію'}
             </DialogTitle>
 
             <DialogContent>
+               {editingWorkNote && (
+                  <Typography sx={{ color: theme.accentLight, fontSize: 12, fontWeight: 900, mb: 1 }}>
+                     Режим редагування запису
+                  </Typography>
+               )}
+
                <Grid container spacing={1.2} sx={{ mt: 0.2 }}>
                   <Grid item xs={12} md={6}>
                      <TextField
@@ -1986,6 +2222,18 @@ ${url}`;
                      </TextField>
                   </Grid>
 
+                  <Grid item xs={12} md={6}>
+                     <TextField
+                        label="Час події"
+                        type="datetime-local"
+                        value={noteCreatedAt}
+                        onChange={(e) => setNoteCreatedAt(e.target.value)}
+                        fullWidth
+                        sx={fieldSx}
+                        InputLabelProps={{ shrink: true }}
+                     />
+                  </Grid>
+
                   <Grid item xs={12}>
                      <TextField
                         label="Текст запису"
@@ -2002,7 +2250,7 @@ ${url}`;
             </DialogContent>
 
             <DialogActions sx={{ px: 3, pb: 2 }}>
-               <Button onClick={() => setOpenWorkNote(false)} sx={{ color: theme.textSoft }}>
+               <Button onClick={closeWorkNoteDialog} sx={{ color: theme.textSoft }}>
                   Скасувати
                </Button>
 
@@ -2017,7 +2265,7 @@ ${url}`;
                      background: `linear-gradient(90deg, ${theme.accent}, ${theme.accentLight})`,
                   }}
                >
-                  Додати
+                  {editingWorkNote ? 'Змінити' : 'Додати'}
                </Button>
             </DialogActions>
          </Dialog>
@@ -2274,6 +2522,96 @@ ${url}`;
             <DialogActions sx={{ px: 3, pb: 2 }}>
                <Button onClick={() => setOpenShare(false)} sx={{ color: theme.textSoft }}>
                   Закрити
+               </Button>
+            </DialogActions>
+         </Dialog>
+
+
+
+         <Dialog
+            open={workNoteDeleteOpen}
+            onClose={() => {
+               if (workNoteDeleting) return;
+               setWorkNoteDeleteOpen(false);
+               setSelectedWorkNote(null);
+            }}
+            fullWidth
+            maxWidth="xs"
+            PaperProps={{
+               sx: {
+                  borderRadius: 4,
+                  bgcolor: theme.bgPanel,
+                  color: theme.text,
+                  border: '1px solid rgba(248,113,113,0.28)',
+               },
+            }}
+         >
+            <DialogTitle sx={{ fontWeight: 950, display: 'flex', alignItems: 'center', gap: 1 }}>
+               <WarningAmberRoundedIcon sx={{ color: '#f87171' }} />
+               Видалити запис?
+            </DialogTitle>
+
+            <DialogContent>
+               <Typography sx={{ color: theme.textSoft, fontSize: 14, lineHeight: 1.7 }}>
+                  Запис буде прибрано з історії роботи об'єкта, а дія відобразиться на сторінці активності.
+               </Typography>
+
+               {!!selectedWorkNote?.text && (
+                  <Box
+                     sx={{
+                        mt: 2,
+                        p: 1.4,
+                        borderRadius: 3,
+                        bgcolor: 'rgba(248,113,113,0.08)',
+                        border: '1px solid rgba(248,113,113,0.18)',
+                     }}
+                  >
+                     <Typography
+                        sx={{
+                           color: theme.text,
+                           fontWeight: 850,
+                           fontSize: 13,
+                           lineHeight: 1.45,
+                           display: '-webkit-box',
+                           WebkitLineClamp: 3,
+                           WebkitBoxOrient: 'vertical',
+                           overflow: 'hidden',
+                        }}
+                     >
+                        {selectedWorkNote.text}
+                     </Typography>
+                  </Box>
+               )}
+            </DialogContent>
+
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+               <Button
+                  disabled={workNoteDeleting}
+                  onClick={() => {
+                     setWorkNoteDeleteOpen(false);
+                     setSelectedWorkNote(null);
+                  }}
+                  sx={{ color: theme.textSoft }}
+               >
+                  Скасувати
+               </Button>
+
+               <Button
+                  disabled={workNoteDeleting}
+                  onClick={confirmDeleteWorkNote}
+                  startIcon={<DeleteRoundedIcon />}
+                  sx={{
+                     borderRadius: 999,
+                     px: 2.4,
+                     fontWeight: 950,
+                     color: '#fff',
+                     bgcolor: '#ef4444',
+                     '&:hover': {
+                        bgcolor: '#dc2626',
+                     },
+                  }}
+               >
+                  Видалити
                </Button>
             </DialogActions>
          </Dialog>

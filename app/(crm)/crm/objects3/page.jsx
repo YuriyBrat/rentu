@@ -5,6 +5,8 @@ import {
    Box,
    Typography,
    Button,
+   IconButton,
+   Tooltip,
    TextField,
    Stack,
    Grid,
@@ -19,6 +21,8 @@ import {
 import { useCRMTheme } from '@/app/(crm)/crm/context/CRMThemeContext';
 
 import AddIcon from '@mui/icons-material/Add';
+import CampaignRoundedIcon from '@mui/icons-material/CampaignRounded';
+import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 
 import CreatePropertyDialog from '@/crm_components/CreatePropertyDialog';
@@ -61,6 +65,7 @@ export default function ObjectsPage() {
    const [q, setQ] = useState('');
    const [items, setItems] = useState([]);
    const [loading, setLoading] = useState(false);
+   const [showAdvertisingRows, setShowAdvertisingRows] = useState(true);
 
    const [editingItem, setEditingItem] = useState(null);
    const [employees, setEmployees] = useState([]);
@@ -201,10 +206,112 @@ export default function ObjectsPage() {
       return () => clearTimeout(t);
    }, [q, filters]);
 
+   const idOf = (value) => value?._id || value || '';
+
+   const fetchOriginShowing = async (originAction = {}) => {
+      const sourceId = originAction.sourceOperationEvent;
+      if (!sourceId || !originAction.occurredAt) return null;
+
+      const from = new Date(`${originAction.occurredAt}T00:00:00`);
+      if (Number.isNaN(from.getTime())) return null;
+
+      const to = new Date(from);
+      to.setDate(to.getDate() + 1);
+
+      const params = new URLSearchParams();
+      params.set('type', 'showing');
+      params.set('pageSize', '100');
+      params.set('occurredFrom', from.toISOString());
+      params.set('occurredTo', to.toISOString());
+
+      const res = await fetch(`/api/crm/operations?${params.toString()}`, { cache: 'no-store' });
+      if (!res.ok) return null;
+
+      const data = await res.json();
+      return (Array.isArray(data?.items) ? data.items : []).find((item) => idOf(item) === sourceId) || null;
+   };
+
+   const markOriginShowingNewObject = async (originAction = {}, note = '') => {
+      if (originAction.kind !== 'showing' || !originAction.sourceOperationEvent) return;
+
+      try {
+         const source = await fetchOriginShowing(originAction);
+         if (!source || source.resultObject === 'new_object') return;
+
+         await fetch(`/api/crm/operations/${originAction.sourceOperationEvent}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+               type: source.type || 'showing',
+               occurredAt: source.occurredAt,
+               responsibleEmployee: idOf(source.responsibleEmployee),
+               showingKind: source.showingKind || 'passive',
+               financialProduct: source.financialProduct || '',
+               presenceType: source.presenceType || 'me',
+               shownByEmployee: idOf(source.shownByEmployee),
+               facilitatedByEmployee: idOf(source.facilitatedByEmployee),
+               property: idOf(source.property),
+               lead: idOf(source.lead),
+               propertyStage: source.propertyStage || '',
+               buyerStage: source.buyerStage || '',
+               objectRealtorKind: source.objectRealtorKind || 'employee',
+               objectRealtorEmployee: idOf(source.objectRealtorEmployee),
+               objectPartnerName: source.objectPartnerName || '',
+               buyerRealtorKind: source.buyerRealtorKind || 'employee',
+               buyerRealtorEmployee: idOf(source.buyerRealtorEmployee),
+               buyerPartnerName: source.buyerPartnerName || '',
+               resultObject: 'new_object',
+               resultBuyer: source.resultBuyer || 'none',
+               resultShowing: source.resultShowing || 'unclear',
+               objections: source.objections || [],
+               objectionArguments: source.objectionArguments || '',
+               resultDescription: note || source.resultDescription || 'Після показу об’єкт взято в роботу',
+            }),
+         }).catch((error) => console.error('Failed to mark source showing as new object', error));
+      } catch (error) {
+         console.error('Failed to load source showing for new object result', error);
+      }
+   };
+
 
    const handleCreate = async (payload) => {
       try {
-         await createProperty(payload);
+         const created = await createProperty(payload);
+         const property = created?.item;
+         const originAction = payload?.originAction || {};
+
+         if (property?._id && originAction.kind === 'review') {
+            await fetch('/api/crm/operations', {
+               method: 'POST',
+               headers: { 'Content-Type': 'application/json' },
+               body: JSON.stringify({
+                  type: 'review',
+                  occurredAt: originAction.occurredAt ? new Date(`${originAction.occurredAt}T12:00:00`).toISOString() : new Date().toISOString(),
+                  responsibleEmployee: payload.assignee || payload.createdByEmployee || '',
+                  property: property._id,
+                  lead: '',
+                  resultShowing: 'unclear',
+                  resultObject: 'new_object',
+                  resultBuyer: 'none',
+                  objectRealtorKind: 'employee',
+                  objectRealtorEmployee: payload.assignee || payload.createdByEmployee || '',
+                  buyerRealtorKind: 'none',
+                  resultDescription: originAction.note || 'Об’єкт взято в роботу після огляду',
+                  review: {
+                     result: 'new_object',
+                     objectResult: 'other',
+                     source: 'properties',
+                     sourceLabel: 'Створено зі сторінки Об’єкти',
+                     reason: '',
+                     note: originAction.note || 'Об’єкт взято в роботу після огляду',
+                     linkedPropertyStatus: 'об’єкт у роботі',
+                  },
+               }),
+            }).catch((error) => console.error('Failed to create origin review event', error));
+         }
+         if (property?._id && originAction.kind === 'showing') {
+            await markOriginShowingNewObject(originAction, originAction.note || 'Після показу об’єкт взято в роботу');
+         }
          setOpenCreate(false);
          await load(q);
       } catch (e) {
@@ -403,6 +510,38 @@ export default function ObjectsPage() {
             </Stack>
 
             {/* RIGHT */}
+            <Tooltip title={showAdvertisingRows ? 'Сховати рекламні рядки' : 'Показати рекламні рядки'}>
+               <IconButton
+                  onClick={() => setShowAdvertisingRows((value) => !value)}
+                  aria-label={showAdvertisingRows ? 'Сховати рекламні рядки' : 'Показати рекламні рядки'}
+                  sx={{
+                     width: 42,
+                     height: 42,
+                     borderRadius: 3,
+                     flexShrink: 0,
+                     alignSelf: { xs: 'flex-start', lg: 'center' },
+                     color: showAdvertisingRows
+                        ? (mode === 'light' ? '#1d4ed8' : '#bfdbfe')
+                        : theme.textSoft,
+                     border: showAdvertisingRows
+                        ? '1px solid rgba(59,130,246,0.38)'
+                        : `1px solid ${theme.border}`,
+                     bgcolor: showAdvertisingRows
+                        ? (mode === 'light' ? 'rgba(59,130,246,0.12)' : 'rgba(59,130,246,0.16)')
+                        : (mode === 'light' ? 'rgba(0,0,0,0.035)' : 'rgba(255,255,255,0.035)'),
+                     boxShadow: showAdvertisingRows ? `0 12px 24px ${theme.glow}` : 'none',
+                     '&:hover': {
+                        borderColor: theme.accent,
+                        bgcolor: showAdvertisingRows
+                           ? (mode === 'light' ? 'rgba(59,130,246,0.18)' : 'rgba(59,130,246,0.22)')
+                           : theme.hover,
+                     },
+                  }}
+               >
+                  {showAdvertisingRows ? <CampaignRoundedIcon /> : <VisibilityOffRoundedIcon />}
+               </IconButton>
+            </Tooltip>
+
             <Button
                variant="contained"
                startIcon={<AddIcon />}
@@ -435,6 +574,7 @@ export default function ObjectsPage() {
                   onView={(item) => console.log('view', item)}
                   // onRefresh={() => load()}
                   onRefresh={() => load(q, filters)}
+                  showAdvertisingRows={showAdvertisingRows}
                />
             ))}
          </Stack>

@@ -84,6 +84,26 @@ const PropertyImageSchema = new Schema(
   { _id: false }
 );
 
+const PropertyOriginActionSchema = new Schema(
+  {
+    kind: {
+      type: String,
+      enum: ['review', 'showing', 'manual', ''],
+      default: '',
+      index: true,
+    },
+    occurredAt: { type: Date, default: null, index: true },
+    sourceOperationEvent: {
+      type: Schema.Types.ObjectId,
+      ref: 'OperationEvent',
+      default: null,
+      index: true,
+    },
+    note: { type: String, trim: true, default: '' },
+  },
+  { _id: false }
+);
+
 
 const OwnerSchema = new Schema(
   {
@@ -407,6 +427,7 @@ const PropertySchema = new Schema(
     },
     crmStageReason: { type: String, trim: true, default: "" },
     inspectedAt: { type: Date, default: null, index: true },
+    originAction: { type: PropertyOriginActionSchema, default: () => ({}) },
 
     assignee: { type: Schema.Types.ObjectId, ref: 'Employee', required: false, index: true },
     createdByEmployee: {

@@ -6,6 +6,7 @@ export const CRM_ACTIVITY_ENTITY_TYPES = [
    "lead",
    "communication",
    "operation",
+   "financeEvent",
    "employee",
    "system",
 ];

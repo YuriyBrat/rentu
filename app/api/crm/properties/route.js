@@ -1,5 +1,7 @@
 import connectDB from '@/config/database';
 import Property from '@/models/Property';
+import OperationEvent from '@/models/OperationEvent';
+import FinanceEvent from '@/models/FinanceEvent';
 import { getSessionUser } from '@/utils/getSessionUser';
 import cloudinary from '@/config/cloudinary';
 import { Types } from 'mongoose';
@@ -43,6 +45,117 @@ function getImageBestUrl(img) {
 
 function escapeRegex(value) {
    return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function emptyOperationSummary() {
+   return {
+      showingsCount: 0,
+      pzsCount: 0,
+      activePzsCount: 0,
+      newClientsCount: 0,
+      depositCount: 0,
+      activeDepositCount: 0,
+      persCount: 0,
+      lastOperationAt: null,
+      lastFinanceAt: null,
+   };
+}
+
+async function buildOperationSummaries(propertyIds = []) {
+   if (!propertyIds.length) return new Map();
+
+   const [operationRows, financeRows] = await Promise.all([
+      OperationEvent.aggregate([
+         { $match: { property: { $in: propertyIds } } },
+         {
+            $group: {
+               _id: '$property',
+               showingsCount: { $sum: { $cond: [{ $eq: ['$type', 'showing'] }, 1, 0] } },
+               pzsCount: { $sum: { $cond: [{ $eq: ['$type', 'pzs'] }, 1, 0] } },
+               activePzsCount: {
+                  $sum: {
+                     $cond: [
+                        {
+                           $and: [
+                              { $eq: ['$type', 'pzs'] },
+                              { $in: ['$pzs.status', ['active', 'paused', 'deposit']] },
+                           ],
+                        },
+                        1,
+                        0,
+                     ],
+                  },
+               },
+               newClientsCount: { $sum: { $cond: [{ $eq: ['$resultBuyer', 'new_client'] }, 1, 0] } },
+               lastOperationAt: { $max: '$occurredAt' },
+            },
+         },
+      ]),
+      FinanceEvent.aggregate([
+         { $match: { property: { $in: propertyIds } } },
+         {
+            $group: {
+               _id: '$property',
+               depositCount: { $sum: { $cond: [{ $eq: ['$financeType', 'deposit'] }, 1, 0] } },
+               activeDepositCount: {
+                  $sum: {
+                     $cond: [
+                        {
+                           $and: [
+                              { $eq: ['$financeType', 'deposit'] },
+                              { $ne: ['$status', 'failed'] },
+                           ],
+                        },
+                        1,
+                        0,
+                     ],
+                  },
+               },
+               persCount: {
+                  $sum: {
+                     $cond: [
+                        {
+                           $and: [
+                              { $eq: ['$financeType', 'reregistration'] },
+                              { $ne: ['$status', 'failed'] },
+                           ],
+                        },
+                        1,
+                        0,
+                     ],
+                  },
+               },
+               lastFinanceAt: { $max: '$occurredAt' },
+            },
+         },
+      ]),
+   ]);
+
+   const summaries = new Map();
+   const ensure = (id) => {
+      const key = id?.toString?.() || String(id || '');
+      if (!summaries.has(key)) summaries.set(key, emptyOperationSummary());
+      return summaries.get(key);
+   };
+
+   operationRows.forEach((row) => {
+      const summary = ensure(row._id);
+      summary.showingsCount = row.showingsCount || 0;
+      summary.pzsCount = row.pzsCount || 0;
+      summary.activePzsCount = row.activePzsCount || 0;
+      summary.newClientsCount = row.newClientsCount || 0;
+      summary.lastOperationAt = row.lastOperationAt || null;
+   });
+
+   financeRows.forEach((row) => {
+      const summary = ensure(row._id);
+      summary.depositCount = row.depositCount || 0;
+      summary.activeDepositCount = row.activeDepositCount || 0;
+      summary.persCount = row.persCount || 0;
+      summary.lastFinanceAt = row.lastFinanceAt || null;
+   });
+
+   return summaries;
 }
 
 // function buildImageVariants(publicId, stage) {
@@ -226,13 +339,19 @@ export const GET = async (req) => {
          const safeQ = escapeRegex(q);
          const searchFilter = {
             $or: [
-            { title: { $regex: safeQ, $options: 'i' } },
-            { 'rentOptions.rentTitle': { $regex: safeQ, $options: 'i' } },
-            { location_text: { $regex: safeQ, $options: 'i' } },
-            { 'location.city': { $regex: safeQ, $options: 'i' } },
-            { 'owners.phones': { $regex: safeQ, $options: 'i' } },
+               { title: { $regex: safeQ, $options: 'i' } },
+               { 'rentOptions.rentTitle': { $regex: safeQ, $options: 'i' } },
+               { location_text: { $regex: safeQ, $options: 'i' } },
+               { 'location.city': { $regex: safeQ, $options: 'i' } },
+               { 'location.street': { $regex: safeQ, $options: 'i' } },
+               { 'location.number': { $regex: safeQ, $options: 'i' } },
+               { 'owners.phones': { $regex: safeQ, $options: 'i' } },
             ],
          };
+
+         if (Types.ObjectId.isValid(q)) {
+            searchFilter.$or.push({ _id: q }, { sourceLeadId: q });
+         }
 
          if (Array.isArray(filter.$and)) {
             filter.$and.push(searchFilter);
@@ -257,6 +376,8 @@ export const GET = async (req) => {
       //    ...item,
       //    _id: item._id?.toString?.() || item._id,
       // }));
+      const operationSummaries = await buildOperationSummaries(rawItems.map((item) => item._id).filter(Boolean));
+
       const items = rawItems.map((item) => {
          const rentTitle = item?.rentOptions?.rentTitle?.trim?.() || '';
          const saleTitle = item?.title?.trim?.() || '';
@@ -269,6 +390,7 @@ export const GET = async (req) => {
             ...item,
             _id: item._id?.toString?.() || item._id,
             displayTitle,
+            operationSummary: operationSummaries.get(item._id?.toString?.() || String(item._id)) || emptyOperationSummary(),
          };
       });
 
@@ -332,6 +454,25 @@ export const POST = async (request) => {
       const toObjectId = (value) => {
          if (!value) return undefined;
          return Types.ObjectId.isValid(value) ? value : undefined;
+      };
+
+      const parseOriginAction = () => {
+         let raw = {};
+         try {
+            raw = JSON.parse(formData.get('originAction') || '{}');
+            if (!raw || typeof raw !== 'object') raw = {};
+         } catch {
+            raw = {};
+         }
+         const kind = ['review', 'showing', 'manual'].includes(raw.kind) ? raw.kind : '';
+         const occurredAt = toDate(raw.occurredAt);
+         const sourceOperationEvent = kind === 'showing' ? toObjectId(raw.sourceOperationEvent) : undefined;
+         return {
+            kind,
+            occurredAt: occurredAt || null,
+            sourceOperationEvent: sourceOperationEvent || null,
+            note: String(raw.note || '').trim(),
+         };
       };
 
       const normalizeStage = (value) => {
@@ -443,6 +584,7 @@ export const POST = async (request) => {
          crmStage: formData.get('crmStage') || 'rs',
          crmStageReason: formData.get('crmStageReason') || '',
          inspectedAt: toDate(formData.get('inspectedAt')),
+         originAction: parseOriginAction(),
 
          disadvantages,
 

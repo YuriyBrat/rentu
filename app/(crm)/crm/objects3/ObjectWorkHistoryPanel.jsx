@@ -2,6 +2,8 @@
 
 import { Box, Stack, Typography, IconButton, Tooltip, Chip } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import EditRoundedIcon from '@mui/icons-material/EditRounded';
 
 const TYPE_LABELS = {
    note: 'Нотатка',
@@ -72,6 +74,8 @@ export default function ObjectWorkHistoryPanel({
    mode,
    actionIconSx,
    onAdd,
+   onEdit,
+   onDelete,
 }) {
    const history = item?.workHistory || [];
 
@@ -163,10 +167,46 @@ export default function ObjectWorkHistoryPanel({
                               }}
                            />
 
-                           <Typography sx={{ ml: 'auto', fontSize: 11, opacity: 0.78 }}>
-                              {formatDateTime(n.createdAt)}
-                           </Typography>
-                        </Stack>
+                            <Typography sx={{ ml: 'auto', fontSize: 11, opacity: 0.78 }}>
+                               {formatDateTime(n.createdAt)}
+                            </Typography>
+
+                            <Stack direction="row" spacing={0.35}>
+                               <Tooltip title="Редагувати">
+                                  <IconButton
+                                     size="small"
+                                     onClick={() => onEdit?.(n)}
+                                     sx={{
+                                        width: 24,
+                                        height: 24,
+                                        color: 'inherit',
+                                        opacity: 0.78,
+                                        border: '1px solid currentColor',
+                                        '&:hover': { opacity: 1 },
+                                     }}
+                                  >
+                                     <EditRoundedIcon sx={{ fontSize: 15 }} />
+                                  </IconButton>
+                               </Tooltip>
+
+                               <Tooltip title="Видалити">
+                                  <IconButton
+                                     size="small"
+                                     onClick={() => onDelete?.(n)}
+                                     sx={{
+                                        width: 24,
+                                        height: 24,
+                                        color: 'inherit',
+                                        opacity: 0.78,
+                                        border: '1px solid currentColor',
+                                        '&:hover': { opacity: 1 },
+                                     }}
+                                  >
+                                     <DeleteOutlineRoundedIcon sx={{ fontSize: 15 }} />
+                                  </IconButton>
+                               </Tooltip>
+                            </Stack>
+                         </Stack>
 
                         <Typography
                            sx={{

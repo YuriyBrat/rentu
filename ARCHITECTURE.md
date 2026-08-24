@@ -305,3 +305,81 @@ Current first integrations:
 
 Reservation is created through `PATCH /api/crm/parsing/[id]` with `action = reserveInspection`.
 Active reservations lock parsing updates and linked Property status fields. Expiration is evaluated from `expiresAt`, so restoring the previous derived status does not require a background job.
+
+## Operations and finance events
+
+The Operations page (`app/(crm)/crm/operations/page.jsx`) is a combined chronological stream. It merges two domain models:
+
+- `OperationEvent` for operational work facts such as showings and inspections.
+- `FinanceEvent` for financial/legal milestones: deposits (ЗС) and reregistrations (ПЕРС).
+
+`FinanceEvent` lives in `models/FinanceEvent.js`.
+
+Key structure:
+
+- `financeType`: `deposit` or `reregistration`.
+- `deposit`: self-reference to the parent deposit, required for `reregistration`.
+- `reregistrationEvent`: optional self-reference from a deposit to its resulting reregistration.
+- `status`: `waiting`, `completed_success`, `completed_improved`, `completed_worse`, `failed`.
+- `property`, `lead`, `responsibleEmployee`, `processedByEmployee`, `objectRealtorEmployee`, `buyerRealtorEmployee`.
+- `deadlineAt`, `scheduledReregistrationAt`, `notary`.
+- `reregistrationPlaceType`: `notary`, `developer_sales`, `other`.
+- `sellerConditions`, `buyerConditions`, `agencyConditions`.
+- `notes`.
+
+Finance API files:
+
+- `app/api/crm/finance-events/route.js` - list and create deposits.
+- `app/api/crm/finance-events/[id]/route.js` - update/delete finance events with hierarchy permissions.
+- `app/api/crm/finance-events/[id]/reregistration/route.js` - create a PЕРС from a deposit.
+
+Important relationships:
+
+- A PЕРС must always have a parent deposit.
+- A deposit may have one resulting PЕРС through `reregistrationEvent`.
+- The UI enriches finance items client-side to show relation dates in the card:
+  - deposit card shows the PЕРС date;
+  - PЕРС card shows `від` plus the deposit date.
+
+Finance events are included in `CRMActivityLog` with `entityType = "financeEvent"`.
+
+## Remote autocomplete for Operations page
+
+The Operations page does not load thousands of properties/leads into form autocompletes.
+
+Property autocomplete:
+
+- Initial list: `GET /api/crm/properties?mode=sale&pageSize=20&crmStage=work`.
+- `crmStage=work` means working Objects page items (`rs`, `ds`, `zs`).
+- Search starts from 5 characters.
+- Search endpoint remains `GET /api/crm/properties`, with `q`.
+- Search covers title, rent title, `location_text`, `location.city`, `location.street`, `location.number`, owner phones, `_id`, and `sourceLeadId`.
+- While the user typed fewer than 5 characters, the list is cleared.
+- Old results are not mixed into new search results; selected values are kept in a small local selection cache only for Autocomplete value stability.
+
+Lead/buyer autocomplete:
+
+- Initial list: `GET /api/crm/leads?pageSize=20&stageMin=rs&actuality=active`.
+- `stageMin=rs` returns stages from `rs` upward according to the lead stage order.
+- `actuality=active` means `actualityStatus` starts with `Актуальний.`.
+- Search starts from 5 characters.
+- Operations page sends `searchFields=identity`.
+- In `identity` mode `GET /api/crm/leads` searches only name, phones, emails and `_id`.
+- This prevents broad text fields like request summary/source notes from returning irrelevant clients for a typed phone number.
+
+## Pre-deposit stage links
+
+`OperationEvent` now supports `type = "pzs"` for the pre-deposit stage. The PЗС payload lives in the nested `pzs` block:
+
+- `status`: `active`, `deposit`, `failed`, `paused`;
+- `condition`: the buyer's clear purchase condition;
+- `sourceOperationEvent`: optional link to the operational event that caused the PЗС, usually a showing;
+- `resultFinanceEvent`: optional link to the deposit that closed the PЗС;
+- `steps`: chronological negotiation/condition steps.
+
+`FinanceEvent` has optional origin links:
+
+- `sourceOperationEvent` - the operational event that caused the deposit;
+- `sourcePreDepositEvent` - the PЗС operation event that was converted into a deposit.
+
+When a deposit is created with `sourcePreDepositEvent`, the finance API marks that PЗС as `deposit`, writes `resultFinanceEvent`, sets `closedAt`, and appends a PЗС step. If that deposit is deleted, the linked PЗС is returned to `active`.

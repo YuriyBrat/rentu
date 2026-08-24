@@ -34,6 +34,7 @@ const RESULT_SHOWING_OPTIONS = [
 ];
 
 const SHOWING_KIND_OPTIONS = [
+   'passive',
    'primary',
    'repeat',
    'initiative',
@@ -43,12 +44,52 @@ const SHOWING_KIND_OPTIONS = [
 ];
 
 const PRESENCE_TYPE_OPTIONS = ['me', 'partner', 'agency_colleague', 'client_self'];
+const FINANCIAL_PRODUCT_OPTIONS = ['OO', 'OP', 'PP', 'PO'];
+const PZS_STATUSES = ['active', 'deposit', 'failed', 'paused'];
+const PZS_STEP_TYPES = ['created', 'negotiation', 'next_step', 'deposit', 'failed', 'note'];
+const REVIEW_RESULTS = ['not_taken', 'new_object', 'historical'];
+const REVIEW_OBJECT_RESULTS = [
+   'not_our_format',
+   'owner_not_ready',
+   'problematic_object',
+   'problematic_owner',
+   'hard_loyalty',
+   'dirty_advertising',
+   'cosmic_price',
+   'documents_risk',
+   'other',
+];
+
+const PzsStepSchema = new Schema(
+   {
+      at: {
+         type: Date,
+         default: Date.now,
+      },
+      type: {
+         type: String,
+         enum: PZS_STEP_TYPES,
+         default: 'note',
+      },
+      text: {
+         type: String,
+         trim: true,
+         default: '',
+      },
+      createdByEmployee: {
+         type: Schema.Types.ObjectId,
+         ref: 'Employee',
+         default: null,
+      },
+   },
+   { _id: false }
+);
 
 const OperationEventSchema = new Schema(
    {
       type: {
          type: String,
-         enum: ['showing', 'inspection', 'review', 'call', 'meeting', 'other'],
+         enum: ['showing', 'inspection', 'review', 'call', 'meeting', 'other', 'pzs'],
          default: 'showing',
          index: true,
       },
@@ -83,7 +124,14 @@ const OperationEventSchema = new Schema(
       showingKind: {
          type: String,
          enum: SHOWING_KIND_OPTIONS,
-         default: 'primary',
+         default: 'passive',
+         index: true,
+      },
+
+      financialProduct: {
+         type: String,
+         enum: [...FINANCIAL_PRODUCT_OPTIONS, ''],
+         default: '',
          index: true,
       },
 
@@ -194,6 +242,90 @@ const OperationEventSchema = new Schema(
          default: '',
       },
 
+      pzs: {
+         status: {
+            type: String,
+            enum: PZS_STATUSES,
+            default: 'active',
+            index: true,
+         },
+         condition: {
+            type: String,
+            trim: true,
+            default: '',
+         },
+         sourceLabel: {
+            type: String,
+            trim: true,
+            default: '',
+         },
+         sourceOperationEvent: {
+            type: Schema.Types.ObjectId,
+            ref: 'OperationEvent',
+            default: null,
+            index: true,
+         },
+         resultFinanceEvent: {
+            type: Schema.Types.ObjectId,
+            ref: 'FinanceEvent',
+            default: null,
+            index: true,
+         },
+         nextStepAt: {
+            type: Date,
+            default: null,
+         },
+         closedAt: {
+            type: Date,
+            default: null,
+         },
+         steps: {
+            type: [PzsStepSchema],
+            default: [],
+         },
+      },
+
+      review: {
+         result: {
+            type: String,
+            enum: REVIEW_RESULTS,
+            default: 'not_taken',
+            index: true,
+         },
+         objectResult: {
+            type: String,
+            enum: REVIEW_OBJECT_RESULTS,
+            default: 'owner_not_ready',
+            index: true,
+         },
+         source: {
+            type: String,
+            enum: ['operations', 'properties'],
+            default: 'operations',
+            index: true,
+         },
+         sourceLabel: {
+            type: String,
+            trim: true,
+            default: '',
+         },
+         reason: {
+            type: String,
+            trim: true,
+            default: '',
+         },
+         note: {
+            type: String,
+            trim: true,
+            default: '',
+         },
+         linkedPropertyStatus: {
+            type: String,
+            trim: true,
+            default: '',
+         },
+      },
+
       createdByEmployee: {
          type: Schema.Types.ObjectId,
          ref: 'Employee',
@@ -206,5 +338,6 @@ const OperationEventSchema = new Schema(
 OperationEventSchema.index({ occurredAt: -1, type: 1 });
 OperationEventSchema.index({ property: 1, occurredAt: -1 });
 OperationEventSchema.index({ lead: 1, occurredAt: -1 });
+OperationEventSchema.index({ financialProduct: 1, occurredAt: -1 });
 
 export default models.OperationEvent || model('OperationEvent', OperationEventSchema);
