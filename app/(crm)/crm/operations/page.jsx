@@ -17,12 +17,14 @@ import {
    Grid,
    IconButton,
    InputAdornment,
+   Menu,
    MenuItem,
    Stack,
    TextField,
    Tooltip,
    Typography,
 } from '@mui/material';
+import Popper from '@mui/material/Popper';
 
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import ApartmentRoundedIcon from '@mui/icons-material/ApartmentRounded';
@@ -33,6 +35,7 @@ import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import ExploreRoundedIcon from '@mui/icons-material/ExploreRounded';
 import AccessTimeRoundedIcon from '@mui/icons-material/AccessTimeRounded';
 import HandshakeRoundedIcon from '@mui/icons-material/HandshakeRounded';
+import HeartBrokenRoundedIcon from '@mui/icons-material/HeartBrokenRounded';
 import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded';
 import PersonSearchRoundedIcon from '@mui/icons-material/PersonSearchRounded';
 import PestControlRoundedIcon from '@mui/icons-material/PestControlRounded';
@@ -41,6 +44,7 @@ import RestartAltRoundedIcon from '@mui/icons-material/RestartAltRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import MovingRoundedIcon from '@mui/icons-material/MovingRounded';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
+import PrintRoundedIcon from '@mui/icons-material/PrintRounded';
 
 import { useCRMTheme } from '@/app/(crm)/crm/context/CRMThemeContext';
 import useCurrentUser from '@/utils/useCurrentUser';
@@ -50,6 +54,7 @@ const EVENT_TYPES = [
    { value: 'showing', label: 'Показ', icon: VisibilityRoundedIcon },
    { value: 'review', label: 'Огляд', icon: ExploreRoundedIcon },
    { value: 'pzs', label: 'ПЗС', icon: MovingRoundedIcon },
+   { value: 'loss', label: 'Втрата', icon: HeartBrokenRoundedIcon },
 ];
 
 const TIMELINE_GROUP_OPTIONS = [
@@ -689,6 +694,88 @@ function propertyMeta(property) {
    ].filter(Boolean).join(' · ');
 }
 
+function reportEscape(value) {
+   return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+}
+
+function reportEventType(item) {
+   if (item?.kind === 'financeEvent') return financeTypeLabel(item);
+   if (item?.type === 'pzs') return 'ПЗС';
+   if (item?.type === 'review') return 'Огляд';
+   if (item?.type === 'loss') return 'Втрата';
+   return labelOf(EVENT_TYPES, item?.type) || 'Подія';
+}
+
+function reportEventAccent(item) {
+   if (item?.kind === 'financeEvent') return item.financeType === 'reregistration' ? '#7c3aed' : '#16a34a';
+   if (item?.type === 'pzs') return '#db2777';
+   if (item?.type === 'review') return '#0891b2';
+   if (item?.type === 'loss') return '#dc2626';
+   return '#7c3aed';
+}
+
+function reportEventResult(item) {
+   if (item?.kind === 'financeEvent') return FINANCE_STATUS_LABELS[item.status] || '—';
+   if (item?.type === 'pzs') return PZS_STATUS_LABELS[item.pzs?.status || item.status] || 'В роботі';
+   if (item?.type === 'review') return reviewResultLabel(item.review?.result);
+   return labelOf(RESULT_SHOWING_OPTIONS, item?.resultShowing);
+}
+
+function reportEventObjectChange(item) {
+   if (item?.type === 'review') return reviewObjectResultLabel(item.review?.objectResult);
+   if (item?.resultObject && item.resultObject !== 'none') return labelOf(RESULT_OBJECT_OPTIONS, item.resultObject);
+   return '—';
+}
+
+function reportEventBuyerChange(item) {
+   if (item?.resultBuyer && item.resultBuyer !== 'none') return labelOf(RESULT_BUYER_OPTIONS, item.resultBuyer);
+   return item?.lead?.name ? 'покупець у події' : '—';
+}
+
+function reportEventDetails(item) {
+   const pzs = item?.pzs || {};
+   const review = item?.review || item?.inspection || {};
+   return [
+      item?.resultDescription,
+      item?.resultSummary,
+      item?.location,
+      item?.notary || item?.reregistrationPlaceName,
+      pzs.condition,
+      pzs.sourceLabel,
+      review.reason,
+      review.note,
+      ...(Array.isArray(item?.sellerConditions) ? item.sellerConditions : []),
+      ...(Array.isArray(item?.buyerConditions) ? item.buyerConditions : []),
+      ...(Array.isArray(item?.agencyConditions) ? item.agencyConditions : []),
+      ...(Array.isArray(item?.notes) ? item.notes.map((note) => note?.text) : []),
+   ]
+      .filter(Boolean)
+      .join(' · ');
+}
+
+function reportScoringSystemHtml(accent = '#7c3aed') {
+   return `
+      <section class="scoring-system" style="--accent:${accent}">
+         <h2>Система балів</h2>
+         <p>Бали рахуються автоматично за операційні результати. Ваги можна змінити у файлі <b>utils/crm/operationScoring.js</b>.</p>
+         <div class="scoring-grid">
+            ${Object.entries(OPERATION_SCORING_RULES).map(([key, points]) => `
+               <div class="scoring-row">
+                  <b>${reportEscape(OPERATION_SCORING_LABELS[key] || key)}</b>
+                  <strong>${reportEscape(points)} ${Number(points) === 1 ? 'бал' : 'балів'}</strong>
+                  <span>${reportEscape(OPERATION_SCORING_DESCRIPTIONS[key] || '')}</span>
+               </div>
+            `).join('')}
+         </div>
+      </section>
+   `;
+}
+
 function propertyOwnerPhone(property) {
    const owners = Array.isArray(property?.owners) ? property.owners : [];
    for (const owner of owners) {
@@ -1241,7 +1328,7 @@ function MiniMetric({ label, value, accent, theme, hint = '', initiativeCount = 
    );
 }
 
-function FinancialProductMark({ product, size = 25, showCode = true }) {
+function FinancialProductMark({ product, size = 25, showCode = true, shape = 'flow' }) {
    if (!product) return null;
 
    if (product.isMissing) {
@@ -1284,10 +1371,13 @@ function FinancialProductMark({ product, size = 25, showCode = true }) {
    }
 
    const isInitiative = product.direction === 'up';
-   const clipPath = isInitiative
+   const isDiamond = shape === 'diamond';
+   const clipPath = isDiamond
+      ? 'polygon(50% 4%, 96% 50%, 50% 96%, 4% 50%)'
+      : isInitiative
       ? 'polygon(50% 5%, 95% 92%, 5% 92%)'
       : 'polygon(5% 8%, 95% 8%, 50% 95%)';
-   const title = `${product.code} · ${product.label} · ${product.description}${isInitiative ? ' · ініціативна робота' : ' · вхідна лійка'}${product.hasCooperation ? ' · співпраця' : ''}`;
+   const title = `${product.code} · ${product.label} · ${product.description}${isDiamond ? '' : isInitiative ? ' · ініціативна робота' : ' · вхідна лійка'}${product.hasCooperation ? ' · співпраця' : ''}`;
 
    return (
       <Tooltip title={title}>
@@ -1373,7 +1463,7 @@ function FinancialProductColumn({ product, theme, mode }) {
    );
 }
 
-function FinancialProductSelect({ value, onChange, label = 'Фінпродукт', fieldSx, menuProps, fullWidth = true, size }) {
+function FinancialProductSelect({ value, onChange, label = 'Фінпродукт', fieldSx, menuProps, fullWidth = true, size, markShape = 'flow' }) {
    const selected = FINANCIAL_PRODUCT_OPTIONS.find((item) => item.value === value) || null;
 
    return (
@@ -1392,7 +1482,7 @@ function FinancialProductSelect({ value, onChange, label = 'Фінпродукт
                if (!item) return '—';
                return (
                   <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
-                     <FinancialProductMark product={{ ...item, direction: 'down', hasCooperation: false }} size={15} showCode={false} />
+                     <FinancialProductMark product={{ ...item, direction: 'down', hasCooperation: false }} size={15} showCode={false} shape={markShape} />
                      <Typography sx={{ fontSize: 12, fontWeight: 900 }} noWrap>
                         {item.fullLabel}
                      </Typography>
@@ -1410,7 +1500,7 @@ function FinancialProductSelect({ value, onChange, label = 'Фінпродукт
          {FINANCIAL_PRODUCT_OPTIONS.map((item) => (
             <MenuItem key={item.value} value={item.value}>
                <Stack direction="row" spacing={1} alignItems="center" sx={{ minWidth: 0 }}>
-                  <FinancialProductMark product={{ ...item, direction: 'down', hasCooperation: false }} size={20} showCode={false} />
+                   <FinancialProductMark product={{ ...item, direction: 'down', hasCooperation: false }} size={20} showCode={false} shape={markShape} />
                   <Stack spacing={0.1} sx={{ minWidth: 0 }}>
                      <Typography sx={{ fontWeight: 950, fontSize: 12.5 }} noWrap>
                         {item.fullLabel}
@@ -1814,6 +1904,11 @@ function OperationRowCompact({ item, theme, mode, onEdit, onDelete, canManage = 
       : linkedPzsStatus === 'failed'
          ? CloseRoundedIcon
          : ResultIcon;
+   const DirectDepositIcon = item.resultShowing === 'zs' ? HandshakeRoundedIcon : ResultIcon;
+   const ShowingResultIcon = item.resultShowing === 'pzs' ? LinkedPzsIcon : DirectDepositIcon;
+   const showingResultIconColor = item.resultShowing === 'zs' ? '#22c55e' : item.resultShowing === 'pzs' ? linkedPzsColor : result.color;
+   const showingResultBorderColor = item.resultShowing === 'zs' ? '#22c55e' : item.resultShowing === 'pzs' ? linkedPzsColor : result.color;
+   const showingResultCellBg = item.resultShowing === 'zs' ? 'rgba(34,197,94,0.18)' : item.resultShowing === 'pzs' && linkedPzsStatus ? `${linkedPzsColor}26` : showingResultBg;
    const showingResultLabel =
       item.resultShowing === 'pzs' && linkedPzsStatus
          ? linkedPzsStatus === 'deposit'
@@ -2026,12 +2121,12 @@ function OperationRowCompact({ item, theme, mode, onEdit, onDelete, canManage = 
                {[
                   {
                      key: 'showing',
-                      icon: item.resultShowing === 'pzs' ? <LinkedPzsIcon /> : <ResultIcon />,
+                      icon: <ShowingResultIcon />,
                       label: showingResultLabel,
                       color: showingResultText,
-                      iconColor: item.resultShowing === 'pzs' ? linkedPzsColor : result.color,
-                      bg: item.resultShowing === 'pzs' && linkedPzsStatus ? `${linkedPzsColor}26` : showingResultBg,
-                      border: `${item.resultShowing === 'pzs' ? linkedPzsColor : result.color}66`,
+                      iconColor: showingResultIconColor,
+                      bg: showingResultCellBg,
+                      border: `${showingResultBorderColor}66`,
                       clickable: item.resultShowing === 'pzs' && !linkedPzs,
                    },
                   {
@@ -2857,10 +2952,10 @@ function TimelineColumnHeader({
    mode,
    fieldSx,
    menuProps,
-   employees,
+   employeeFilterOptions,
    properties,
    leads,
-   selectedEmployeeFilter,
+   selectedEmployeeFilterOption,
    selectedPropertyFilter,
    selectedLeadFilter,
    typeFilter,
@@ -2908,6 +3003,20 @@ function TimelineColumnHeader({
          fontWeight: 900,
       },
    };
+
+   const employeePopper = (props) => (
+      <Popper
+         {...props}
+         placement="bottom-end"
+         sx={{
+            zIndex: 1400,
+            width: 'min(380px, calc(100vw - 24px)) !important',
+            '& .MuiAutocomplete-paper': {
+               width: '100%',
+            },
+         }}
+      />
+   );
 
    return (
       <Box
@@ -3034,13 +3143,151 @@ function TimelineColumnHeader({
          </Box>
          <Autocomplete
             size="small"
-            options={employees}
-            value={selectedEmployeeFilter}
-            onChange={(_, value) => setEmployeeFilter(value?._id || '')}
-            getOptionLabel={(option) => employeeName(option)}
+            options={employeeFilterOptions}
+            value={selectedEmployeeFilterOption}
+            onChange={(_, value) => setEmployeeFilter(value?.value || '')}
+            getOptionLabel={(option) => option?.label || ''}
+            isOptionEqualToValue={(option, value) => option?.value === value?.value}
+            renderOption={(props, option) => {
+               const { key, ...optionProps } = props;
+               return (
+               <Box
+                  key={key}
+                  component="li"
+                  {...optionProps}
+                  sx={{
+                     display: 'flex',
+                     alignItems: 'center',
+                     gap: 0.8,
+                     pl: `${10 + (option.depth || 0) * 16}px !important`,
+                     py: option.kind === 'team' ? '7px !important' : '6px !important',
+                     borderBottom: option.kind === 'team' ? `1px solid ${theme.border}` : 'none',
+                  }}
+               >
+                  <Box
+                     sx={{
+                        width: option.kind === 'team' ? 8 : 5,
+                        height: option.kind === 'team' ? 8 : 5,
+                        borderRadius: '50%',
+                        bgcolor: option.kind === 'team' ? theme.accentLight : theme.textSoft,
+                        boxShadow: option.kind === 'team' ? `0 0 0 4px ${theme.accent}22` : 'none',
+                        flexShrink: 0,
+                     }}
+                  />
+                  <Box sx={{ minWidth: 0, flex: 1 }}>
+                     <Typography sx={{ fontSize: 12, fontWeight: 950, color: theme.text, lineHeight: 1.12 }}>
+                        {option.label}
+                     </Typography>
+                     <Typography sx={{ fontSize: 10.2, fontWeight: 800, color: theme.textSoft, lineHeight: 1.1 }}>
+                        {option.kind === 'team' ? `${option.count || 0} працівн. у дереві` : option.managerName ? `керівник: ${option.managerName}` : 'працівник'}
+                     </Typography>
+                  </Box>
+               </Box>
+               );
+            }}
             renderInput={(params) => <TextField {...params} label="Відповідальний" sx={headerFieldSx} />}
-            PaperComponent={(props) => <Box {...props} sx={{ bgcolor: theme.bgPanel, color: theme.text, border: `1px solid ${theme.border}` }} />}
+            PopperComponent={employeePopper}
+            PaperComponent={(props) => <Box {...props} sx={{ width: '100%', bgcolor: theme.bgPanel, color: theme.text, border: `1px solid ${theme.border}` }} />}
+            ListboxProps={{ sx: { maxHeight: 360 } }}
          />
+      </Box>
+   );
+}
+
+function LossEventRowCompact({ item, theme, mode }) {
+   const loss = item.loss || {};
+   const dateParts = formatDateParts(item.occurredAt);
+   const photo = getPropertyImage(item.property);
+   const accent = '#ef4444';
+   const panelBg = mode === 'light' ? 'rgba(254,242,242,0.96)' : 'rgba(127,29,29,0.20)';
+   const cellBg = mode === 'light' ? 'rgba(254,226,226,0.75)' : 'rgba(239,68,68,0.10)';
+   const note = loss.note || item.resultDescription || loss.linkedPropertyStatus || 'Деталі втрати не внесені';
+
+   return (
+      <Box
+         sx={{
+            p: 0.42,
+            borderRadius: 2.2,
+            border: `1px solid ${accent}66`,
+            bgcolor: panelBg,
+            boxShadow: mode === 'light' ? '0 14px 30px rgba(239,68,68,0.10)' : '0 16px 34px rgba(127,29,29,0.28)',
+         }}
+      >
+         <Box
+            sx={{
+               display: 'grid',
+               gridTemplateColumns: {
+                  xs: '1fr',
+                  lg: '86px minmax(210px,1.2fr) minmax(190px,0.9fr) minmax(250px,1.05fr) 132px',
+               },
+               gap: 0.45,
+               alignItems: 'center',
+            }}
+         >
+            <Stack spacing={0.25} sx={{ minHeight: 54, borderRadius: 1.6, border: `1px solid ${accent}55`, bgcolor: cellBg, px: 0.8, py: 0.3, justifyContent: 'center', alignItems: 'center' }}>
+               <Stack direction="row" spacing={0.45} alignItems="center" justifyContent="center" sx={{ width: '100%' }}>
+                  <HeartBrokenRoundedIcon sx={{ color: accent, fontSize: 16 }} />
+                  <Typography sx={{ color: theme.text, fontWeight: 950, fontSize: 11 }} noWrap>
+                     Втрата
+                  </Typography>
+               </Stack>
+               <Typography sx={{ color: theme.text, fontWeight: 950, fontSize: 14, lineHeight: 1.05, textAlign: 'center', width: '100%' }}>
+                  {dateParts.date}
+               </Typography>
+               <Typography sx={{ color: theme.textSoft, fontSize: 10.5, fontWeight: 800, lineHeight: 1.05, textAlign: 'center' }}>
+                  {dateParts.time}
+               </Typography>
+            </Stack>
+
+            <Stack direction="row" spacing={0.55} sx={{ minWidth: 0, minHeight: 54, p: 0.4, borderRadius: 1.6, bgcolor: cellBg, border: `1px solid ${accent}44`, alignItems: 'flex-start' }}>
+               <Box sx={{ width: 42, height: 42, minWidth: 42, borderRadius: 1.3, overflow: 'hidden', bgcolor: 'rgba(255,255,255,0.06)', border: `1px solid ${theme.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {photo ? (
+                     <Box component="img" src={photo} alt="" sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                     <ApartmentRoundedIcon sx={{ color: accent, fontSize: 22 }} />
+                  )}
+               </Box>
+               <Stack spacing={0.14} sx={{ minWidth: 0, justifyContent: 'flex-start', pt: 0 }}>
+                  <Tooltip title={propertyTitle(item.property)}>
+                     <Typography sx={{ color: theme.text, fontWeight: 950, fontSize: 12.5, lineHeight: 1.14 }} noWrap>
+                        {propertyTitle(item.property)}
+                     </Typography>
+                  </Tooltip>
+                  <Typography sx={{ color: theme.textSoft, fontSize: 11, fontWeight: 750, lineHeight: 1.16 }} noWrap>
+                     {propertyMeta(item.property) || 'Характеристики не внесені'}
+                  </Typography>
+               </Stack>
+            </Stack>
+
+            <Stack
+               sx={{
+                  minWidth: 0,
+                  minHeight: 54,
+                  p: 0.4,
+                  borderRadius: 1.6,
+                  border: `1px solid ${theme.border}`,
+                  bgcolor: mode === 'light' ? 'rgba(239,68,68,0.030)' : 'rgba(255,255,255,0.025)',
+               }}
+            />
+
+            <Stack spacing={0.16} sx={{ minWidth: 0, minHeight: 54, p: 0.65, borderRadius: 1.6, border: `1px solid ${accent}40`, bgcolor: mode === 'light' ? 'rgba(255,255,255,0.62)' : 'rgba(255,255,255,0.035)', justifyContent: 'center' }}>
+               <Typography sx={{ color: accent, fontSize: 10.5, fontWeight: 950, lineHeight: 1.1 }} noWrap>
+                  {loss.linkedPropertyStatus || 'Об’єкт втрачено'}
+               </Typography>
+               <Typography sx={{ color: theme.text, fontSize: 11.5, fontWeight: 850, lineHeight: 1.18, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                  {note}
+               </Typography>
+            </Stack>
+
+            <Stack spacing={0.25} alignItems={{ xs: 'flex-start', lg: 'flex-end' }}>
+               <Typography sx={{ color: theme.textSoft, fontSize: 10.5, fontWeight: 850, lineHeight: 1.1, maxWidth: 132 }} noWrap>
+                  {employeeName(item.responsibleEmployee) || '—'}
+               </Typography>
+               <Typography sx={{ color: accent, fontSize: 10.5, fontWeight: 900, lineHeight: 1.1, maxWidth: 132, textAlign: { xs: 'left', lg: 'right' } }}>
+                  Керується з картки об’єкта
+               </Typography>
+            </Stack>
+         </Box>
       </Box>
    );
 }
@@ -3316,7 +3563,7 @@ function PreDepositEventRowCompact({ item, theme, mode, canManage = false, onAdd
                   {(pzs.steps?.length ? pzs.steps : [{ at: item.occurredAt, type: 'created', text: 'Кроки ПЗС поки не внесені.', readonly: true }]).map((step, idx) => {
                       const stepParts = formatDateParts(step.at);
                      const stepColor = step.type === 'deposit' ? '#22c55e' : step.type === 'failed' ? '#ef4444' : step.type === 'next_step' ? '#f9a8d4' : '#f472b6';
-                      const canManageStep = !step.readonly;
+                      const canManageStep = canManage && !step.readonly;
                       return (
                          <Stack key={`${step.at}-${idx}`} direction="row" spacing={0.75} alignItems="flex-start">
                            <Box sx={{ width: 24, height: 24, minWidth: 24, borderRadius: '50%', color: stepColor, bgcolor: `${stepColor}18`, border: `1px solid ${stepColor}55`, display: 'flex', alignItems: 'center', justifyContent: 'center', mt: 0.1 }}>
@@ -3422,6 +3669,7 @@ export default function OperationsPage() {
    const [propertyFilter, setPropertyFilter] = useState('');
    const [leadFilter, setLeadFilter] = useState('');
    const [timelineGroupMode, setTimelineGroupMode] = useState('week');
+   const [reportMenuAnchor, setReportMenuAnchor] = useState(null);
    const [form, setForm] = useState(() => ({ ...emptyForm, occurredAt: toDatetimeLocal() }));
    const [depositForm, setDepositForm] = useState(() => ({ ...emptyDepositForm, occurredAt: toDatetimeLocal() }));
 
@@ -3440,6 +3688,79 @@ export default function OperationsPage() {
       () => new Map(employees.map((employee) => [String(employee._id), String(employee.manager?._id || employee.manager || '')])),
       [employees]
    );
+   const directReportsByManagerId = useMemo(() => {
+      const map = new Map();
+      employees.forEach((employee) => {
+         const managerId = String(employee.manager?._id || employee.manager || '');
+         if (!managerId) return;
+         const list = map.get(managerId) || [];
+         list.push(employee);
+         map.set(managerId, list);
+      });
+      return map;
+   }, [employees]);
+   const employeeById = useMemo(
+      () => new Map(employees.map((employee) => [String(employee._id), employee])),
+      [employees]
+   );
+   const employeeFilterOptions = useMemo(() => {
+      const options = [];
+      const visited = new Set();
+      const nameSort = (a, b) => employeeName(a).localeCompare(employeeName(b), 'uk');
+      const countTeam = (employeeId) => {
+         const direct = directReportsByManagerId.get(String(employeeId)) || [];
+         return direct.reduce((sum, child) => sum + 1 + countTeam(child._id), 0);
+      };
+      const pushTree = (employee, depth = 0) => {
+         const id = String(employee?._id || '');
+         if (!id || visited.has(id)) return;
+         visited.add(id);
+         const children = [...(directReportsByManagerId.get(id) || [])].sort(nameSort);
+         if (children.length) {
+            options.push({
+               kind: 'team',
+               value: `team:${id}`,
+               label: `Відділ: ${employeeName(employee)}`,
+               employee,
+               depth,
+               count: 1 + countTeam(id),
+            });
+         }
+         options.push({
+            kind: 'employee',
+            value: id,
+            label: employeeName(employee),
+            employee,
+            depth,
+            managerName: employeeName(employeeById.get(String(employee.manager?._id || employee.manager || ''))),
+         });
+         children.forEach((child) => pushTree(child, depth + 1));
+      };
+
+      const roots = employees
+         .filter((employee) => {
+            const managerId = String(employee.manager?._id || employee.manager || '');
+            return !managerId || !employeeById.has(managerId);
+         })
+         .sort(nameSort);
+      roots.forEach((employee) => pushTree(employee, 0));
+      [...employees].sort(nameSort).forEach((employee) => pushTree(employee, 0));
+      return options;
+   }, [directReportsByManagerId, employeeById, employees]);
+   const employeeFilterIds = useMemo(() => {
+      if (!employeeFilter) return new Set();
+      if (!String(employeeFilter).startsWith('team:')) return new Set([String(employeeFilter)]);
+      const rootId = String(employeeFilter).replace('team:', '');
+      const ids = new Set();
+      const walk = (employeeId) => {
+         const id = String(employeeId || '');
+         if (!id || ids.has(id)) return;
+         ids.add(id);
+         (directReportsByManagerId.get(id) || []).forEach((employee) => walk(employee._id));
+      };
+      walk(rootId);
+      return ids;
+   }, [directReportsByManagerId, employeeFilter]);
 
    const isManagerAbove = (employeeId) => {
       let current = managerByEmployeeId.get(String(employeeId || ''));
@@ -3471,6 +3792,12 @@ export default function OperationsPage() {
          idOf(item.responsibleEmployee),
          idOf(item.shownByEmployee),
          idOf(item.facilitatedByEmployee),
+         idOf(item.objectRealtorEmployee),
+         idOf(item.buyerRealtorEmployee),
+         idOf(item.property?.assignee),
+         idOf(item.property?.createdByEmployee),
+         idOf(item.lead?.assignee),
+         idOf(item.lead?.createdByEmployee),
       ].filter(Boolean).map(String);
       return ownerIds.includes(currentEmployeeId) || ownerIds.some(isManagerAbove);
    };
@@ -3552,14 +3879,14 @@ export default function OperationsPage() {
       return financeSourceItems.filter((item) => {
          if (!matchesDateRange(item)) return false;
          if (financeTypeFilter && item.financeType !== financeTypeFilter) return false;
-         if (employeeFilter) {
+         if (employeeFilterIds.size) {
             const employeeIds = [
                idOf(item.responsibleEmployee),
                idOf(item.processedByEmployee),
                idOf(item.objectRealtorEmployee),
                idOf(item.buyerRealtorEmployee),
-            ];
-            if (!employeeIds.includes(employeeFilter)) return false;
+            ].filter(Boolean).map(String);
+            if (!employeeIds.some((id) => employeeFilterIds.has(id))) return false;
          }
           if (propertyFilter && idOf(item.property) !== propertyFilter) return false;
           if (leadFilter && idOf(item.lead) !== leadFilter) return false;
@@ -3593,7 +3920,7 @@ export default function OperationsPage() {
             .toLowerCase()
             .includes(needle);
       });
-   }, [dateFromFilter, dateToFilter, employeeFilter, financeSourceItems, financialProductFilter, leadFilter, propertyFilter, q, resultBuyerFilter, resultFilter, resultObjectFilter, typeFilter]);
+   }, [dateFromFilter, dateToFilter, employeeFilterIds, financeSourceItems, financialProductFilter, leadFilter, propertyFilter, q, resultBuyerFilter, resultFilter, resultObjectFilter, typeFilter]);
 
    const visiblePreDepositEvents = useMemo(() => {
       if (typeFilter && typeFilter !== 'pzs') return [];
@@ -3608,13 +3935,13 @@ export default function OperationsPage() {
       return sourceItems.filter((item) => {
          const pzs = item.pzs || item;
          if (!matchesDateRange(item)) return false;
-         if (employeeFilter) {
+         if (employeeFilterIds.size) {
             const employeeIds = [
                idOf(item.responsibleEmployee),
                idOf(item.objectRealtorEmployee),
                idOf(item.buyerRealtorEmployee),
-            ];
-            if (!employeeIds.includes(employeeFilter)) return false;
+            ].filter(Boolean).map(String);
+            if (!employeeIds.some((id) => employeeFilterIds.has(id))) return false;
          }
           if (propertyFilter && idOf(item.property) !== propertyFilter) return false;
           if (leadFilter && idOf(item.lead) !== leadFilter) return false;
@@ -3642,7 +3969,7 @@ export default function OperationsPage() {
             .toLowerCase()
             .includes(needle);
       });
-   }, [dateFromFilter, dateToFilter, demoPreDepositEvents, employeeFilter, financialProductFilter, items, leadFilter, propertyFilter, q, resultBuyerFilter, resultFilter, resultObjectFilter, typeFilter]);
+   }, [dateFromFilter, dateToFilter, demoPreDepositEvents, employeeFilterIds, financialProductFilter, items, leadFilter, propertyFilter, q, resultBuyerFilter, resultFilter, resultObjectFilter, typeFilter]);
 
    const preDepositBySourceOperationId = useMemo(() => {
       const map = new Map();
@@ -3661,14 +3988,15 @@ export default function OperationsPage() {
       return [...items.filter((item) => item.type !== 'pzs'), ...demoReviewEvents].filter((item) => {
          if (!matchesDateRange(item)) return false;
          if (typeFilter && item.type !== typeFilter) return false;
-         if (employeeFilter) {
+         if (employeeFilterIds.size) {
             const employeeIds = [
                idOf(item.responsibleEmployee),
-               idOf(item.shownByEmployee),
-               idOf(item.facilitatedByEmployee),
                idOf(item.objectRealtorEmployee),
-            ];
-            if (!employeeIds.includes(employeeFilter)) return false;
+               idOf(item.buyerRealtorEmployee),
+               idOf(item.property?.assignee),
+               idOf(item.lead?.assignee),
+            ].filter(Boolean).map(String);
+            if (!employeeIds.some((id) => employeeFilterIds.has(id))) return false;
          }
           if (propertyFilter && idOf(item.property) !== propertyFilter) return false;
           if (leadFilter && idOf(item.lead) !== leadFilter) return false;
@@ -3710,7 +4038,7 @@ export default function OperationsPage() {
             .toLowerCase()
             .includes(needle);
       });
-   }, [dateFromFilter, dateToFilter, demoReviewEvents, employeeFilter, financialProductFilter, items, leadFilter, propertyFilter, q, resultBuyerFilter, resultFilter, resultObjectFilter, typeFilter]);
+   }, [dateFromFilter, dateToFilter, demoReviewEvents, employeeFilterIds, financialProductFilter, items, leadFilter, propertyFilter, q, resultBuyerFilter, resultFilter, resultObjectFilter, typeFilter]);
 
    const timelineItems = useMemo(
       () => sortOperationEvents([...visibleOperationItems, ...visibleFinanceEvents, ...visiblePreDepositEvents]),
@@ -3846,7 +4174,7 @@ export default function OperationsPage() {
          if (q.trim()) params.set('q', q.trim());
          if (typeFilter && typeFilter !== 'finance_deposit' && typeFilter !== 'finance_reregistration' && typeFilter !== 'pzs') params.set('type', typeFilter);
          if (resultFilter) params.set('resultShowing', resultFilter);
-         if (employeeFilter) params.set('employee', employeeFilter);
+         if (employeeFilter && !String(employeeFilter).startsWith('team:')) params.set('employee', employeeFilter);
          if (propertyFilter) params.set('property', propertyFilter);
          if (leadFilter) params.set('lead', leadFilter);
 
@@ -4052,13 +4380,18 @@ export default function OperationsPage() {
    const selectedDepositProperty = propertyLookupOptions.find((x) => x._id === depositForm.property) || null;
    const selectedDepositLead = leadLookupOptions.find((x) => x._id === depositForm.lead) || null;
    const selectedEmployeeFilter = employees.find((x) => x._id === employeeFilter) || null;
+   const selectedEmployeeFilterOption = employeeFilterOptions.find((x) => x.value === employeeFilter) || null;
+   const selectedEmployeeFilterLabel = employeeFilter
+      ? selectedEmployeeFilterOption?.label || employeeName(selectedEmployeeFilter) || 'працівник'
+      : 'усі';
    const selectedPropertyFilter = propertyLookupOptions.find((x) => x._id === propertyFilter) || null;
    const selectedLeadFilter = leadLookupOptions.find((x) => x._id === leadFilter) || null;
    const showingOptions = useMemo(
-      () => mergeById(sourceShowings, items.filter((item) => item.type === 'showing' && idOf(item) === form.sourceOperationEvent)),
-      [form.sourceOperationEvent, items, sourceShowings]
+      () => mergeById(sourceShowings, items.filter((item) => item.type === 'showing' && [form.sourceOperationEvent, depositForm.sourceOperationEvent].includes(idOf(item)))),
+      [depositForm.sourceOperationEvent, form.sourceOperationEvent, items, sourceShowings]
    );
-   const selectedSourceOperationEvent = showingOptions.find((x) => x._id === form.sourceOperationEvent) || null;
+   const selectedSourceOperationEvent = showingOptions.find((x) => idOf(x) === form.sourceOperationEvent) || null;
+   const selectedDepositSourceOperationEvent = showingOptions.find((x) => idOf(x) === depositForm.sourceOperationEvent) || null;
    const rememberPropertyOption = (option) => {
       if (!option?._id) return;
       setPropertySelectionCache((prev) => mergeById([option], prev).slice(0, 12));
@@ -4113,7 +4446,9 @@ export default function OperationsPage() {
       setForm((prev) => ({
          ...prev,
          propertyStage: prev.propertyStage || selectedProperty.actualityGroup || '',
-         objectRealtorEmployee: prev.objectRealtorEmployee || selectedProperty.assignee?._id || selectedProperty.assignee || '',
+         objectRealtorEmployee: prev.type === 'review'
+            ? prev.objectRealtorEmployee
+            : prev.objectRealtorEmployee || selectedProperty.assignee?._id || selectedProperty.assignee || '',
       }));
    }, [selectedProperty?._id]);
 
@@ -4192,6 +4527,34 @@ export default function OperationsPage() {
          buyerRealtorEmployee: idOf(showing.buyerRealtorEmployee) || prev.buyerRealtorEmployee,
          buyerPartnerName: showing.buyerPartnerName || prev.buyerPartnerName,
          pzsSourceLabel: prev.pzsSourceLabel || `Після показу ${formatDate(showing.occurredAt)}`,
+      }));
+   };
+
+   const selectDepositSourceShowing = (showing) => {
+      if (!showing) {
+         setDepositForm((prev) => ({ ...prev, sourceOperationEvent: '' }));
+         return;
+      }
+
+      const currentEmployeeId = user?._id || user?.employeeId || '';
+      rememberPropertyOption(showing.property);
+      rememberLeadOption(showing.lead);
+      setDepositForm((prev) => ({
+         ...prev,
+         sourceOperationEvent: showing._id || '',
+         sourcePreDepositEvent: '',
+         financialProduct: showing.financialProduct || prev.financialProduct,
+         property: idOf(showing.property) || prev.property,
+         lead: idOf(showing.lead) || prev.lead,
+         responsibleEmployee: idOf(showing.responsibleEmployee) || prev.responsibleEmployee || currentEmployeeId,
+         processedByEmployee: prev.processedByEmployee || currentEmployeeId,
+         objectRealtorKind: showing.objectRealtorKind || prev.objectRealtorKind,
+         objectRealtorEmployee: idOf(showing.objectRealtorEmployee) || prev.objectRealtorEmployee,
+         objectPartnerName: showing.objectPartnerName || prev.objectPartnerName,
+         buyerRealtorKind: showing.buyerRealtorKind || prev.buyerRealtorKind,
+         buyerRealtorEmployee: idOf(showing.buyerRealtorEmployee) || prev.buyerRealtorEmployee,
+         buyerPartnerName: showing.buyerPartnerName || prev.buyerPartnerName,
+         note: prev.note || `Завдаток виник одразу після показу ${formatDate(showing.occurredAt)}`,
       }));
    };
 
@@ -4276,6 +4639,14 @@ export default function OperationsPage() {
       });
    };
 
+   const openDepositDialog = () => {
+      setEditingFinanceItem(null);
+      setSourceShowingSearch('');
+      loadSourceShowings('');
+      resetDepositForm();
+      setOpenDepositCreate(true);
+   };
+
    const updateDepositForm = (key, value) => {
       setDepositForm((prev) => ({ ...prev, [key]: value }));
    };
@@ -4302,6 +4673,19 @@ export default function OperationsPage() {
                      },
                   ],
                },
+            };
+         })
+      );
+   };
+
+   const markSourceShowingAsDeposit = (sourceOperationId) => {
+      if (!sourceOperationId) return;
+      setItems((prev) =>
+         prev.map((item) => {
+            if (idOf(item) !== sourceOperationId || item.type !== 'showing') return item;
+            return {
+               ...item,
+               resultShowing: 'zs',
             };
          })
       );
@@ -4346,6 +4730,10 @@ export default function OperationsPage() {
    };
 
    const openFinanceEditDialog = (item) => {
+      if (item?.financeType !== 'reregistration') {
+         setSourceShowingSearch('');
+         loadSourceShowings('');
+      }
       setEditingFinanceItem(item);
       setDepositForm(formFromFinanceEvent(item));
    };
@@ -4442,6 +4830,9 @@ export default function OperationsPage() {
          payload.buyerRealtorKind = 'none';
          payload.buyerRealtorEmployee = '';
          payload.buyerPartnerName = '';
+         payload.objectRealtorKind = 'none';
+         payload.objectRealtorEmployee = '';
+         payload.objectPartnerName = '';
          payload.objections = [];
          payload.objectionArguments = '';
          payload.resultDescription = isHistoricalReview || isNewObjectReview ? form.reviewNote : form.reviewReason;
@@ -4657,6 +5048,9 @@ export default function OperationsPage() {
 
           setFinanceItems((prev) => sortOperationEvents([data.item, ...prev]));
           markPreDepositAsDeposit(payload.sourcePreDepositEvent, data.item);
+          if (payload.sourceOperationEvent && !payload.sourcePreDepositEvent) {
+             markSourceShowingAsDeposit(payload.sourceOperationEvent);
+          }
           setOpenDepositCreate(false);
           resetDepositForm();
       } catch (e) {
@@ -4715,6 +5109,9 @@ export default function OperationsPage() {
          if (!res.ok) throw new Error(data?.error || 'Не вдалося оновити фінансову подію');
 
           setFinanceItems((prev) => sortOperationEvents(prev.map((item) => item._id === data.item._id ? data.item : item)));
+          if (payload.sourceOperationEvent && !payload.sourcePreDepositEvent && editingFinanceItem.financeType === 'deposit') {
+             markSourceShowingAsDeposit(payload.sourceOperationEvent);
+          }
           setEditingFinanceItem(null);
           resetDepositForm();
       } catch (e) {
@@ -4892,6 +5289,13 @@ export default function OperationsPage() {
             onEdit={openEditDialog}
             onDelete={setDeleteItem}
          />
+      ) : item.type === 'loss' ? (
+         <LossEventRowCompact
+            key={item._id}
+            item={item}
+            theme={theme}
+            mode={mode}
+         />
       ) : (
          <OperationRowCompact
             key={item._id}
@@ -4906,18 +5310,656 @@ export default function OperationsPage() {
          />
       );
 
+   const printManagersReport = () => {
+      if (typeof window === 'undefined') return;
+
+      const managerMap = new Map();
+      const ensureManager = (employee) => {
+         const id = idOf(employee) || 'unknown';
+         const name = employeeName(employee) || 'Без менеджера';
+         if (!managerMap.has(id)) {
+            managerMap.set(id, {
+               id,
+               name,
+               total: 0,
+               showings: 0,
+               initiativeShowings: 0,
+               reviews: 0,
+               newClients: 0,
+               newObjects: 0,
+               pzs: 0,
+               deposits: 0,
+               pers: 0,
+               score: 0,
+            });
+         }
+         const row = managerMap.get(id);
+         if (name && row.name === 'Без менеджера') row.name = name;
+         return row;
+      };
+      const addScore = (row, points = 0) => {
+         row.score += Number(points || 0);
+      };
+
+      timelineItems.forEach((item) => {
+         const employee = item.responsibleEmployee || item.processedByEmployee || item.shownByEmployee || item.objectRealtorEmployee;
+         const row = ensureManager(employee);
+         row.total += 1;
+
+         if (item.kind === 'financeEvent') {
+            if (item.financeType === 'reregistration') {
+               row.pers += 1;
+               addScore(row, OPERATION_SCORING_RULES.pers);
+            } else {
+               row.deposits += 1;
+               addScore(row, OPERATION_SCORING_RULES.deposit);
+            }
+            return;
+         }
+
+         if (item.type === 'pzs') {
+            row.pzs += 1;
+            addScore(row, OPERATION_SCORING_RULES.pzs);
+            return;
+         }
+
+         if (item.type === 'review') {
+            row.reviews += 1;
+            if (item.review?.result === 'new_object') {
+               row.newObjects += 1;
+               addScore(row, OPERATION_SCORING_RULES.reviewNewObject);
+            } else {
+               addScore(row, OPERATION_SCORING_RULES.review);
+            }
+            return;
+         }
+
+         if (item.type === 'showing') {
+            row.showings += 1;
+            if (item.showingKind === 'initiative') {
+               row.initiativeShowings += 1;
+               addScore(row, OPERATION_SCORING_RULES.initiativeShowing);
+            } else {
+               addScore(row, OPERATION_SCORING_RULES.showing);
+            }
+            if (item.resultBuyer === 'new_client') {
+               row.newClients += 1;
+               addScore(row, OPERATION_SCORING_RULES.showingNewClientBonus);
+            }
+            if (item.resultObject === 'new_object') {
+               row.newObjects += 1;
+               addScore(row, OPERATION_SCORING_RULES.showingNewObjectBonus);
+            }
+         }
+      });
+
+      const rows = [...managerMap.values()].sort((a, b) => b.score - a.score || b.total - a.total);
+      const periodLabel = dateFromFilter || dateToFilter ? `${dateFromFilter || 'початок'} — ${dateToFilter || 'сьогодні'}` : 'усі дати';
+      const html = `<!doctype html>
+         <html lang="uk">
+            <head>
+               <meta charset="utf-8" />
+               <title>Звіт по менеджерах</title>
+               <style>
+                  * { box-sizing: border-box; }
+                  body { margin:0; padding:28px; background:#fff; color:#111827; font-family:Arial, sans-serif; }
+                  .report { max-width:1180px; margin:0 auto; }
+                  .top { display:flex; justify-content:space-between; gap:20px; border-bottom:3px solid #7c3aed; padding-bottom:16px; margin-bottom:18px; }
+                  h1 { margin:0; font-size:30px; line-height:1; }
+                  .subtitle { margin:8px 0 0; color:#6b7280; font-weight:800; }
+                  .printed { color:#6b7280; font-size:12px; text-align:right; }
+                  .summary { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:8px; margin:14px 0 18px; }
+                  .card { border:1px solid #e5e7eb; border-left:5px solid var(--accent); border-radius:14px; padding:10px 12px; }
+                  .card span { display:block; color:#6b7280; font-size:10px; text-transform:uppercase; font-weight:900; }
+                  .card b { display:block; color:var(--accent); font-size:22px; margin-top:3px; }
+                  table { width:100%; border-collapse:collapse; table-layout:fixed; font-size:12px; }
+                  th { text-align:left; color:#475569; text-transform:uppercase; font-size:10px; letter-spacing:.04em; border-bottom:2px solid #e5e7eb; padding:8px 7px; background:#f8fafc; }
+                  td { border-bottom:1px solid #e5e7eb; padding:8px 7px; vertical-align:top; font-weight:800; }
+                  tr:nth-child(even) td { background:#fcfcfd; }
+                  .name { font-weight:950; color:#111827; }
+                  .score { color:#7c3aed; font-weight:950; }
+                  .muted { color:#64748b; font-size:11px; font-weight:800; }
+                  @media print { body { padding:12mm; } }
+               </style>
+            </head>
+            <body>
+               <main class="report">
+                  <div class="top">
+                     <div>
+                        <h1>Звіт по менеджерах</h1>
+                        <p class="subtitle">Операційні події за період: ${reportEscape(periodLabel)}</p>
+                     </div>
+                     <div class="printed">Сформовано<br/><b>${reportEscape(formatDate(new Date()))}</b></div>
+                  </div>
+                  <div class="summary">
+                     <div class="card" style="--accent:#7c3aed"><span>Всього подій</span><b>${reportEscape(metrics.total)}</b></div>
+                     <div class="card" style="--accent:#8b5cf6"><span>Покази</span><b>${reportEscape(metrics.showings)}</b></div>
+                     <div class="card" style="--accent:#16a34a"><span>ЗС</span><b>${reportEscape(metrics.deposits)}</b></div>
+                     <div class="card" style="--accent:#7c3aed"><span>ПЕРС</span><b>${reportEscape(metrics.pers)}</b></div>
+                  </div>
+                  <table>
+                     <thead>
+                        <tr>
+                           <th style="width:22%">Менеджер</th>
+                           <th>Всього</th>
+                           <th>Покази</th>
+                           <th>Ініц.</th>
+                           <th>Огляди</th>
+                           <th>Нові клієнти</th>
+                           <th>Нові об’єкти</th>
+                           <th>ПЗС</th>
+                           <th>ЗС</th>
+                           <th>ПЕРС</th>
+                           <th>Бали</th>
+                        </tr>
+                     </thead>
+                     <tbody>
+                        ${rows.map((row) => `
+                           <tr>
+                              <td><div class="name">${reportEscape(row.name)}</div><div class="muted">${row.id === 'unknown' ? 'без прив’язки' : ''}</div></td>
+                              <td>${row.total}</td>
+                              <td>${row.showings}</td>
+                              <td>${row.initiativeShowings}</td>
+                              <td>${row.reviews}</td>
+                              <td>${row.newClients}</td>
+                              <td>${row.newObjects}</td>
+                              <td>${row.pzs}</td>
+                              <td>${row.deposits}</td>
+                              <td>${row.pers}</td>
+                              <td class="score">${row.score}</td>
+                           </tr>
+                        `).join('')}
+                     </tbody>
+                  </table>
+               </main>
+               <script>
+                  window.addEventListener('load', () => {
+                     setTimeout(() => window.print(), 250);
+                  });
+               </script>
+            </body>
+         </html>`;
+
+      const printWindow = window.open('', '_blank', 'width=1180,height=900');
+      if (!printWindow) return;
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+   };
+
+   const printPeriodsReport = () => {
+      if (typeof window === 'undefined') return;
+
+      const scoreItems = (list = []) => list.reduce((score, item) => {
+         if (item.kind === 'financeEvent') {
+            return score + (item.financeType === 'reregistration'
+               ? OPERATION_SCORING_RULES.pers
+               : OPERATION_SCORING_RULES.deposit);
+         }
+         if (item.type === 'pzs') return score + OPERATION_SCORING_RULES.pzs;
+         if (item.type === 'review') {
+            return score + (item.review?.result === 'new_object'
+               ? OPERATION_SCORING_RULES.reviewNewObject
+               : OPERATION_SCORING_RULES.review);
+         }
+         if (item.type === 'showing') {
+            let scoreValue = item.showingKind === 'initiative'
+               ? OPERATION_SCORING_RULES.initiativeShowing
+               : OPERATION_SCORING_RULES.showing;
+            if (item.resultBuyer === 'new_client') scoreValue += OPERATION_SCORING_RULES.showingNewClientBonus;
+            if (item.resultObject === 'new_object') scoreValue += OPERATION_SCORING_RULES.showingNewObjectBonus;
+            return score + scoreValue;
+         }
+         return score;
+      }, 0);
+
+      const periodRows = timelineGroups.map((group) => {
+         const list = group.items || [];
+         const operationItems = list.filter((item) => item.kind !== 'financeEvent');
+         const financeItemsList = list.filter((item) => item.kind === 'financeEvent');
+         const showings = operationItems.filter((item) => item.type === 'showing');
+         const reviews = operationItems.filter((item) => item.type === 'review');
+         const pzs = operationItems.filter((item) => item.type === 'pzs' || item.kind === 'preDepositEvent');
+         const deposits = financeItemsList.filter((item) => item.financeType === 'deposit');
+         const pers = financeItemsList.filter((item) => item.financeType === 'reregistration');
+
+         return {
+            title: group.title || 'Усі події',
+            subtitle: group.subtitle || '',
+            isBest: group.isBest,
+            total: list.length,
+            showings: showings.length,
+            initiativeShowings: showings.filter((item) => item.showingKind === 'initiative').length,
+            reviews: reviews.length,
+            newClients: operationItems.filter((item) => item.resultBuyer === 'new_client').length,
+            newObjects: operationItems.filter((item) => item.resultObject === 'new_object' || item.review?.result === 'new_object').length,
+            pzs: pzs.length,
+            deposits: deposits.length,
+            pers: pers.length,
+            score: scoreItems(list),
+         };
+      });
+
+      const typeLabel = typeFilter === 'finance_deposit'
+         ? 'ЗС'
+         : typeFilter === 'finance_reregistration'
+            ? 'ПЕРС'
+            : typeFilter
+               ? labelOf(EVENT_TYPES, typeFilter)
+               : 'усі';
+      const periodLabel = dateFromFilter || dateToFilter ? `${dateFromFilter || 'початок'} — ${dateToFilter || 'сьогодні'}` : 'усі дати';
+      const groupLabel = labelOf(TIMELINE_GROUP_OPTIONS, timelineGroupMode);
+
+      const html = `<!doctype html>
+         <html lang="uk">
+            <head>
+               <meta charset="utf-8" />
+               <title>Звіт по періодах</title>
+               <style>
+                  * { box-sizing: border-box; }
+                  body { margin:0; padding:28px; background:#fff; color:#111827; font-family:Arial, sans-serif; }
+                  .report { max-width:1180px; margin:0 auto; }
+                  .top { display:flex; justify-content:space-between; gap:20px; border-bottom:3px solid #db2777; padding-bottom:16px; margin-bottom:18px; }
+                  h1 { margin:0; font-size:30px; line-height:1; }
+                  .subtitle { margin:8px 0 0; color:#6b7280; font-weight:800; }
+                  .printed { color:#6b7280; font-size:12px; text-align:right; }
+                  .filters { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:8px; margin:14px 0 18px; }
+                  .filter { border:1px solid #e5e7eb; border-radius:14px; padding:10px 12px; background:#fafafa; }
+                  .filter span { display:block; color:#6b7280; font-size:10px; text-transform:uppercase; font-weight:900; letter-spacing:.04em; }
+                  .filter b { display:block; margin-top:4px; font-size:13px; line-height:1.2; }
+                  table { width:100%; border-collapse:collapse; table-layout:fixed; font-size:12px; }
+                  th { text-align:left; color:#475569; text-transform:uppercase; font-size:10px; letter-spacing:.04em; border-bottom:2px solid #e5e7eb; padding:8px 7px; background:#f8fafc; }
+                  td { border-bottom:1px solid #e5e7eb; padding:8px 7px; vertical-align:top; font-weight:800; }
+                  tr:nth-child(even) td { background:#fcfcfd; }
+                  .period { font-weight:950; color:#111827; }
+                  .muted { display:block; color:#64748b; font-size:11px; font-weight:800; margin-top:2px; }
+                  .best { color:#ca8a04; font-weight:950; }
+                  .score { color:#db2777; font-weight:950; }
+                  @media print { body { padding:12mm; } }
+               </style>
+            </head>
+            <body>
+               <main class="report">
+                  <div class="top">
+                     <div>
+                        <h1>Звіт по періодах</h1>
+                        <p class="subtitle">Групування: ${reportEscape(groupLabel)} · ${reportEscape(periodLabel)}</p>
+                     </div>
+                     <div class="printed">Сформовано<br/><b>${reportEscape(formatDate(new Date()))}</b></div>
+                  </div>
+                  <div class="filters">
+                     <div class="filter"><span>Менеджер</span><b>${reportEscape(selectedEmployeeFilterLabel)}</b></div>
+                     <div class="filter"><span>Період</span><b>${reportEscape(periodLabel)}</b></div>
+                     <div class="filter"><span>Подія</span><b>${reportEscape(typeLabel)}</b></div>
+                     <div class="filter"><span>Фінпродукт</span><b>${reportEscape(financialProductFilter ? (FINANCIAL_PRODUCT_OPTIONS.find((x) => x.value === financialProductFilter)?.fullLabel || financialProductFilter) : 'усі')}</b></div>
+                  </div>
+                  <table>
+                     <thead>
+                        <tr>
+                           <th style="width:22%">Період</th>
+                           <th>Всього</th>
+                           <th>Покази</th>
+                           <th>Ініц.</th>
+                           <th>Огляди</th>
+                           <th>Нові клієнти</th>
+                           <th>Нові об’єкти</th>
+                           <th>ПЗС</th>
+                           <th>ЗС</th>
+                           <th>ПЕРС</th>
+                           <th>Бали</th>
+                        </tr>
+                     </thead>
+                     <tbody>
+                        ${periodRows.map((row) => `
+                           <tr>
+                              <td>
+                                 <div class="period">${reportEscape(row.title)} ${row.isBest ? '<span class="best">👑</span>' : ''}</div>
+                                 ${row.subtitle ? `<span class="muted">${reportEscape(row.subtitle)}</span>` : ''}
+                              </td>
+                              <td>${row.total}</td>
+                              <td>${row.showings}</td>
+                              <td>${row.initiativeShowings}</td>
+                              <td>${row.reviews}</td>
+                              <td>${row.newClients}</td>
+                              <td>${row.newObjects}</td>
+                              <td>${row.pzs}</td>
+                              <td>${row.deposits}</td>
+                              <td>${row.pers}</td>
+                              <td class="score">${row.score}</td>
+                           </tr>
+                        `).join('')}
+                     </tbody>
+                  </table>
+               </main>
+               <script>
+                  window.addEventListener('load', () => {
+                     setTimeout(() => window.print(), 250);
+                  });
+               </script>
+            </body>
+         </html>`;
+
+      const printWindow = window.open('', '_blank', 'width=1180,height=900');
+      if (!printWindow) return;
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+   };
+
+   const printScoringRulesReport = () => {
+      if (typeof window === 'undefined') return;
+
+      const html = `<!doctype html>
+         <html lang="uk">
+            <head>
+               <meta charset="utf-8" />
+               <title>Система балів</title>
+               <style>
+                  * { box-sizing: border-box; }
+                  body { margin:0; padding:28px; background:#fff; color:#111827; font-family:Arial, sans-serif; }
+                  .report { max-width:980px; margin:0 auto; }
+                  .top { display:flex; justify-content:space-between; gap:20px; border-bottom:3px solid #facc15; padding-bottom:16px; margin-bottom:18px; }
+                  h1 { margin:0; font-size:32px; line-height:1; color:#713f12; }
+                  .subtitle { margin:8px 0 0; color:#64748b; font-weight:800; max-width:680px; }
+                  .printed { color:#64748b; font-size:12px; text-align:right; }
+                  .scoring-system { margin-top:0; padding:16px; border:1px solid #fde68a; border-left:6px solid var(--accent); border-radius:18px; background:#fffbeb; page-break-inside:avoid; }
+                  .scoring-system h2 { margin:0 0 6px; font-size:20px; color:#713f12; }
+                  .scoring-system p { margin:0 0 12px; color:#64748b; font-size:12px; font-weight:800; }
+                  .scoring-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; }
+                  .scoring-row { border:1px solid #fde68a; border-radius:14px; padding:10px 11px; background:#fff; min-height:92px; }
+                  .scoring-row b { display:block; font-size:13px; color:#111827; }
+                  .scoring-row strong { display:inline-block; margin-top:5px; color:#ca8a04; font-size:15px; }
+                  .scoring-row span { display:block; margin-top:5px; color:#64748b; font-size:11px; line-height:1.3; font-weight:700; }
+                  .note { margin-top:14px; padding:12px 14px; border-radius:14px; background:#f8fafc; border:1px solid #e5e7eb; color:#475569; font-size:12px; font-weight:800; }
+                  @media print { body { padding:12mm; } }
+               </style>
+            </head>
+            <body>
+               <main class="report">
+                  <div class="top">
+                     <div>
+                        <h1>Система балів</h1>
+                        <p class="subtitle">Пам’ятка для операційки: як рахуються бали за покази, огляди, ПЗС, завдатки та ПЕРС.</p>
+                     </div>
+                     <div class="printed">Сформовано<br/><b>${reportEscape(formatDate(new Date()))}</b></div>
+                  </div>
+                  ${reportScoringSystemHtml('#facc15')}
+                  <div class="note">Ваги балів зберігаються у файлі <b>utils/crm/operationScoring.js</b>, тому їх можна швидко змінювати без ручного переписування звітів.</div>
+               </main>
+               <script>
+                  window.addEventListener('load', () => {
+                     setTimeout(() => window.print(), 250);
+                  });
+               </script>
+            </body>
+         </html>`;
+
+      const printWindow = window.open('', '_blank', 'width=980,height=900');
+      if (!printWindow) return;
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+   };
+
+   const printOperationsReport = () => {
+      if (typeof window === 'undefined') return;
+
+      const typeLabel = typeFilter === 'finance_deposit'
+         ? 'ЗС'
+         : typeFilter === 'finance_reregistration'
+            ? 'ПЕРС'
+            : typeFilter
+               ? labelOf(EVENT_TYPES, typeFilter)
+               : 'усі';
+      const filterRows = [
+         ['Період', dateFromFilter || dateToFilter ? `${dateFromFilter || 'початок'} — ${dateToFilter || 'сьогодні'}` : 'усі дати'],
+         ['Працівник', selectedEmployeeFilterLabel],
+         ['Подія', typeLabel],
+         ['Фінпродукт', financialProductFilter ? (FINANCIAL_PRODUCT_OPTIONS.find((x) => x.value === financialProductFilter)?.fullLabel || financialProductFilter) : 'усі'],
+         ['Об’єкт', selectedPropertyFilter ? propertyTitle(selectedPropertyFilter) : 'усі'],
+         ['Покупець', selectedLeadFilter?.name || 'усі'],
+         ['Результат показу', resultFilter ? labelOf(RESULT_SHOWING_OPTIONS, resultFilter) : 'усі'],
+         ['Зміна об’єкту', resultObjectFilter ? labelOf(RESULT_OBJECT_OPTIONS, resultObjectFilter) : 'усі'],
+         ['Зміна покупця', resultBuyerFilter ? labelOf(RESULT_BUYER_OPTIONS, resultBuyerFilter) : 'усі'],
+         ['Пошук', q.trim() || '—'],
+      ];
+
+      const metricCards = [
+         ['Всього', metrics.total, '#7c3aed'],
+         ['Покази', metrics.showings, '#8b5cf6'],
+         ['Огляди', metrics.reviews, '#0891b2'],
+         ['Нові клієнти', metrics.newClients, '#0284c7'],
+         ['Нові об’єкти', metrics.newObjects, '#0f766e'],
+         ['ПЗС', metrics.pzs, '#db2777'],
+         ['ЗС', metrics.deposits, '#16a34a'],
+         ['ПЕРС', metrics.pers, '#7c3aed'],
+      ];
+
+      const rowsHtml = timelineGroups.map((group) => `
+         <section class="group">
+            ${group.title ? `
+               <div class="group-title">
+                  <div>
+                     <h2>${reportEscape(group.title)} ${group.isBest ? '<span class="crown">👑</span>' : ''}</h2>
+                     ${group.subtitle ? `<p>${reportEscape(group.subtitle)}</p>` : ''}
+                  </div>
+                  <strong>${group.items.length} под.</strong>
+               </div>
+            ` : ''}
+            <table>
+               <thead>
+                  <tr>
+                     <th>Час</th>
+                     <th>Подія</th>
+                     <th>Об’єкт</th>
+                     <th>Покупець</th>
+                     <th>Результат</th>
+                     <th>Зміна об’єкту</th>
+                     <th>Зміна покупця</th>
+                     <th>Відповідальний</th>
+                     <th>Деталі</th>
+                  </tr>
+               </thead>
+               <tbody>
+                  ${group.items.map((item) => {
+                     const accent = reportEventAccent(item);
+                     const parts = formatDateParts(item.occurredAt || item.createdAt);
+                     const product = demoFinancialProductForItem(item);
+                     return `
+                        <tr>
+                           <td class="date-cell"><b>${reportEscape(parts.date)}</b><span>${reportEscape(parts.time)}</span></td>
+                           <td><span class="pill" style="--accent:${accent}">${reportEscape(reportEventType(item))}</span>${product?.code ? `<small>${reportEscape(product.code)} · ${reportEscape(product.label)}</small>` : ''}</td>
+                           <td><b>${reportEscape(propertyTitle(item.property))}</b><small>${reportEscape(propertyMeta(item.property))}</small></td>
+                           <td><b>${reportEscape(item.lead?.name || 'Без покупця')}</b><small>${reportEscape(item.lead?.phones?.[0] || '')}</small></td>
+                           <td>${reportEscape(reportEventResult(item))}</td>
+                           <td>${reportEscape(reportEventObjectChange(item))}</td>
+                           <td>${reportEscape(reportEventBuyerChange(item))}</td>
+                           <td><b>${reportEscape(employeeName(item.responsibleEmployee || item.processedByEmployee || item.shownByEmployee || item.objectRealtorEmployee) || '—')}</b></td>
+                           <td>${reportEscape(reportEventDetails(item) || '—')}</td>
+                        </tr>
+                     `;
+                  }).join('')}
+               </tbody>
+            </table>
+         </section>
+      `).join('');
+
+      const html = `<!doctype html>
+         <html lang="uk">
+            <head>
+               <meta charset="utf-8" />
+               <title>Звіт операційки</title>
+               <style>
+                  * { box-sizing: border-box; }
+                  body { margin: 0; padding: 28px; background: #fff; color: #111827; font-family: Arial, sans-serif; }
+                  .report { max-width: 1280px; margin: 0 auto; }
+                  .top { display: flex; justify-content: space-between; gap: 20px; align-items: flex-start; border-bottom: 3px solid #7c3aed; padding-bottom: 16px; margin-bottom: 18px; }
+                  h1 { margin: 0; font-size: 30px; line-height: 1; }
+                  .subtitle { margin: 8px 0 0; color: #6b7280; font-weight: 700; }
+                  .printed { color: #6b7280; font-size: 12px; text-align: right; }
+                  .filters { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin: 16px 0; }
+                  .filter { border: 1px solid #e5e7eb; border-radius: 12px; padding: 8px 10px; background: #fafafa; min-height: 52px; }
+                  .filter span { display: block; color: #6b7280; font-size: 10px; text-transform: uppercase; font-weight: 900; letter-spacing: .04em; }
+                  .filter b { display: block; margin-top: 3px; font-size: 12px; line-height: 1.2; }
+                  .metrics { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px; margin: 14px 0 20px; }
+                  .metric { border: 1px solid #e5e7eb; border-left: 5px solid var(--accent); border-radius: 14px; padding: 9px 10px; background: #fff; }
+                  .metric span { display:block; color:#6b7280; font-size:10px; text-transform:uppercase; font-weight:900; }
+                  .metric b { display:block; color:var(--accent); font-size:22px; line-height:1; margin-top:3px; }
+                  .leader { border: 1px solid #facc15; background: #fffbeb; border-radius: 14px; padding: 10px 12px; margin-bottom: 18px; font-weight: 900; color: #78350f; }
+                  .group { margin-top: 18px; page-break-inside: avoid; }
+                  .group-title { display:flex; justify-content:space-between; align-items:end; gap:12px; margin: 0 0 8px; padding: 9px 12px; border-radius: 14px; background: #f5f3ff; border: 1px solid #ddd6fe; color:#4c1d95; }
+                  .group-title h2 { margin: 0; font-size: 18px; }
+                  .group-title p { margin: 3px 0 0; color:#6d28d9; font-size: 12px; font-weight: 800; }
+                  .crown { font-size: 16px; }
+                  table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11px; }
+                  th { text-align: left; color: #475569; text-transform: uppercase; font-size: 9px; letter-spacing: .04em; border-bottom: 2px solid #e5e7eb; padding: 7px 6px; background: #f8fafc; }
+                  td { vertical-align: top; border-bottom: 1px solid #e5e7eb; padding: 7px 6px; line-height: 1.25; overflow-wrap: anywhere; }
+                  tr:nth-child(even) td { background: #fcfcfd; }
+                  small { display:block; color:#64748b; margin-top: 2px; font-weight: 700; }
+                  .date-cell b, .date-cell span { display:block; white-space:nowrap; }
+                  .date-cell span { color:#64748b; font-weight:800; margin-top:2px; }
+                  .pill { display:inline-block; border:1px solid var(--accent); color:var(--accent); background:#fff; border-radius:999px; padding:3px 7px; font-weight:900; margin-bottom:3px; }
+                  @media print {
+                     body { padding: 12mm; }
+                     .group { page-break-inside: avoid; }
+                  }
+               </style>
+            </head>
+            <body>
+               <main class="report">
+                  <div class="top">
+                     <div>
+                        <h1>Звіт операційки</h1>
+                        <p class="subtitle">Покази, огляди, ПЗС, ЗС і ПЕРС за вибраними фільтрами</p>
+                     </div>
+                     <div class="printed">Сформовано<br/><b>${reportEscape(formatDate(new Date()))}</b></div>
+                  </div>
+                  <div class="filters">
+                     ${filterRows.map(([label, value]) => `<div class="filter"><span>${reportEscape(label)}</span><b>${reportEscape(value)}</b></div>`).join('')}
+                  </div>
+                  <div class="metrics">
+                     ${metricCards.map(([label, value, color]) => `<div class="metric" style="--accent:${color}"><span>${reportEscape(label)}</span><b>${reportEscape(value)}</b></div>`).join('')}
+                  </div>
+                  ${metrics.leader ? `<div class="leader">👑 Лідер періоду: ${reportEscape(metrics.leader.name)} · ${reportEscape(metrics.leader.score)} балів</div>` : ''}
+                  ${rowsHtml || '<p>За цими фільтрами подій немає.</p>'}
+               </main>
+               <script>
+                  window.addEventListener('load', () => {
+                     setTimeout(() => window.print(), 250);
+                  });
+               </script>
+            </body>
+         </html>`;
+
+      const printWindow = window.open('', '_blank', 'width=1280,height=900');
+      if (!printWindow) return;
+      printWindow.document.open();
+      printWindow.document.write(html);
+      printWindow.document.close();
+   };
+
    return (
       <Box>
          <Stack spacing={2}>
             <Stack spacing={1.15}>
-               <Stack spacing={0.5}>
-                  <Typography sx={{ color: theme.text, fontSize: 25, fontWeight: 950 }}>
-                     Операційка
-                  </Typography>
-                  <Typography sx={{ color: theme.textSoft, fontSize: 13 }}>
-                     Покази, огляди й ключові результати роботи по об’єктах та покупцях
-                  </Typography>
-               </Stack>
+                <Stack direction="row" spacing={1.2} alignItems="flex-start" justifyContent="space-between">
+                   <Stack spacing={0.5}>
+                      <Typography sx={{ color: theme.text, fontSize: 25, fontWeight: 950 }}>
+                         Операційка
+                      </Typography>
+                      <Typography sx={{ color: theme.textSoft, fontSize: 13 }}>
+                         Покази, огляди й ключові результати роботи по об’єктах та покупцях
+                      </Typography>
+                   </Stack>
+
+                   <Tooltip title="Друк звіту / зберегти PDF">
+                      <IconButton
+                         onMouseEnter={(event) => setReportMenuAnchor(event.currentTarget)}
+                         onClick={(event) => setReportMenuAnchor(event.currentTarget)}
+                         sx={{
+                            width: 38,
+                            height: 38,
+                            borderRadius: 2.2,
+                            color: mode === 'light' ? '#5b21b6' : '#f5f3ff',
+                            bgcolor: mode === 'light' ? 'rgba(124,58,237,0.10)' : 'rgba(255,255,255,0.06)',
+                            border: `1px solid ${mode === 'light' ? 'rgba(124,58,237,0.20)' : theme.border}`,
+                            boxShadow: mode === 'light' ? '0 10px 24px rgba(124,58,237,0.10)' : `0 12px 28px ${theme.glow}`,
+                            flexShrink: 0,
+                            '&:hover': {
+                               color: '#fff',
+                               bgcolor: theme.accent,
+                               borderColor: theme.accentLight,
+                            },
+                         }}
+                      >
+                         <PrintRoundedIcon fontSize="small" />
+                      </IconButton>
+                   </Tooltip>
+                   <Menu
+                      anchorEl={reportMenuAnchor}
+                      open={!!reportMenuAnchor}
+                      onClose={() => setReportMenuAnchor(null)}
+                      MenuListProps={{
+                         onMouseLeave: () => setReportMenuAnchor(null),
+                         dense: true,
+                      }}
+                      PaperProps={{
+                         sx: {
+                            mt: 0.8,
+                            minWidth: 250,
+                            borderRadius: 2.5,
+                            bgcolor: theme.bgPanel,
+                            color: theme.text,
+                            border: `1px solid ${theme.border}`,
+                            boxShadow: `0 18px 45px ${theme.glow}`,
+                            '& .MuiMenuItem-root': {
+                               gap: 1,
+                               borderRadius: 1.8,
+                               mx: 0.7,
+                               my: 0.35,
+                               fontWeight: 900,
+                            },
+                         },
+                      }}
+                   >
+                      <MenuItem
+                         onClick={() => {
+                            setReportMenuAnchor(null);
+                            printOperationsReport();
+                         }}
+                      >
+                         <PrintRoundedIcon sx={{ fontSize: 18, color: theme.accentLight }} />
+                         Друк фільтрів PDF
+                      </MenuItem>
+                      <MenuItem
+                         onClick={() => {
+                            setReportMenuAnchor(null);
+                            printManagersReport();
+                         }}
+                      >
+                         <PersonSearchRoundedIcon sx={{ fontSize: 18, color: '#38bdf8' }} />
+                         По менеджерах PDF
+                      </MenuItem>
+                      <MenuItem
+                         onClick={() => {
+                            setReportMenuAnchor(null);
+                            printPeriodsReport();
+                         }}
+                       >
+                          <AccessTimeRoundedIcon sx={{ fontSize: 18, color: '#f472b6' }} />
+                          По періодах PDF
+                       </MenuItem>
+                       <MenuItem
+                          onClick={() => {
+                             setReportMenuAnchor(null);
+                             printScoringRulesReport();
+                          }}
+                       >
+                          <PrintRoundedIcon sx={{ fontSize: 18, color: '#facc15' }} />
+                          Система балів PDF
+                       </MenuItem>
+                    </Menu>
+                 </Stack>
 
                <Box
                   sx={{
@@ -4992,23 +6034,48 @@ export default function OperationsPage() {
                   InputLabelProps={{ shrink: true }}
                />
 
-               <TextField
-                  size="small"
-                  type="date"
-                  label="Дата до"
+                <TextField
+                   size="small"
+                   type="date"
+                   label="Дата до"
                   value={dateToFilter}
                   onChange={(e) => setDateToFilter(e.target.value)}
-                  sx={{ ...fieldSx, width: 135 }}
-                  InputLabelProps={{ shrink: true }}
-               />
+                   sx={{ ...fieldSx, width: 135 }}
+                   InputLabelProps={{ shrink: true }}
+                />
 
-                <TextField
-                   label="Опис"
-                   placeholder="Пошук по опису, причині, нотатках..."
-                  size="small"
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  sx={{ ...fieldSx, width: { xs: '100%', md: 280, xl: 380 }, flexGrow: 1 }}
+                <Button
+                   size="small"
+                   disabled={!currentEmployeeId}
+                   onClick={() => setEmployeeFilter((prev) => prev === currentEmployeeId ? '' : currentEmployeeId)}
+                   sx={{
+                      width: 68,
+                      minWidth: 68,
+                      height: 36,
+                      px: 1,
+                      borderRadius: 2,
+                      textTransform: 'none',
+                      fontWeight: 950,
+                      color: employeeFilter === currentEmployeeId ? (mode === 'light' ? '#fff' : '#0b1020') : theme.text,
+                      bgcolor: employeeFilter === currentEmployeeId ? theme.accentLight : 'rgba(255,255,255,0.035)',
+                      border: `1px solid ${employeeFilter === currentEmployeeId ? theme.accentLight : theme.border}`,
+                      boxShadow: employeeFilter === currentEmployeeId ? `0 12px 26px ${theme.glow}` : 'none',
+                      '&:hover': {
+                         bgcolor: employeeFilter === currentEmployeeId ? theme.accent : 'rgba(255,255,255,0.06)',
+                         borderColor: theme.accentLight,
+                      },
+                   }}
+                >
+                   Мої
+                </Button>
+
+                 <TextField
+                    label="Опис"
+                    placeholder="Пошук по опису, причині, нотатках..."
+                   size="small"
+                   value={q}
+                   onChange={(e) => setQ(e.target.value)}
+                   sx={{ ...fieldSx, width: { xs: '100%', md: 230, xl: 320 }, flexGrow: 1 }}
                   InputProps={{
                      startAdornment: (
                         <InputAdornment position="start">
@@ -5026,6 +6093,7 @@ export default function OperationsPage() {
                       fieldSx={fieldSx}
                       menuProps={menuProps}
                       size="small"
+                      markShape="diamond"
                    />
                 </Box>
 
@@ -5092,12 +6160,9 @@ export default function OperationsPage() {
                    </IconButton>
                 </Tooltip>
 
-                <Tooltip title="Додати завдаток">
-                   <IconButton
-                      onClick={() => {
-                         resetDepositForm();
-                         setOpenDepositCreate(true);
-                      }}
+                 <Tooltip title="Додати завдаток">
+                    <IconButton
+                      onClick={openDepositDialog}
                       sx={{
                           width: 36,
                           height: 36,
@@ -5151,10 +6216,10 @@ export default function OperationsPage() {
                      mode={mode}
                      fieldSx={fieldSx}
                      menuProps={menuProps}
-                     employees={employees}
+                     employeeFilterOptions={employeeFilterOptions}
                      properties={properties}
                      leads={leads}
-                      selectedEmployeeFilter={selectedEmployeeFilter}
+                       selectedEmployeeFilterOption={selectedEmployeeFilterOption}
                       selectedPropertyFilter={selectedPropertyFilter}
                       selectedLeadFilter={selectedLeadFilter}
                       typeFilter={typeFilter}
@@ -5224,6 +6289,35 @@ export default function OperationsPage() {
             </DialogTitle>
             <DialogContent sx={{ pt: '20px !important' }}>
                <Grid container spacing={1.3}>
+                  {editingFinanceItem?.financeType !== 'reregistration' && (
+                     <Grid item xs={12}>
+                        <Autocomplete
+                           options={showingOptions}
+                           value={selectedDepositSourceOperationEvent}
+                           onChange={(_, value) => selectDepositSourceShowing(value)}
+                           onInputChange={(_, value, reason) => {
+                              if (reason === 'input') setSourceShowingSearch(value);
+                           }}
+                           getOptionLabel={(option) => option ? `${propertyTitle(option.property)} · ${option.lead?.name || 'Без покупця'}` : ''}
+                           isOptionEqualToValue={(option, value) => option?._id === value?._id}
+                           filterOptions={(options) => options}
+                           loading={sourceShowingsLoading}
+                           disabled={!!depositForm.sourcePreDepositEvent}
+                           noOptionsText={sourceShowingSearch.trim().length >= SHOWING_MIN_SEARCH_LENGTH ? 'Не знайдено' : `Введи мінімум ${SHOWING_MIN_SEARCH_LENGTH} символів або вибери з останніх 20`}
+                           renderOption={renderShowingOption}
+                           renderInput={(params) => (
+                              <TextField
+                                 {...params}
+                                 label="Пов’язаний показ"
+                                 helperText={depositForm.sourcePreDepositEvent ? 'Завдаток уже прив’язаний до ПЗС — показ наслідується з ПЗС' : 'Якщо ЗС виник одразу після показу — вибери показ, і форма підтягне об’єкт, покупця, рієлторів та фінпродукт'}
+                                 sx={fieldSx}
+                              />
+                           )}
+                           PaperComponent={(props) => <Box {...props} sx={{ minWidth: { xs: 320, sm: 640 }, bgcolor: theme.bgPanel, color: theme.text, border: `1px solid ${theme.border}` }} />}
+                           ListboxProps={{ sx: { maxHeight: 360 } }}
+                        />
+                     </Grid>
+                  )}
                   <Grid item xs={12} md={6}>
                      <Autocomplete
                         options={properties}
@@ -5899,13 +6993,12 @@ export default function OperationsPage() {
                      />
                   </Grid>
                   {form.type === 'review' && (form.reviewResult === 'historical' || form.reviewResult === 'new_object') && (
-                      <Grid item xs={12} md={6}>
+                      <Grid item xs={12} md={6} sx={{ mb: 0.8 }}>
                          <Box
                             sx={{
-                               minHeight: 56,
-                               height: '100%',
+                               minHeight: 52,
                                px: 1.4,
-                               py: 1,
+                               py: 0.85,
                                borderRadius: 2,
                                border: form.reviewResult === 'new_object' ? '1px solid rgba(20,184,166,0.34)' : '1px solid rgba(56,189,248,0.30)',
                                bgcolor: form.reviewResult === 'new_object'
@@ -6018,23 +7111,27 @@ export default function OperationsPage() {
                      <Divider sx={{ borderColor: theme.border, my: 0.5 }} />
                   </Grid>
 
-                  <Grid item xs={12} md={2}>
-                     <TextField select fullWidth label="Рієлтор об’єкта" value={form.objectRealtorKind} onChange={(e) => updateForm('objectRealtorKind', e.target.value)} sx={fieldSx} SelectProps={{ MenuProps: menuProps }}>
-                        <MenuItem value="employee">Наш</MenuItem>
-                        <MenuItem value="partner">СП</MenuItem>
-                        <MenuItem value="none">Нема</MenuItem>
-                     </TextField>
-                  </Grid>
-                  <Grid item xs={12} md={4}>
-                     {form.objectRealtorKind === 'partner' ? (
-                        <TextField fullWidth label="Ім’я СП по об’єкту" value={form.objectPartnerName} onChange={(e) => updateForm('objectPartnerName', e.target.value)} sx={fieldSx} />
-                     ) : (
-                        <TextField select fullWidth label="Наш рієлтор по об’єкту" value={form.objectRealtorEmployee} onChange={(e) => updateForm('objectRealtorEmployee', e.target.value)} sx={fieldSx} SelectProps={{ MenuProps: menuProps }}>
-                           <MenuItem value="">—</MenuItem>
-                           {employees.map((emp) => <MenuItem key={emp._id} value={emp._id}>{employeeName(emp)}</MenuItem>)}
-                        </TextField>
-                     )}
-                  </Grid>
+                  {form.type !== 'review' && (
+                     <>
+                        <Grid item xs={12} md={2}>
+                           <TextField select fullWidth label="Рієлтор об’єкта" value={form.objectRealtorKind} onChange={(e) => updateForm('objectRealtorKind', e.target.value)} sx={fieldSx} SelectProps={{ MenuProps: menuProps }}>
+                              <MenuItem value="employee">Наш</MenuItem>
+                              <MenuItem value="partner">СП</MenuItem>
+                              <MenuItem value="none">Нема</MenuItem>
+                           </TextField>
+                        </Grid>
+                        <Grid item xs={12} md={4}>
+                           {form.objectRealtorKind === 'partner' ? (
+                              <TextField fullWidth label="Ім’я СП по об’єкту" value={form.objectPartnerName} onChange={(e) => updateForm('objectPartnerName', e.target.value)} sx={fieldSx} />
+                           ) : (
+                              <TextField select fullWidth label="Наш рієлтор по об’єкту" value={form.objectRealtorEmployee} onChange={(e) => updateForm('objectRealtorEmployee', e.target.value)} sx={fieldSx} SelectProps={{ MenuProps: menuProps }}>
+                                 <MenuItem value="">—</MenuItem>
+                                 {employees.map((emp) => <MenuItem key={emp._id} value={emp._id}>{employeeName(emp)}</MenuItem>)}
+                              </TextField>
+                           )}
+                        </Grid>
+                     </>
+                  )}
                   {form.type === 'showing' && (
                      <>
                         <Grid item xs={12} md={2}>

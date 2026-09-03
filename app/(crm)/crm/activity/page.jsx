@@ -29,6 +29,8 @@ import FilterAltOffRoundedIcon from '@mui/icons-material/FilterAltOffRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import SwapHorizRoundedIcon from '@mui/icons-material/SwapHorizRounded';
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
+import HeartBrokenRoundedIcon from '@mui/icons-material/HeartBrokenRounded';
+import LockRoundedIcon from '@mui/icons-material/LockRounded';
 
 import { useCRMTheme } from '@/app/(crm)/crm/context/CRMThemeContext';
 
@@ -41,6 +43,7 @@ const ACTION_OPTIONS = [
    ['communication_added', 'Комунікація'],
    ['moved', 'Перенос'],
    ['deleted', 'Видалення'],
+   ['access_denied', 'Відмовлено'],
 ];
 
 const ENTITY_OPTIONS = [
@@ -61,6 +64,7 @@ const SOURCE_OPTIONS = [
    ['reamak', 'Reamak'],
    ['api', 'API'],
    ['import', 'Імпорт'],
+   ['properties', 'Об’єкти'],
 ];
 
 const SOURCE_LABELS = {
@@ -70,6 +74,7 @@ const SOURCE_LABELS = {
    reamak: 'Reamak',
    api: 'Через API',
    import: 'Імпорт',
+   properties: 'Об’єкти',
    unknown: 'Не визначено',
 };
 
@@ -121,6 +126,7 @@ const EXTRA_DIFF_FIELD_LABELS = {
    resultDescription: 'Опис результату',
    pzs: 'ПЗС',
    review: 'Огляд',
+   loss: 'Втрата',
    sourceOperationEvent: 'Повʼязаний показ',
    sourcePreDepositEvent: 'Повʼязана ПЗС',
    resultFinanceEvent: 'Фінансовий результат',
@@ -147,6 +153,13 @@ const EXTRA_DIFF_FIELD_LABELS = {
    agencyConditions: 'Умови агентства',
    resultSummary: 'Підсумок',
    notes: 'Нотатки',
+   actualityGroup: 'Актуальність',
+   actualityStatus: 'Причина актуальності',
+   actualityNote: 'Примітка по актуальності',
+   inactiveAt: 'Дата неактуальності',
+   inactiveNote: 'Нотатка неактуальності',
+   crmStage: 'Стадія CRM',
+   crmStageReason: 'Причина стадії CRM',
    tone: 'Тон',
    text: 'Текст',
    createdAt: 'Час події',
@@ -162,6 +175,7 @@ const OPERATION_TYPE_LABELS = {
    review: 'огляд',
    inspection: 'огляд',
    pzs: 'ПЗС',
+   loss: 'втрата',
    call: 'дзвінок',
    meeting: 'зустріч',
    other: 'операційну подію',
@@ -175,6 +189,7 @@ const DIFF_VALUE_LABELS = {
    review: 'огляд',
    inspection: 'огляд',
    pzs: 'ПЗС',
+   loss: 'втрата',
    deposit: 'завдаток',
    reregistration: 'ПЕРС',
    completed_success: 'виконано успішно',
@@ -183,6 +198,8 @@ const DIFF_VALUE_LABELS = {
    waiting: 'чекає',
    failed: 'зірвано',
    active: 'в роботі',
+   paused: 'пауза',
+   inactive: 'неактуальний',
    manual: 'вручну',
    not_taken: 'не взято в роботу',
    new_object: 'новий обʼєкт',
@@ -213,6 +230,7 @@ const actionMeta = {
    communication_added: { label: 'Комунікація', color: '#14b8a6', icon: <NotesRoundedIcon fontSize="small" /> },
    moved: { label: 'Перенос', color: '#06b6d4', icon: <SwapHorizRoundedIcon fontSize="small" /> },
    deleted: { label: 'Видалення', color: '#ef4444', icon: <DeleteOutlineRoundedIcon fontSize="small" /> },
+   access_denied: { label: 'Відмовлено', color: '#dc2626', icon: <LockRoundedIcon fontSize="small" /> },
 };
 
 function getFieldSx(theme, mode) {
@@ -323,6 +341,12 @@ function getActivityMessage(item) {
        if (item?.action === 'updated') return 'Оновлено запис в історії роботи';
        if (item?.action === 'deleted') return 'Видалено запис з історії роботи';
     }
+   if (item?.entityType === 'property') {
+      if (item?.action === 'access_denied') return item?.message || 'Спроба дії з об’єктом без доступу';
+      if (item?.action === 'status_changed') return 'Змінено статус об’єкта';
+      if (item?.action === 'updated') return 'Оновлено об’єкт';
+   }
+   if (item?.action === 'access_denied') return item?.message || 'Спроба дії без доступу';
     if (item?.action !== 'communication_added') return message;
 
    const labels = {
@@ -366,6 +390,9 @@ function getEventVisual(item) {
    if (operationType === 'pzs' || pzsStepType || /ПЗС/i.test(message)) {
       return { label: 'ПЗС', color: '#e879f9', icon: <MovingRoundedIcon sx={{ fontSize: 15 }} /> };
    }
+   if (operationType === 'loss' || /втрат/i.test(message)) {
+      return { label: 'Втрата', color: '#ef4444', icon: <HeartBrokenRoundedIcon sx={{ fontSize: 15 }} /> };
+   }
    if (operationType === 'showing' || /показ/i.test(message)) {
       return { label: 'Показ', color: '#8b5cf6', icon: <VisibilityRoundedIcon sx={{ fontSize: 15 }} /> };
    }
@@ -386,6 +413,7 @@ function summarize(items) {
       parsing: items.filter((item) => item.entityType === 'leadProperty').length,
       moved: items.filter((item) => item.action === 'moved').length,
       deleted: items.filter((item) => item.action === 'deleted').length,
+      denied: items.filter((item) => item.action === 'access_denied').length,
       topActor: topActor ? `${topActor[0]} · ${topActor[1]}` : '-',
    };
 }
@@ -598,6 +626,7 @@ export default function ActivityPage() {
       ['Парсинг', stats.parsing, <ImportExportRoundedIcon />],
       ['Переноси', stats.moved, <SwapHorizRoundedIcon />],
       ['Видалення', stats.deleted, <DeleteOutlineRoundedIcon />],
+      ['Відмови', stats.denied, <LockRoundedIcon />],
       ['Топ активність', stats.topActor, <PersonRoundedIcon />],
    ];
 

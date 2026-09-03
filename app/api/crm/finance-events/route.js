@@ -252,6 +252,16 @@ export const POST = async (request) => {
             },
             { runValidators: true }
          );
+      } else if (sourceOperationEvent) {
+         await OperationEvent.findOneAndUpdate(
+            { _id: sourceOperationEvent, type: 'showing' },
+            {
+               $set: {
+                  resultShowing: 'zs',
+               },
+            },
+            { runValidators: true }
+         );
       }
 
       const populated = await populateEvent(FinanceEvent.findById(item._id)).lean();

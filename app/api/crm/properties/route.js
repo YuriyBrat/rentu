@@ -2,6 +2,11 @@ import connectDB from '@/config/database';
 import Property from '@/models/Property';
 import OperationEvent from '@/models/OperationEvent';
 import FinanceEvent from '@/models/FinanceEvent';
+import {
+   OPERATION_EVENT_FIELDS,
+   logActivity,
+   pickActivitySnapshot,
+} from '@/utils/crm/activityLog';
 import { getSessionUser } from '@/utils/getSessionUser';
 import cloudinary from '@/config/cloudinary';
 import { Types } from 'mongoose';
@@ -47,6 +52,13 @@ function escapeRegex(value) {
    return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function getLossReasonFromStatus(status = '') {
+   const value = String(status || '').toLowerCase();
+   if (value.includes('реалізований не мною')) return 'sold_by_other';
+   if (value.includes('знятий з реалізації')) return 'owner_removed';
+   return 'other';
+}
+
 function emptyOperationSummary() {
    return {
       showingsCount: 0,
@@ -56,6 +68,7 @@ function emptyOperationSummary() {
       depositCount: 0,
       activeDepositCount: 0,
       persCount: 0,
+      lossCount: 0,
       lastOperationAt: null,
       lastFinanceAt: null,
    };
@@ -86,6 +99,7 @@ async function buildOperationSummaries(propertyIds = []) {
                      ],
                   },
                },
+               lossCount: { $sum: { $cond: [{ $eq: ['$type', 'loss'] }, 1, 0] } },
                newClientsCount: { $sum: { $cond: [{ $eq: ['$resultBuyer', 'new_client'] }, 1, 0] } },
                lastOperationAt: { $max: '$occurredAt' },
             },
@@ -143,6 +157,7 @@ async function buildOperationSummaries(propertyIds = []) {
       summary.showingsCount = row.showingsCount || 0;
       summary.pzsCount = row.pzsCount || 0;
       summary.activePzsCount = row.activePzsCount || 0;
+      summary.lossCount = row.lossCount || 0;
       summary.newClientsCount = row.newClientsCount || 0;
       summary.lastOperationAt = row.lastOperationAt || null;
    });
@@ -291,14 +306,20 @@ export const GET = async (req) => {
       const filter = {};
 
       if (assignee) {
-         filter.assignee = assignee;
+         const assigneeIds = assignee
+            .split(',')
+            .map((x) => x.trim())
+            .filter((id) => Types.ObjectId.isValid(id));
+         if (assigneeIds.length) {
+            filter.assignee = assigneeIds.length > 1 ? { $in: assigneeIds } : assigneeIds[0];
+         }
       }
 
       if (actualityGroup) {
          filter.actualityGroup = actualityGroup;
       }
 
-      if (crmStage) {
+      if (crmStage && !(crmStage === 'work' && actualityGroup === 'inactive')) {
          if (crmStage === 'work') {
             filter.$and = [{
                $or: [
@@ -361,10 +382,127 @@ export const GET = async (req) => {
       }
 
       const total = await Property.countDocuments(filter);
+      const now = new Date();
+      const sevenDaysAgo = new Date(now);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      const monthAgo = new Date(now);
+      monthAgo.setMonth(monthAgo.getMonth() - 1);
+      const threeMonthsAgo = new Date(now);
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+      const movementFilter = { ...filter };
+      delete movementFilter.actualityGroup;
+      const movementPropertyIds = await Property.distinct('_id', movementFilter);
+      const successfulPersStatuses = ['completed_success', 'completed_improved', 'completed_worse'];
+      const missingOriginDate = {
+         $or: [
+            { 'originAction.occurredAt': null },
+            { 'originAction.occurredAt': { $exists: false } },
+         ],
+      };
+      const missingInspectedDate = {
+         $or: [
+            { inspectedAt: null },
+            { inspectedAt: { $exists: false } },
+         ],
+      };
+      const appearedSince = (date) => ({
+         $and: [
+            movementFilter,
+            {
+               $or: [
+                  { 'originAction.occurredAt': { $gte: date } },
+                  {
+                     $and: [
+                        missingOriginDate,
+                        { inspectedAt: { $gte: date } },
+                     ],
+                  },
+                  {
+                     $and: [
+                        missingOriginDate,
+                        missingInspectedDate,
+                        { createdAt: { $gte: date } },
+                     ],
+                  },
+               ],
+            },
+         ],
+      });
+      const inactiveSince = (date) => ({
+         $and: [
+            movementFilter,
+            { actualityGroup: 'inactive' },
+            { actualityStatus: { $ne: 'Неактуальний. Реалізований мною' } },
+            {
+               $or: [
+                  { inactiveAt: { $gte: date } },
+                  {
+                     $and: [
+                        { $or: [{ inactiveAt: null }, { inactiveAt: { $exists: false } }] },
+                        { updatedAt: { $gte: date } },
+                     ],
+                  },
+               ],
+            },
+         ],
+      });
+      const soldSince = async (date) => {
+         const persIds = await FinanceEvent.distinct('property', {
+            financeType: 'reregistration',
+            status: { $in: successfulPersStatuses },
+            occurredAt: { $gte: date },
+            property: { $in: movementPropertyIds },
+         });
+
+         return new Set(
+            persIds
+               .map((id) => id?.toString?.() || String(id || ''))
+               .filter(Boolean)
+         ).size;
+      };
+
+      const portfolioRowsPromise = Property.aggregate([
+         { $match: filter },
+         {
+            $group: {
+               _id: { $ifNull: ['$currency', 'USD'] },
+               value: { $sum: { $ifNull: ['$cost', 0] } },
+               count: { $sum: 1 },
+            },
+         },
+         { $sort: { value: -1 } },
+      ]);
+
+      const [
+         created7d,
+         created30d,
+         created90d,
+         inactive7d,
+         inactive30d,
+         inactive90d,
+         sold7d,
+         sold30d,
+         sold90d,
+         portfolioRows,
+      ] = await Promise.all([
+         Property.countDocuments(appearedSince(sevenDaysAgo)),
+         Property.countDocuments(appearedSince(monthAgo)),
+         Property.countDocuments(appearedSince(threeMonthsAgo)),
+         Property.countDocuments(inactiveSince(sevenDaysAgo)),
+         Property.countDocuments(inactiveSince(monthAgo)),
+         Property.countDocuments(inactiveSince(threeMonthsAgo)),
+         soldSince(sevenDaysAgo),
+         soldSince(monthAgo),
+         soldSince(threeMonthsAgo),
+         portfolioRowsPromise,
+      ]);
 
       const rawItems = await Property.find(filter)
          .populate('assignee', 'name fullName surname phone email avatar')
          .populate('createdByEmployee', 'name fullName surname')
+         .populate('rentOptions.rentStory.rentedByEmployee', 'name fullName surname phone email avatar')
+         .populate('rentOptions.rentHistory.rentedByEmployee', 'name fullName surname phone email avatar')
          .populate('strategyApprovedBy', 'name fullName surname phone email avatar')
          .populate('shareLinks.createdByEmployee', 'name fullName surname')
          .sort({ updatedAt: -1 })
@@ -394,7 +532,29 @@ export const GET = async (req) => {
          };
       });
 
-      return new Response(JSON.stringify({ total, page, pageSize, items }), {
+      return new Response(JSON.stringify({
+         total,
+         page,
+         pageSize,
+         summary: {
+            total,
+            created7d,
+            created30d,
+            created90d,
+            inactive7d,
+            inactive30d,
+            inactive90d,
+            sold7d,
+            sold30d,
+            sold90d,
+            portfolioValue: portfolioRows.map((row) => ({
+               currency: row._id || 'USD',
+               value: row.value || 0,
+               count: row.count || 0,
+            })),
+         },
+         items,
+      }), {
          status: 200,
       });
    } catch (error) {
@@ -455,6 +615,18 @@ export const POST = async (request) => {
          if (!value) return undefined;
          return Types.ObjectId.isValid(value) ? value : undefined;
       };
+
+      const normalizeRentHistory = (items = []) =>
+         (Array.isArray(items) ? items : [])
+            .map((row) => ({
+               rentedAt: toDate(row?.rentedAt),
+               movedOutAt: toDate(row?.movedOutAt),
+               rentedByType: row?.rentedByType || '',
+               rentedByEmployee: toObjectId(row?.rentedByEmployee?._id || row?.rentedByEmployee) || null,
+               note: row?.note || '',
+               createdAt: toDate(row?.createdAt) || new Date(),
+            }))
+            .filter((row) => row.rentedAt || row.movedOutAt || row.rentedByType || row.rentedByEmployee || row.note);
 
       const parseOriginAction = () => {
          let raw = {};
@@ -555,7 +727,7 @@ export const POST = async (request) => {
       const statusRent = formData.get('statusRent') || 'rentNo';
 
       const assignee = formData.get('assignee') || '';
-      const createdByEmployee = formData.get('createdByEmployee') || '';
+      const createdByEmployee = sessionUser?.employeeId || formData.get('createdByEmployee') || '';
 
       let businessScore = {};
       try {
@@ -581,6 +753,8 @@ export const POST = async (request) => {
          lastContactAt: toDate(formData.get('lastContactAt')),
          nextCheckAt: toDate(formData.get('nextCheckAt')),
          actualityNote: formData.get('actualityNote') || '',
+         inactiveAt: toDate(formData.get('inactiveAt')),
+         inactiveNote: formData.get('inactiveNote') || '',
          crmStage: formData.get('crmStage') || 'rs',
          crmStageReason: formData.get('crmStageReason') || '',
          inspectedAt: toDate(formData.get('inspectedAt')),
@@ -656,12 +830,15 @@ export const POST = async (request) => {
             appliances: Array.isArray(rentOptions?.appliances) ? rentOptions.appliances.filter(Boolean) : [],
             rentStory: {
                rentedAt: toDate(rentOptions?.rentStory?.rentedAt),
+               rentedByType: rentOptions?.rentStory?.rentedByType || '',
+               rentedByEmployee: toObjectId(rentOptions?.rentStory?.rentedByEmployee?._id || rentOptions?.rentStory?.rentedByEmployee),
                // rentedBy: ['employee', 'owner', 'competitor', 'other'].includes(rentOptions?.rentStory?.rentedBy)
                //    ? rentOptions.rentStory.rentedBy
                //    : '',
                rentedBy: rentOptions?.rentStory?.rentedBy || '',
                note: rentOptions?.rentStory?.note || '',
             },
+            rentHistory: normalizeRentHistory(rentOptions?.rentHistory),
             lastActualizedAt: toDate(rentOptions?.lastActualizedAt),
          },
 
@@ -693,8 +870,56 @@ export const POST = async (request) => {
          return new Response(JSON.stringify({ error: 'title required' }), { status: 400 });
       }
 
+      if (propertyData.actualityGroup === 'inactive' && !propertyData.inactiveAt) {
+         return Response.json({ error: 'inactive date required' }, { status: 400 });
+      }
+
+      if (propertyData.actualityGroup === 'inactive' && !String(propertyData.inactiveNote || '').trim()) {
+         return Response.json({ error: 'inactive note required' }, { status: 400 });
+      }
+
       // 1. створюємо об'єкт без фото
       const created = await Property.create(propertyData);
+
+      if (created.actualityGroup === 'inactive' && String(created.actualityStatus || '').trim() !== 'Неактуальний. Реалізований мною') {
+         const lossNote =
+            String(created.inactiveNote || '').trim() ||
+            String(created.actualityNote || '').trim() ||
+            String(created.actualityStatus || '').trim();
+
+         const lossEvent = await OperationEvent.create({
+            type: 'loss',
+            occurredAt: created.inactiveAt || new Date(),
+            responsibleEmployee: created.assignee || sessionUser?.employeeId || null,
+            property: created._id,
+            propertyStage: created.actualityGroup || '',
+            resultDescription: lossNote,
+            loss: {
+               target: 'object',
+               reason: getLossReasonFromStatus(created.actualityStatus),
+               note: lossNote,
+               linkedPropertyStatus: created.actualityStatus || '',
+            },
+            createdByEmployee: sessionUser?.employeeId || null,
+         });
+
+         await logActivity({
+            entityType: 'operation',
+            entityId: lossEvent._id,
+            action: 'created',
+            sessionUser,
+            source: 'properties',
+            title: created.title || created.location_text || 'Втрата об’єкта',
+            message: 'Створено подію втрати об’єкта',
+            after: pickActivitySnapshot(lossEvent, OPERATION_EVENT_FIELDS),
+            meta: {
+               pageName: 'Об’єкти',
+               pagePath: '/crm/objects3',
+               operationType: 'loss',
+               propertyId: created._id,
+            },
+         });
+      }
 
       // 2. вантажимо фото послідовно у папки конкретного об'єкта
       const uploadedImages = [];

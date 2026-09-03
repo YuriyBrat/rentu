@@ -38,6 +38,7 @@ import HandshakeRoundedIcon from '@mui/icons-material/HandshakeRounded';
 import GavelRoundedIcon from '@mui/icons-material/GavelRounded';
 import MovingRoundedIcon from '@mui/icons-material/MovingRounded';
 import PersonAddAlt1RoundedIcon from '@mui/icons-material/PersonAddAlt1Rounded';
+import HeartBrokenRoundedIcon from '@mui/icons-material/HeartBrokenRounded';
 
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 
@@ -59,6 +60,10 @@ import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded';
 import TextSnippetRoundedIcon from '@mui/icons-material/TextSnippetRounded';
 import TelegramIcon from '@mui/icons-material/Telegram';
+import PlayCircleFilledRoundedIcon from '@mui/icons-material/PlayCircleFilledRounded';
+import VideoLibraryRoundedIcon from '@mui/icons-material/VideoLibraryRounded';
+import ArrowBackIosNewRoundedIcon from '@mui/icons-material/ArrowBackIosNewRounded';
+import ArrowForwardIosRoundedIcon from '@mui/icons-material/ArrowForwardIosRounded';
 
 import { BUSINESS_SCORE_OPTIONS } from '@/utils/crm/BusinessScore';
 
@@ -260,15 +265,402 @@ function DetailLine({ label, value, theme }) {
    );
 };
 
+function VideoPhotoBadge({ video, theme, mode, onOpen }) {
+   if (!video?.url) return null;
+
+   return (
+      <Tooltip title={video.title || getVideoPlatformLabel(video.platform)}>
+         <Box
+            component="button"
+            type="button"
+            onClick={(event) => {
+               event.stopPropagation();
+               onOpen?.(video);
+            }}
+            sx={{
+               position: 'absolute',
+               right: 7,
+               top: '50%',
+               transform: 'translateY(-50%)',
+               width: '18%',
+               minWidth: 28,
+               maxWidth: 36,
+               aspectRatio: '1 / 1',
+               borderRadius: '50%',
+               p: 0,
+               display: 'inline-flex',
+               alignItems: 'center',
+               justifyContent: 'center',
+               color: '#fff7ed',
+               zIndex: 4,
+               cursor: 'pointer',
+               background: mode === 'light'
+                  ? 'linear-gradient(135deg, #fb923c, #f97316)'
+                  : 'linear-gradient(135deg, rgba(251,146,60,0.98), rgba(234,88,12,0.94))',
+               border: '2px solid rgba(255,255,255,0.82)',
+               boxShadow: '0 10px 26px rgba(249,115,22,0.42), 0 0 0 0 rgba(251,146,60,0.34)',
+               animation: 'videoPulse 2s ease-in-out infinite',
+               transition: 'transform 150ms ease, box-shadow 150ms ease',
+               '@keyframes videoPulse': {
+                  '0%, 100%': { boxShadow: '0 10px 26px rgba(249,115,22,0.42), 0 0 0 0 rgba(251,146,60,0.36)' },
+                  '50%': { boxShadow: '0 12px 30px rgba(249,115,22,0.5), 0 0 0 8px rgba(251,146,60,0)' },
+               },
+               '&:hover': {
+                  transform: 'translateY(-50%) scale(1.08)',
+                  boxShadow: '0 14px 34px rgba(249,115,22,0.54)',
+               },
+            }}
+            onMouseDown={(event) => event.stopPropagation()}
+         >
+            <PlayCircleFilledRoundedIcon sx={{ fontSize: 25 }} />
+         </Box>
+      </Tooltip>
+   );
+}
+
+function PropertyVideosPanel({ item, theme, mode, canManage, onAdd, onOpen, onEdit, onDelete }) {
+   const videos = Array.isArray(item?.propertyVideos) ? item.propertyVideos : [];
+
+   return (
+      <DetailBox title="Відео" theme={theme} mode={mode}>
+         <Stack spacing={0.7}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
+               <Typography sx={{ color: theme.textSoft, fontSize: 12.5 }}>
+                  {videos.length ? `${videos.length} відео` : 'Відео ще немає'}
+               </Typography>
+
+               {canManage && (
+                  <Tooltip title="Додати відео">
+                     <IconButton size="small" onClick={onAdd} sx={{ color: theme.text, border: `1px solid ${theme.border}` }}>
+                        <AddRoundedIcon fontSize="small" />
+                     </IconButton>
+                  </Tooltip>
+               )}
+            </Stack>
+
+            {videos.map((video) => (
+               <Box
+                  key={video._id || video.url}
+                  sx={{
+                     display: 'grid',
+                     gridTemplateColumns: { xs: '1fr auto', md: '96px minmax(140px, 1fr) 90px auto' },
+                     gap: 0.8,
+                     alignItems: 'center',
+                     p: 0.8,
+                     borderRadius: 2,
+                     border: `1px solid ${theme.border}`,
+                     bgcolor: mode === 'light' ? 'rgba(239,68,68,0.035)' : 'rgba(255,255,255,0.025)',
+                  }}
+               >
+                  <Chip
+                     label={getVideoPlatformLabel(video.platform)}
+                     size="small"
+                     color={video.platform === 'youtube' ? 'error' : 'primary'}
+                     sx={{ height: 21, fontSize: 10.5, fontWeight: 900 }}
+                  />
+
+                  <Box
+                     component="button"
+                     type="button"
+                     onClick={() => onOpen?.(video)}
+                     sx={{
+                        minWidth: 0,
+                        color: theme.text,
+                        textAlign: 'left',
+                        fontSize: 12.5,
+                        fontWeight: 900,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        border: 0,
+                        p: 0,
+                        bgcolor: 'transparent',
+                        cursor: 'pointer',
+                     }}
+                  >
+                     {video.title || video.url}
+                  </Box>
+
+                  <Chip
+                     label={video.isMain ? 'Головне' : getVideoTypeLabel(video.type)}
+                     size="small"
+                     sx={{
+                        height: 21,
+                        fontSize: 10.5,
+                        fontWeight: 900,
+                        color: video.isMain ? '#fde68a' : theme.textSoft,
+                        bgcolor: video.isMain ? 'rgba(245,158,11,0.16) !important' : 'rgba(255,255,255,0.035) !important',
+                        border: video.isMain ? '1px solid rgba(245,158,11,0.28)' : `1px solid ${theme.border}`,
+                        display: { xs: 'none', md: 'inline-flex' },
+                     }}
+                  />
+
+                  <Stack direction="row" spacing={0.45}>
+                     <Tooltip title="Відкрити">
+                        <IconButton onClick={() => onOpen?.(video)} size="small" sx={{ color: theme.text }}>
+                           <OpenInNewRoundedIcon fontSize="small" />
+                        </IconButton>
+                     </Tooltip>
+                     {canManage && (
+                        <>
+                           <Tooltip title="Редагувати">
+                              <IconButton size="small" onClick={() => onEdit?.(video)} sx={{ color: theme.accentLight }}>
+                                 <EditRoundedIcon fontSize="small" />
+                              </IconButton>
+                           </Tooltip>
+                           <Tooltip title="Видалити">
+                              <IconButton size="small" onClick={() => onDelete?.(video)} sx={{ color: '#fca5a5' }}>
+                                 <DeleteOutlineRoundedIcon fontSize="small" />
+                              </IconButton>
+                           </Tooltip>
+                        </>
+                     )}
+                  </Stack>
+               </Box>
+            ))}
+         </Stack>
+      </DetailBox>
+   );
+}
+
+function VideoGalleryDialog({ open, onClose, videos, activeIndex, onSelect, theme, mode }) {
+   const safeVideos = Array.isArray(videos) ? videos : [];
+   const currentIndex = Math.min(Math.max(activeIndex || 0, 0), Math.max(safeVideos.length - 1, 0));
+   const current = safeVideos[currentIndex] || null;
+   const embedUrl = current?.platform === 'youtube' ? getYouTubeEmbedUrl(current.url) : '';
+   const hasMany = safeVideos.length > 1;
+
+   const go = (step) => {
+      if (!safeVideos.length) return;
+      const next = (currentIndex + step + safeVideos.length) % safeVideos.length;
+      onSelect?.(next);
+   };
+
+   return (
+      <Dialog
+         open={open}
+         onClose={onClose}
+         fullWidth
+         maxWidth="md"
+         PaperProps={{
+            sx: {
+               borderRadius: 4,
+               overflow: 'hidden',
+               bgcolor: theme.bgPanel,
+               color: theme.text,
+               border: `1px solid ${theme.border}`,
+            },
+         }}
+      >
+         <DialogTitle sx={{ fontWeight: 950, display: 'flex', alignItems: 'center', gap: 1 }}>
+            <PlayCircleFilledRoundedIcon sx={{ color: '#fb923c' }} />
+            {current?.title || 'Відео об’єкта'}
+         </DialogTitle>
+
+         <DialogContent>
+            <Box
+               sx={{
+                  position: 'relative',
+                  aspectRatio: '16 / 9',
+                  borderRadius: 3,
+                  overflow: 'hidden',
+                  bgcolor: mode === 'light' ? '#111827' : '#05050a',
+                  border: `1px solid ${theme.border}`,
+               }}
+            >
+               {embedUrl ? (
+                  <Box
+                     component="iframe"
+                     src={embedUrl}
+                     title={current?.title || 'Відео об’єкта'}
+                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                     allowFullScreen
+                     sx={{
+                        width: '100%',
+                        height: '100%',
+                        border: 0,
+                        display: 'block',
+                     }}
+                  />
+               ) : (
+                  <Stack
+                     spacing={1.2}
+                     alignItems="center"
+                     justifyContent="center"
+                     sx={{ width: '100%', height: '100%', p: 3, textAlign: 'center' }}
+                  >
+                     <VideoLibraryRoundedIcon sx={{ color: '#fb923c', fontSize: 54 }} />
+                     <Typography sx={{ color: theme.text, fontWeight: 950 }}>
+                        {getVideoPlatformLabel(current?.platform)} відкриється на платформі
+                     </Typography>
+                     <Typography sx={{ color: theme.textSoft, fontSize: 13, maxWidth: 460 }}>
+                        Для цього типу відео краще використати зовнішній перегляд, щоб усе коректно відкрилося.
+                     </Typography>
+                  </Stack>
+               )}
+
+               {hasMany && (
+                  <>
+                     <IconButton
+                        onClick={() => go(-1)}
+                        sx={{
+                           position: 'absolute',
+                           left: 10,
+                           top: '50%',
+                           transform: 'translateY(-50%)',
+                           color: '#fff',
+                           bgcolor: 'rgba(0,0,0,0.36)',
+                           '&:hover': { bgcolor: 'rgba(0,0,0,0.54)' },
+                        }}
+                     >
+                        <ArrowBackIosNewRoundedIcon fontSize="small" />
+                     </IconButton>
+                     <IconButton
+                        onClick={() => go(1)}
+                        sx={{
+                           position: 'absolute',
+                           right: 10,
+                           top: '50%',
+                           transform: 'translateY(-50%)',
+                           color: '#fff',
+                           bgcolor: 'rgba(0,0,0,0.36)',
+                           '&:hover': { bgcolor: 'rgba(0,0,0,0.54)' },
+                        }}
+                     >
+                        <ArrowForwardIosRoundedIcon fontSize="small" />
+                     </IconButton>
+                  </>
+               )}
+            </Box>
+
+            {current?.note && (
+               <Typography sx={{ color: theme.textSoft, fontSize: 13, lineHeight: 1.55, mt: 1.1 }}>
+                  {current.note}
+               </Typography>
+            )}
+
+            {hasMany && (
+               <Stack direction="row" spacing={0.7} useFlexGap flexWrap="wrap" sx={{ mt: 1.1 }}>
+                  {safeVideos.map((video, index) => (
+                     <Chip
+                        key={video._id || video.url}
+                        icon={video.isMain ? <PlayCircleFilledRoundedIcon /> : undefined}
+                        label={video.title || getVideoTypeLabel(video.type)}
+                        size="small"
+                        onClick={() => onSelect?.(index)}
+                        sx={{
+                           height: 26,
+                           maxWidth: 190,
+                           color: index === currentIndex ? '#111827' : theme.text,
+                           bgcolor: index === currentIndex
+                              ? '#fb923c !important'
+                              : mode === 'light'
+                                 ? 'rgba(249,115,22,0.08) !important'
+                                 : 'rgba(255,255,255,0.045) !important',
+                           border: index === currentIndex
+                              ? '1px solid rgba(251,146,60,0.9)'
+                              : `1px solid ${theme.border}`,
+                           fontWeight: 900,
+                           '& .MuiChip-label': {
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                           },
+                        }}
+                     />
+                  ))}
+               </Stack>
+            )}
+         </DialogContent>
+
+         <DialogActions sx={{ px: 3, pb: 2 }}>
+            <Button
+               onClick={() => navigator.clipboard.writeText(current?.url || '')}
+               disabled={!current?.url}
+               startIcon={<ContentCopyRoundedIcon />}
+               sx={{ color: theme.accentLight, fontWeight: 900 }}
+            >
+               Копіювати
+            </Button>
+
+            <Button
+               component="a"
+               href={current?.url || '#'}
+               target="_blank"
+               rel="noreferrer"
+               disabled={!current?.url}
+               startIcon={<OpenInNewRoundedIcon />}
+               sx={{ color: '#fb923c', fontWeight: 900 }}
+            >
+               Відкрити
+            </Button>
+
+            <Button onClick={onClose} sx={{ color: theme.textSoft }}>
+               Закрити
+            </Button>
+         </DialogActions>
+      </Dialog>
+   );
+}
+
 
 function getPlatformLabel(platform) {
    if (platform === 'olx') return 'OLX';
    if (platform === 'dimria') return 'DIM.RIA';
-   if (platform === 'rieltor') return 'RIELTOR';
+   if (platform === 'rieltor') return 'RIELTOR.UA';
+   if (platform === 'lun') return 'LUN.UA';
+   if (platform === 'flatfy') return 'Flatfy.ua';
+   if (platform === 'real-estate') return 'Real-estate';
    if (platform === 'facebook') return 'Facebook';
    if (platform === 'instagram') return 'Instagram';
+   if (platform === 'tiktok') return 'TikTok';
+   if (platform === 'telegram') return 'Telegram';
    if (platform === 'site') return 'Сайт';
    return 'Інше';
+}
+
+function getVideoPlatformLabel(platform) {
+   if (platform === 'youtube') return 'YouTube';
+   if (platform === 'tiktok') return 'TikTok';
+   if (platform === 'instagram') return 'Instagram';
+   if (platform === 'facebook') return 'Facebook';
+   if (platform === 'telegram') return 'Telegram';
+   if (platform === 'drive') return 'Drive';
+   return 'Інше';
+}
+
+function getVideoTypeLabel(type) {
+   if (type === 'main') return 'Основне';
+   if (type === 'short_review') return 'Короткий огляд';
+   if (type === 'storytelling') return 'Сторітелінг';
+   if (type === 'full_review') return 'Повний огляд';
+   return 'Інше';
+}
+
+function getMainVideo(item) {
+   const videos = Array.isArray(item?.propertyVideos) ? item.propertyVideos : [];
+   return videos.find((video) => video?.isMain) || videos[0] || null;
+}
+
+function getYouTubeEmbedUrl(url) {
+   if (!url) return '';
+
+   try {
+      const parsed = new URL(url);
+      const host = parsed.hostname.replace(/^www\./, '');
+      let id = '';
+
+      if (host === 'youtu.be') {
+         id = parsed.pathname.split('/').filter(Boolean)[0] || '';
+      } else if (host.includes('youtube.com')) {
+         if (parsed.pathname.startsWith('/embed/')) id = parsed.pathname.split('/')[2] || '';
+         else if (parsed.pathname.startsWith('/shorts/')) id = parsed.pathname.split('/')[2] || '';
+         else id = parsed.searchParams.get('v') || '';
+      }
+
+      return id ? `https://www.youtube.com/embed/${id}` : '';
+   } catch (error) {
+      return '';
+   }
 }
 
 function getAdStatusLabel(status) {
@@ -704,6 +1096,16 @@ function getOperationMarker(summary = {}) {
       };
    }
 
+   if ((summary?.lossCount || 0) > 0) {
+      return {
+         label: 'Втрата',
+         title: 'Втрата об’єкта',
+         color: '#ef4444',
+         glow: 'rgba(239,68,68,0.42)',
+         icon: <HeartBrokenRoundedIcon sx={{ fontSize: 58 }} />,
+      };
+   }
+
    if ((summary?.activeDepositCount || 0) > 0) {
       return {
          label: 'ЗС',
@@ -802,7 +1204,8 @@ function OperationCounters({ summary = {}, theme, mode }) {
    const hasCounters =
       (summary?.showingsCount || 0) ||
       (summary?.pzsCount || 0) ||
-      (summary?.newClientsCount || 0);
+      (summary?.newClientsCount || 0) ||
+      (summary?.lossCount || 0);
 
    if (!hasCounters) return null;
 
@@ -832,6 +1235,14 @@ function OperationCounters({ summary = {}, theme, mode }) {
             theme={theme}
             mode={mode}
          />
+         <MiniCounter
+            icon={<HeartBrokenRoundedIcon sx={{ fontSize: 15 }} />}
+            label="Втрати"
+            value={summary.lossCount}
+            color="#ef4444"
+            theme={theme}
+            mode={mode}
+         />
       </Stack>
    );
 }
@@ -839,12 +1250,31 @@ function OperationCounters({ summary = {}, theme, mode }) {
 
 
 
-export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRefresh, showAdvertisingRows = true }) {
+export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRefresh, showAdvertisingRows = true, canManage = false }) {
    const [open, setOpen] = useState(false);
 
    const [adTitle, setAdTitle] = useState('');
    const [adText, setAdText] = useState('');
    const [adNote, setAdNote] = useState('');
+   const [editingAdText, setEditingAdText] = useState(null);
+   const [selectedAdText, setSelectedAdText] = useState(null);
+   const [adTextDeleteOpen, setAdTextDeleteOpen] = useState(false);
+   const [adTextDeleting, setAdTextDeleting] = useState(false);
+
+   const [openVideoDialog, setOpenVideoDialog] = useState(false);
+   const [videoPlatform, setVideoPlatform] = useState('youtube');
+   const [videoType, setVideoType] = useState('main');
+   const [videoTitle, setVideoTitle] = useState('');
+   const [videoUrl, setVideoUrl] = useState('');
+   const [videoNote, setVideoNote] = useState('');
+   const [videoCreatedAt, setVideoCreatedAt] = useState(getNowLocal());
+   const [videoIsMain, setVideoIsMain] = useState('yes');
+   const [editingVideo, setEditingVideo] = useState(null);
+   const [selectedVideo, setSelectedVideo] = useState(null);
+   const [videoDeleteOpen, setVideoDeleteOpen] = useState(false);
+   const [videoDeleting, setVideoDeleting] = useState(false);
+   const [videoGalleryOpen, setVideoGalleryOpen] = useState(false);
+   const [videoGalleryIndex, setVideoGalleryIndex] = useState(0);
 
 
 
@@ -852,6 +1282,9 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
    const [adUrl, setAdUrl] = useState('');
    const [adTitleLink, setAdTitleLink] = useState('');
    const [adNoteLink, setAdNoteLink] = useState('');
+   const [adClosedAt, setAdClosedAt] = useState('');
+   const [adClosedNote, setAdClosedNote] = useState('');
+   const [editingAdvertisingLink, setEditingAdvertisingLink] = useState(null);
 
 
    const [linksAnchor, setLinksAnchor] = useState(null);
@@ -1010,17 +1443,21 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
    const handleAddAdvertisingLink = async () => {
       if (!adUrl.trim()) return;
 
+      const linkId = editingAdvertisingLink?._id || '';
       const res = await fetch(`/api/crm/properties/${item._id}/advertising-links`, {
-         method: 'POST',
+         method: linkId ? 'PATCH' : 'POST',
          headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify({
+            linkId,
             sourceType: adSourceType,
             platform: adPlatform,
             url: adUrl.trim(),
             title: adTitleLink.trim(),
             note: adNoteLink.trim(),
-            status: 'active',
+            status: adClosedAt ? 'archived' : 'active',
             createdAt: adCreatedAt || '',
+            closedAt: adClosedAt || '',
+            closedNote: adClosedNote.trim(),
          }),
       });
 
@@ -1034,10 +1471,46 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
       setAdUrl('');
       setAdTitleLink('');
       setAdNoteLink('');
+      setAdClosedAt('');
+      setAdClosedNote('');
+      setEditingAdvertisingLink(null);
       setOpenAddLink(false);
       setAdCreatedAt(getNowLocal());
 
       await onRefresh?.();
+   };
+
+   const closeAdvertisingLinkDialog = () => {
+      setOpenAddLink(false);
+      setEditingAdvertisingLink(null);
+      setAdClosedAt('');
+      setAdClosedNote('');
+   };
+
+   const openCreateAdvertisingLink = () => {
+      setEditingAdvertisingLink(null);
+      setAdSourceType('ours');
+      setAdPlatform('olx');
+      setAdUrl('');
+      setAdTitleLink('');
+      setAdNoteLink('');
+      setAdClosedAt('');
+      setAdClosedNote('');
+      setAdCreatedAt(getNowLocal());
+      setOpenAddLink(true);
+   };
+
+   const openEditAdvertisingLink = (link) => {
+      setEditingAdvertisingLink(link || null);
+      setAdSourceType(link?.sourceType || 'ours');
+      setAdPlatform(link?.platform || 'olx');
+      setAdUrl(link?.url || '');
+      setAdTitleLink(link?.title || '');
+      setAdNoteLink(link?.note || '');
+      setAdCreatedAt(toLocalInputValue(link?.createdAt));
+      setAdClosedAt(link?.closedAt ? toLocalInputValue(link.closedAt) : getNowLocal());
+      setAdClosedNote(link?.closedNote || '');
+      setOpenAddLink(true);
    };
 
    const handleAddNote = async () => {
@@ -1125,10 +1598,12 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
    const handleAddAdText = async () => {
       if (!adText.trim()) return;
 
+      const textId = editingAdText?._id || '';
       const res = await fetch(`/api/crm/properties/${item._id}/add-ad-text`, {
-         method: 'POST',
+         method: textId ? 'PATCH' : 'POST',
          headers: { 'Content-Type': 'application/json' },
          body: JSON.stringify({
+            textId,
             title: adTitle.trim(),
             text: adText.trim(),
             note: adNote.trim(),
@@ -1143,8 +1618,147 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
       setAdTitle('');
       setAdText('');
       setAdNote('');
+      setEditingAdText(null);
       setOpenAdText(false);
 
+      await onRefresh?.();
+   };
+
+   const openCreateAdText = () => {
+      setEditingAdText(null);
+      setAdTitle('');
+      setAdText('');
+      setAdNote('');
+      setOpenAdText(true);
+   };
+
+   const openEditAdText = (text) => {
+      setEditingAdText(text || null);
+      setAdTitle(text?.title || '');
+      setAdText(text?.text || '');
+      setAdNote(text?.note || '');
+      setOpenAdText(true);
+   };
+
+   const closeAdTextDialog = () => {
+      setOpenAdText(false);
+      setEditingAdText(null);
+   };
+
+   const openDeleteAdTextDialog = (text) => {
+      setSelectedAdText(text || null);
+      setAdTextDeleteOpen(true);
+   };
+
+   const confirmDeleteAdText = async () => {
+      if (!selectedAdText?._id) return;
+
+      setAdTextDeleting(true);
+      const res = await fetch(`/api/crm/properties/${item._id}/add-ad-text`, {
+         method: 'DELETE',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ textId: selectedAdText._id }),
+      });
+      setAdTextDeleting(false);
+
+      if (!res.ok) {
+         alert('Не вдалося видалити рекламний текст');
+         return;
+      }
+
+      setSelectedAdText(null);
+      setAdTextDeleteOpen(false);
+      await onRefresh?.();
+   };
+
+   const closeVideoDialog = () => {
+      setOpenVideoDialog(false);
+      setEditingVideo(null);
+   };
+
+   const openCreateVideo = () => {
+      const hasVideos = Array.isArray(item?.propertyVideos) && item.propertyVideos.length > 0;
+      setEditingVideo(null);
+      setVideoPlatform('youtube');
+      setVideoType('main');
+      setVideoTitle('');
+      setVideoUrl('');
+      setVideoNote('');
+      setVideoCreatedAt(getNowLocal());
+      setVideoIsMain(hasVideos ? 'no' : 'yes');
+      setOpenVideoDialog(true);
+   };
+
+   const openEditVideo = (video) => {
+      setEditingVideo(video || null);
+      setVideoPlatform(video?.platform || 'youtube');
+      setVideoType(video?.type || 'main');
+      setVideoTitle(video?.title || '');
+      setVideoUrl(video?.url || '');
+      setVideoNote(video?.note || '');
+      setVideoCreatedAt(toLocalInputValue(video?.createdAt));
+      setVideoIsMain(video?.isMain ? 'yes' : 'no');
+      setOpenVideoDialog(true);
+   };
+
+   const openVideoGallery = (video) => {
+      const videos = Array.isArray(item?.propertyVideos) ? item.propertyVideos : [];
+      const index = Math.max(0, videos.findIndex((entry) => String(entry?._id || entry?.url) === String(video?._id || video?.url)));
+      setVideoGalleryIndex(index);
+      setVideoGalleryOpen(true);
+   };
+
+   const handleSaveVideo = async () => {
+      if (!videoUrl.trim()) return;
+
+      const videoId = editingVideo?._id || '';
+      const res = await fetch(`/api/crm/properties/${item._id}/videos`, {
+         method: videoId ? 'PATCH' : 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({
+            videoId,
+            platform: videoPlatform,
+            type: videoType,
+            title: videoTitle.trim(),
+            url: videoUrl.trim(),
+            note: videoNote.trim(),
+            createdAt: videoCreatedAt || '',
+            isMain: videoIsMain === 'yes',
+         }),
+      });
+
+      if (!res.ok) {
+         alert('Не вдалося зберегти відео');
+         return;
+      }
+
+      closeVideoDialog();
+      await onRefresh?.();
+   };
+
+   const openDeleteVideoDialog = (video) => {
+      setSelectedVideo(video || null);
+      setVideoDeleteOpen(true);
+   };
+
+   const confirmDeleteVideo = async () => {
+      if (!selectedVideo?._id) return;
+
+      setVideoDeleting(true);
+      const res = await fetch(`/api/crm/properties/${item._id}/videos`, {
+         method: 'DELETE',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ videoId: selectedVideo._id }),
+      });
+      setVideoDeleting(false);
+
+      if (!res.ok) {
+         alert('Не вдалося видалити відео');
+         return;
+      }
+
+      setSelectedVideo(null);
+      setVideoDeleteOpen(false);
       await onRefresh?.();
    };
 
@@ -1436,6 +2050,8 @@ ${url}`;
    };
 
    const financeProduct = getFinanceProduct(item);
+   const propertyVideos = Array.isArray(item?.propertyVideos) ? item.propertyVideos : [];
+   const mainVideo = getMainVideo(item);
 
    const actionIconSx = {
       color: theme.text,
@@ -1557,11 +2173,17 @@ ${url}`;
                         setPhotoIndex(0);
                         setPhotoOpen(true);
                      }}
-                  />
+                   />
 
-                  <OperationPhotoMarker marker={operationMarker} />
+                   <OperationPhotoMarker marker={operationMarker} />
+                   <VideoPhotoBadge
+                      video={mainVideo}
+                      theme={theme}
+                      mode={mode}
+                      onOpen={openVideoGallery}
+                   />
 
-                  <Stack
+                   <Stack
                      direction="row"
                      spacing={0.45}
                      className="tagControls"
@@ -1760,17 +2382,13 @@ ${url}`;
                         </IconButton>
                      </Tooltip>
 
-                     <Tooltip title="Редагувати">
-                        <IconButton onClick={() => onEdit?.(item)} sx={actionIconSx}>
-                           <EditRoundedIcon />
-                        </IconButton>
-                     </Tooltip>
-
-                     <Tooltip title="Видалити">
-                        <IconButton onClick={() => onDelete?.(item)} sx={deleteIconSx}>
-                           <DeleteOutlineRoundedIcon />
-                        </IconButton>
-                     </Tooltip>
+                     {canManage && (
+                        <Tooltip title="Редагувати">
+                           <IconButton onClick={() => onEdit?.(item)} sx={actionIconSx}>
+                              <EditRoundedIcon />
+                           </IconButton>
+                        </Tooltip>
+                     )}
 
                      <Tooltip title="Поділитися">
                         <IconButton onClick={() => setOpenShare(true)} sx={actionIconSx}>
@@ -1796,12 +2414,15 @@ ${url}`;
                actionIconSx={actionIconSx}
                open={showAdvertisingPanel}
                onToggleOpen={() => setShowAdvertisingPanel((p) => !p)}
-               onAddLink={() => {
-                  setAdCreatedAt(getNowLocal());
-                  setOpenAddLink(true);
+                onAddLink={() => {
+                  openCreateAdvertisingLink();
                }}
-               onAddText={() => setOpenAdText(true)}
-            />
+                onAddText={openCreateAdText}
+                onEditText={openEditAdText}
+                onDeleteText={openDeleteAdTextDialog}
+                onEditLink={openEditAdvertisingLink}
+                canManage={canManage}
+             />
          </Collapse>
 
 
@@ -1848,6 +2469,7 @@ ${url}`;
                         <DetailLine label="Тип угоди" value={item?.type_deal} theme={theme} />
                         <DetailLine label="Ціна продажу" value={formatMoney(item?.cost, item?.currency)} theme={theme} />
                         <DetailLine label="Адреса" value={locationText} theme={theme} />
+                        <DetailLine label="Дата появи (огляд)" value={formatDate(item?.originAction?.occurredAt || item?.inspectedAt)} theme={theme} />
                         <DetailLine label="Створено" value={formatDate(item?.createdAt)} theme={theme} />
                      </DetailBox>
                   </Grid>
@@ -1874,18 +2496,31 @@ ${url}`;
                      </DetailBox>
                   </Grid>
 
-                  {!!item?.description && (
-                     <Grid item xs={12}>
-                        <DetailBox title="Опис" theme={theme} mode={mode}>
-                           <Typography sx={{ color: theme?.textSoft || 'rgba(255,255,255,0.72)', lineHeight: 1.55 }}>
-                              {item.description}
-                           </Typography>
-                        </DetailBox>
-                     </Grid>
-                  )}
+                   {!!item?.description && (
+                      <Grid item xs={12}>
+                         <DetailBox title="Опис" theme={theme} mode={mode}>
+                            <Typography sx={{ color: theme?.textSoft || 'rgba(255,255,255,0.72)', lineHeight: 1.55 }}>
+                               {item.description}
+                            </Typography>
+                         </DetailBox>
+                      </Grid>
+                   )}
 
-               </Grid>
-            </Box>
+                   <Grid item xs={12} lg={6}>
+                      <PropertyVideosPanel
+                         item={item}
+                         theme={theme}
+                         mode={mode}
+                         canManage={canManage}
+                         onAdd={openCreateVideo}
+                         onOpen={openVideoGallery}
+                         onEdit={openEditVideo}
+                         onDelete={openDeleteVideoDialog}
+                      />
+                   </Grid>
+
+                </Grid>
+             </Box>
 
 
             <Grid item xs={12} lg={6}>
@@ -1899,13 +2534,37 @@ ${url}`;
                   onDelete={handleDeleteWorkNote}
                />
             </Grid>
-         </Collapse>
+
+            {canManage && (
+               <Box sx={{ display: 'flex', justifyContent: 'flex-end', px: 1.35, pb: 1.35 }}>
+                  <Button
+                     onClick={() => onDelete?.(item)}
+                     startIcon={<DeleteOutlineRoundedIcon />}
+                     sx={{
+                        borderRadius: 2,
+                        px: 1.6,
+                        py: 0.75,
+                        color: '#fb7185',
+                        fontWeight: 900,
+                        border: '1px solid rgba(251,113,133,0.32)',
+                        bgcolor: 'rgba(127,29,29,0.08)',
+                        '&:hover': {
+                           bgcolor: 'rgba(127,29,29,0.16)',
+                           borderColor: 'rgba(251,113,133,0.58)',
+                        },
+                     }}
+                  >
+                     Видалити об’єкт
+                  </Button>
+               </Box>
+            )}
+          </Collapse>
 
 
 
-         <Dialog
-            open={openAddLink}
-            onClose={() => setOpenAddLink(false)}
+          <Dialog
+             open={openAddLink}
+             onClose={closeAdvertisingLinkDialog}
             fullWidth
             maxWidth="sm"
             PaperProps={{
@@ -1917,9 +2576,9 @@ ${url}`;
                },
             }}
          >
-            <DialogTitle sx={{ fontWeight: 950 }}>
-               Додати рекламне посилання
-            </DialogTitle>
+             <DialogTitle sx={{ fontWeight: 950 }}>
+                {editingAdvertisingLink ? 'Змінити рекламне посилання' : 'Додати рекламне посилання'}
+             </DialogTitle>
 
             <DialogContent>
                <Grid container spacing={1.2} sx={{ mt: 0.2 }}>
@@ -1949,26 +2608,40 @@ ${url}`;
                      >
                         <MenuItem value="olx">OLX</MenuItem>
                         <MenuItem value="dimria">DIM.RIA</MenuItem>
-                        <MenuItem value="rieltor">RIELTOR</MenuItem>
+                        <MenuItem value="rieltor">RIELTOR.UA</MenuItem>
+                        <MenuItem value="lun">LUN.UA</MenuItem>
+                        <MenuItem value="flatfy">Flatfy.ua</MenuItem>
+                        <MenuItem value="real-estate">Real-estate</MenuItem>
                         <MenuItem value="facebook">Facebook</MenuItem>
                         <MenuItem value="instagram">Instagram</MenuItem>
+                        <MenuItem value="tiktok">TikTok</MenuItem>
+                        <MenuItem value="telegram">Telegram</MenuItem>
                         <MenuItem value="site">Сайт</MenuItem>
                         <MenuItem value="other">Інше</MenuItem>
                      </TextField>
                   </Grid>
 
-                  <Grid item xs={12} md={4}>
-                     <TextField
-                        select
-                        label="Статус"
-                        value="active"
-                        disabled
-                        fullWidth
-                        sx={fieldSx}
-                     >
-                        <MenuItem value="active">Активна</MenuItem>
-                     </TextField>
-                  </Grid>
+                   <Grid item xs={12} md={4}>
+                      <TextField
+                         select
+                         label="Статус"
+                         value={adClosedAt ? 'archived' : 'active'}
+                         disabled={!editingAdvertisingLink}
+                         onChange={(e) => {
+                            if (e.target.value === 'active') {
+                               setAdClosedAt('');
+                               setAdClosedNote('');
+                            } else {
+                               setAdClosedAt((current) => current || getNowLocal());
+                            }
+                         }}
+                         fullWidth
+                         sx={fieldSx}
+                      >
+                         <MenuItem value="active">Активна</MenuItem>
+                         <MenuItem value="archived">Неактивна</MenuItem>
+                      </TextField>
+                   </Grid>
 
                   <Grid item xs={12}>
                      <TextField
@@ -2004,29 +2677,58 @@ ${url}`;
                      />
                   </Grid>
 
-                  <Grid item xs={12}>
-                     <TextField
-                        label="Нотатка"
+                   <Grid item xs={12}>
+                      <TextField
+                         label="Нотатка"
                         value={adNoteLink}
                         onChange={(e) => setAdNoteLink(e.target.value)}
                         fullWidth
                         multiline
                         minRows={2}
                         sx={fieldSx}
-                     />
-                  </Grid>
-               </Grid>
-            </DialogContent>
+                      />
+                   </Grid>
 
-            <DialogActions sx={{ px: 3, pb: 2 }}>
-               <Button onClick={() => setOpenAddLink(false)} sx={{ color: theme.textSoft }}>
+                   {editingAdvertisingLink && (
+                      <>
+                         <Grid item xs={12} md={6}>
+                            <TextField
+                               type="datetime-local"
+                               label="Дата і час закриття"
+                               value={adClosedAt}
+                               onChange={(e) => setAdClosedAt(e.target.value)}
+                               fullWidth
+                               sx={fieldSx}
+                               InputLabelProps={{ shrink: true }}
+                               helperText="Якщо очистити дату, посилання знову стане активним"
+                            />
+                         </Grid>
+
+                         <Grid item xs={12} md={6}>
+                            <TextField
+                               label="Пояснення закриття"
+                               value={adClosedNote}
+                               onChange={(e) => setAdClosedNote(e.target.value)}
+                               fullWidth
+                               multiline
+                               minRows={2}
+                               sx={fieldSx}
+                            />
+                         </Grid>
+                      </>
+                   )}
+                </Grid>
+             </DialogContent>
+
+             <DialogActions sx={{ px: 3, pb: 2 }}>
+               <Button onClick={closeAdvertisingLinkDialog} sx={{ color: theme.textSoft }}>
                   Скасувати
                </Button>
 
                <Button
                   onClick={handleAddAdvertisingLink}
-                  disabled={!adUrl.trim()}
-                  startIcon={<AddRoundedIcon />}
+                  disabled={!adUrl.trim() || (!!adClosedAt && !adClosedNote.trim())}
+                  startIcon={editingAdvertisingLink ? <EditRoundedIcon /> : <AddRoundedIcon />}
                   sx={{
                      borderRadius: 3,
                      fontWeight: 950,
@@ -2034,14 +2736,164 @@ ${url}`;
                      background: `linear-gradient(90deg, ${theme.accent}, ${theme.accentLight})`,
                   }}
                >
-                  Додати
+                  {editingAdvertisingLink ? 'Зберегти' : 'Додати'}
                </Button>
             </DialogActions>
-         </Dialog>
+          </Dialog>
 
-         <Dialog
-            open={openAdText}
-            onClose={() => setOpenAdText(false)}
+          <VideoGalleryDialog
+             open={videoGalleryOpen}
+             onClose={() => setVideoGalleryOpen(false)}
+             videos={propertyVideos}
+             activeIndex={videoGalleryIndex}
+             onSelect={setVideoGalleryIndex}
+             theme={theme}
+             mode={mode}
+          />
+
+          <Dialog
+             open={openVideoDialog}
+             onClose={closeVideoDialog}
+             fullWidth
+             maxWidth="sm"
+             PaperProps={{
+                sx: {
+                   borderRadius: 4,
+                   bgcolor: theme.bgPanel,
+                   color: theme.text,
+                   border: `1px solid ${theme.border}`,
+                },
+             }}
+          >
+             <DialogTitle sx={{ fontWeight: 950, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <VideoLibraryRoundedIcon sx={{ color: '#f87171' }} />
+                {editingVideo ? 'Змінити відео' : 'Додати відео'}
+             </DialogTitle>
+
+             <DialogContent>
+                <Grid container spacing={1.2} sx={{ mt: 0.2 }}>
+                   <Grid item xs={12} md={4}>
+                      <TextField
+                         select
+                         label="Платформа"
+                         value={videoPlatform}
+                         onChange={(e) => setVideoPlatform(e.target.value)}
+                         fullWidth
+                         sx={fieldSx}
+                      >
+                         <MenuItem value="youtube">YouTube</MenuItem>
+                         <MenuItem value="tiktok">TikTok</MenuItem>
+                         <MenuItem value="instagram">Instagram</MenuItem>
+                         <MenuItem value="facebook">Facebook</MenuItem>
+                         <MenuItem value="telegram">Telegram</MenuItem>
+                         <MenuItem value="drive">Drive</MenuItem>
+                         <MenuItem value="other">Інше</MenuItem>
+                      </TextField>
+                   </Grid>
+
+                   <Grid item xs={12} md={4}>
+                      <TextField
+                         select
+                         label="Тип відео"
+                         value={videoType}
+                         onChange={(e) => setVideoType(e.target.value)}
+                         fullWidth
+                         sx={fieldSx}
+                      >
+                         <MenuItem value="main">Основне</MenuItem>
+                         <MenuItem value="short_review">Короткий огляд</MenuItem>
+                         <MenuItem value="storytelling">Сторітелінг</MenuItem>
+                         <MenuItem value="full_review">Повний огляд</MenuItem>
+                         <MenuItem value="other">Інше</MenuItem>
+                      </TextField>
+                   </Grid>
+
+                   <Grid item xs={12} md={4}>
+                      <TextField
+                         select
+                         label="Показувати на фото"
+                         value={videoIsMain}
+                         onChange={(e) => setVideoIsMain(e.target.value)}
+                         fullWidth
+                         sx={fieldSx}
+                      >
+                         <MenuItem value="yes">Так, головне</MenuItem>
+                         <MenuItem value="no">Ні</MenuItem>
+                      </TextField>
+                   </Grid>
+
+                   <Grid item xs={12}>
+                      <TextField
+                         label="Посилання на відео"
+                         value={videoUrl}
+                         onChange={(e) => setVideoUrl(e.target.value)}
+                         fullWidth
+                         sx={fieldSx}
+                         placeholder="https://youtube.com/..."
+                      />
+                   </Grid>
+
+                   <Grid item xs={12} md={6}>
+                      <TextField
+                         label="Назва"
+                         value={videoTitle}
+                         onChange={(e) => setVideoTitle(e.target.value)}
+                         fullWidth
+                         sx={fieldSx}
+                         placeholder="Наприклад: Огляд квартири"
+                      />
+                   </Grid>
+
+                   <Grid item xs={12} md={6}>
+                      <TextField
+                         type="datetime-local"
+                         label="Дата додавання"
+                         value={videoCreatedAt}
+                         onChange={(e) => setVideoCreatedAt(e.target.value)}
+                         fullWidth
+                         sx={fieldSx}
+                         InputLabelProps={{ shrink: true }}
+                      />
+                   </Grid>
+
+                   <Grid item xs={12}>
+                      <TextField
+                         label="Нотатка"
+                         value={videoNote}
+                         onChange={(e) => setVideoNote(e.target.value)}
+                         fullWidth
+                         multiline
+                         minRows={2}
+                         sx={fieldSx}
+                      />
+                   </Grid>
+                </Grid>
+             </DialogContent>
+
+             <DialogActions sx={{ px: 3, pb: 2 }}>
+                <Button onClick={closeVideoDialog} sx={{ color: theme.textSoft }}>
+                   Скасувати
+                </Button>
+
+                <Button
+                   onClick={handleSaveVideo}
+                   disabled={!videoUrl.trim()}
+                   startIcon={editingVideo ? <EditRoundedIcon /> : <AddRoundedIcon />}
+                   sx={{
+                      borderRadius: 3,
+                      fontWeight: 950,
+                      color: '#0b0b12',
+                      background: `linear-gradient(90deg, ${theme.accent}, ${theme.accentLight})`,
+                   }}
+                >
+                   {editingVideo ? 'Зберегти' : 'Додати'}
+                </Button>
+             </DialogActions>
+          </Dialog>
+
+          <Dialog
+             open={openAdText}
+             onClose={closeAdTextDialog}
             fullWidth
             maxWidth="md"
             PaperProps={{
@@ -2053,9 +2905,9 @@ ${url}`;
                },
             }}
          >
-            <DialogTitle sx={{ fontWeight: 950 }}>
-               Додати рекламний текст
-            </DialogTitle>
+             <DialogTitle sx={{ fontWeight: 950 }}>
+                {editingAdText ? 'Змінити рекламний текст' : 'Додати рекламний текст'}
+             </DialogTitle>
 
             <DialogContent>
                <Grid container spacing={1.2} sx={{ mt: 0.2 }}>
@@ -2142,14 +2994,14 @@ ${url}`;
                   Копіювати
                </Button>
 
-               <Button onClick={() => setOpenAdText(false)} sx={{ color: theme.textSoft }}>
+               <Button onClick={closeAdTextDialog} sx={{ color: theme.textSoft }}>
                   Скасувати
                </Button>
 
                <Button
                   onClick={handleAddAdText}
                   disabled={!adText.trim()}
-                  startIcon={<AddRoundedIcon />}
+                  startIcon={editingAdText ? <EditRoundedIcon /> : <AddRoundedIcon />}
                   sx={{
                      borderRadius: 3,
                      fontWeight: 950,
@@ -2157,14 +3009,168 @@ ${url}`;
                      background: `linear-gradient(90deg, ${theme.accent}, ${theme.accentLight})`,
                   }}
                >
-                  Додати текст
+                  {editingAdText ? 'Змінити текст' : 'Додати текст'}
                </Button>
             </DialogActions>
-         </Dialog>
+          </Dialog>
 
-         <Dialog
-            open={openWorkNote}
-            onClose={closeWorkNoteDialog}
+          <Dialog
+             open={videoDeleteOpen}
+             onClose={() => {
+                if (videoDeleting) return;
+                setVideoDeleteOpen(false);
+                setSelectedVideo(null);
+             }}
+             fullWidth
+             maxWidth="xs"
+             PaperProps={{
+                sx: {
+                   borderRadius: 4,
+                   bgcolor: theme.bgPanel,
+                   color: theme.text,
+                   border: '1px solid rgba(248,113,113,0.28)',
+                },
+             }}
+          >
+             <DialogTitle sx={{ fontWeight: 950, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <WarningAmberRoundedIcon sx={{ color: '#f87171' }} />
+                Видалити відео?
+             </DialogTitle>
+
+             <DialogContent>
+                <Typography sx={{ color: theme.textSoft, fontSize: 14, lineHeight: 1.7 }}>
+                   Посилання на відео буде прибрано з картки об’єкта.
+                </Typography>
+                {!!selectedVideo?.title && (
+                   <Typography sx={{ color: theme.text, fontWeight: 900, mt: 1.2 }}>
+                      {selectedVideo.title}
+                   </Typography>
+                )}
+             </DialogContent>
+
+             <DialogActions sx={{ px: 3, pb: 2 }}>
+                <Button
+                   disabled={videoDeleting}
+                   onClick={() => {
+                      setVideoDeleteOpen(false);
+                      setSelectedVideo(null);
+                   }}
+                   sx={{ color: theme.textSoft }}
+                >
+                   Скасувати
+                </Button>
+
+                <Button
+                   disabled={videoDeleting}
+                   onClick={confirmDeleteVideo}
+                   startIcon={<DeleteRoundedIcon />}
+                   sx={{
+                      borderRadius: 999,
+                      px: 2.4,
+                      fontWeight: 950,
+                      color: '#fff',
+                      bgcolor: '#ef4444',
+                      '&:hover': {
+                         bgcolor: '#dc2626',
+                      },
+                   }}
+                >
+                   Видалити
+                </Button>
+             </DialogActions>
+          </Dialog>
+
+          <Dialog
+             open={adTextDeleteOpen}
+             onClose={() => {
+                if (adTextDeleting) return;
+                setAdTextDeleteOpen(false);
+                setSelectedAdText(null);
+             }}
+             fullWidth
+             maxWidth="xs"
+             PaperProps={{
+                sx: {
+                   borderRadius: 4,
+                   bgcolor: theme.bgPanel,
+                   color: theme.text,
+                   border: '1px solid rgba(248,113,113,0.28)',
+                },
+             }}
+          >
+             <DialogTitle sx={{ fontWeight: 950, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <WarningAmberRoundedIcon sx={{ color: '#f87171' }} />
+                Видалити рекламний текст?
+             </DialogTitle>
+
+             <DialogContent>
+                <Typography sx={{ color: theme.textSoft, fontSize: 14, lineHeight: 1.7 }}>
+                   Текст буде прибрано з рекламного блоку об’єкта. Якщо він ще потрібен для роботи, краще спершу скопіювати його.
+                </Typography>
+
+                {!!selectedAdText?.text && (
+                   <Box
+                      sx={{
+                         mt: 2,
+                         p: 1.4,
+                         borderRadius: 3,
+                         bgcolor: 'rgba(248,113,113,0.08)',
+                         border: '1px solid rgba(248,113,113,0.18)',
+                      }}
+                   >
+                      <Typography
+                         sx={{
+                            color: theme.text,
+                            fontWeight: 850,
+                            fontSize: 13,
+                            lineHeight: 1.45,
+                            display: '-webkit-box',
+                            WebkitLineClamp: 4,
+                            WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                         }}
+                      >
+                         {selectedAdText.text}
+                      </Typography>
+                   </Box>
+                )}
+             </DialogContent>
+
+             <DialogActions sx={{ px: 3, pb: 2 }}>
+                <Button
+                   disabled={adTextDeleting}
+                   onClick={() => {
+                      setAdTextDeleteOpen(false);
+                      setSelectedAdText(null);
+                   }}
+                   sx={{ color: theme.textSoft }}
+                >
+                   Скасувати
+                </Button>
+
+                <Button
+                   disabled={adTextDeleting}
+                   onClick={confirmDeleteAdText}
+                   startIcon={<DeleteRoundedIcon />}
+                   sx={{
+                      borderRadius: 999,
+                      px: 2.4,
+                      fontWeight: 950,
+                      color: '#fff',
+                      bgcolor: '#ef4444',
+                      '&:hover': {
+                         bgcolor: '#dc2626',
+                      },
+                   }}
+                >
+                   Видалити
+                </Button>
+             </DialogActions>
+          </Dialog>
+
+          <Dialog
+             open={openWorkNote}
+             onClose={closeWorkNoteDialog}
             fullWidth
             maxWidth="sm"
             PaperProps={{

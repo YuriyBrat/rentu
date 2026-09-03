@@ -4,7 +4,13 @@ import { Dialog, DialogTitle, DialogContent, IconButton, Box } from '@mui/materi
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import PropertyForm from './PropertyForm6';
 
-export default function CreatePropertyDialog({ open, onClose, onSubmit, employees = [], }) {
+export default function CreatePropertyDialog({
+   open,
+   onClose,
+   onSubmit,
+   employees = [],
+   formMode = 'default',
+}) {
 
    const handleClose = (event, reason) => {
       if (reason === 'backdropClick') return;
@@ -40,7 +46,7 @@ export default function CreatePropertyDialog({ open, onClose, onSubmit, employee
                borderBottom: '1px solid rgba(255,255,255,0.06)',
             }}
          >
-            Додати об’єкт
+            {formMode === 'rent' ? 'Додати об’єкт оренди' : 'Додати об’єкт'}
             <IconButton onClick={onClose} sx={{ color: 'rgba(255,255,255,0.8)' }}>
                <CloseRoundedIcon />
             </IconButton>
@@ -54,6 +60,7 @@ export default function CreatePropertyDialog({ open, onClose, onSubmit, employee
                   onSubmit={onSubmit}
                   employees={employees}
                   mode="create"
+                  formMode={formMode}
                />
             </Box>
          </DialogContent>

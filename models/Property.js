@@ -140,10 +140,40 @@ const RentStorySchema = new Schema(
     //   enum: ['employee', 'owner', 'competitor', 'other', ''],
     //   default: '',
     // }, // ким здано
+    rentedByType: {
+      type: String,
+      enum: ['employee', 'owner', 'competitor', 'other', ''],
+      default: '',
+    },
+    rentedByEmployee: {
+      type: Schema.Types.ObjectId,
+      ref: 'Employee',
+      default: null,
+    },
     rentedBy: { type: String, trim: true, default: '' }, // ким здано (текст)
     note: { type: String, trim: true, default: '' }, // нотатка
   },
   { _id: false }
+);
+
+const RentHistoryItemSchema = new Schema(
+  {
+    rentedAt: { type: Date, default: null },
+    movedOutAt: { type: Date, default: null },
+    rentedByType: {
+      type: String,
+      enum: ['employee', 'owner', 'competitor', 'other', ''],
+      default: '',
+    },
+    rentedByEmployee: {
+      type: Schema.Types.ObjectId,
+      ref: 'Employee',
+      default: null,
+    },
+    note: { type: String, trim: true, default: '' },
+    createdAt: { type: Date, default: Date.now },
+  },
+  { _id: true }
 );
 
 const RentOptionsSchema = new Schema(
@@ -182,6 +212,11 @@ const RentOptionsSchema = new Schema(
       default: () => ({}),
     },
 
+    rentHistory: {
+      type: [RentHistoryItemSchema],
+      default: [],
+    },
+
     lastActualizedAt: { type: Date, default: null },
   },
   { _id: false }
@@ -191,7 +226,7 @@ const AdvertisingLinkSchema = new Schema(
   {
     platform: {
       type: String,
-      enum: ['olx', 'dimria', 'rieltor', 'facebook', 'instagram', 'site', 'other'],
+      enum: ['olx', 'dimria', 'rieltor', 'lun', 'flatfy', 'real-estate', 'facebook', 'instagram', 'tiktok', 'telegram', 'site', 'other'],
       default: 'other',
     },
     title: { type: String, trim: true, default: '' },
@@ -219,6 +254,8 @@ const AdvertisingLinkSchema = new Schema(
     },
 
     createdAt: { type: Date, default: Date.now },
+    closedAt: { type: Date, default: null },
+    closedNote: { type: String, trim: true, default: '' },
     lastCheckedAt: { type: Date, default: null },
   },
   { _id: true }
@@ -318,7 +355,7 @@ const PropertyVideoSchema = new Schema(
   {
     platform: {
       type: String,
-      enum: ['youtube', 'tiktok', 'instagram', 'facebook', 'drive', 'other'],
+      enum: ['youtube', 'tiktok', 'instagram', 'facebook', 'telegram', 'drive', 'other'],
       default: 'other',
     },
     type: {
@@ -365,6 +402,8 @@ const PropertySchema = new Schema(
     lastContactAt: { type: Date, index: true },
     nextCheckAt: { type: Date, index: true },
     actualityNote: String,
+    inactiveAt: { type: Date, default: null, index: true },
+    inactiveNote: { type: String, trim: true, default: "" },
 
     disadvantages: [{ type: String }],
 

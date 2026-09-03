@@ -10,6 +10,7 @@ export default function EditPropertyDialog({
    onSubmit,
    item,
    employees = [],
+   formMode = 'default',
 }) {
 
    const handleClose = (_event, reason) => {
@@ -46,7 +47,7 @@ export default function EditPropertyDialog({
                borderBottom: '1px solid rgba(255,255,255,0.06)',
             }}
          >
-            Редагувати об’єкт
+            {formMode === 'rent' ? 'Редагувати об’єкт оренди' : 'Редагувати об’єкт'}
             <IconButton onClick={onClose} sx={{ color: 'rgba(255,255,255,0.8)' }}>
                <CloseRoundedIcon />
             </IconButton>
@@ -61,6 +62,7 @@ export default function EditPropertyDialog({
                   initialData={item}
                   employees={employees}
                   mode="edit"
+                  formMode={formMode}
                />
             </Box>
          </DialogContent>

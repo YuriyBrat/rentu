@@ -205,6 +205,7 @@ DIM.RIA є підключеним джерелом автоматичного н
 - DIM.RIA записи мають `source = "dimria"`.
 - `sourceId` береться з realty ID DIM.RIA.
 - `sourceUrl` має вести на сторінку оголошення на dom.ria.com.
+
 - Сирий payload зберігається у `raw`.
 - Технічні поля DIM.RIA зберігаються в `attrs`.
 - Якщо запис уже існує, скан може оновити `sourceStatus`, `sourceCheckedAt`, `sourceUrl`, `attrs`, `raw`, фото якщо їх ще не було, і ціну.

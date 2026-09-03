@@ -10,6 +10,8 @@ export function buildPropertyFormData(payload) {
    appendIfDefined('actualityGroup', payload.actualityGroup || '');
    appendIfDefined('actualityStatus', payload.actualityStatus || '');
    appendIfDefined('actualityNote', payload.actualityNote || '');
+   appendIfDefined('inactiveAt', payload.inactiveAt || '');
+   appendIfDefined('inactiveNote', payload.inactiveNote || '');
    appendIfDefined('crmStage', payload.crmStage || '');
    appendIfDefined('crmStageReason', payload.crmStageReason || '');
    appendIfDefined('inspectedAt', payload.inspectedAt || '');
@@ -52,8 +54,6 @@ export function buildPropertyFormData(payload) {
 
    appendIfDefined('statusRent', payload.statusRent || 'rentNo');
    appendIfDefined('assignee', payload.assignee || '');
-   appendIfDefined('createdByEmployee', payload.createdByEmployee || '');
-
    appendIfDefined('source', payload.source || '');
    appendIfDefined('strategyApprovedBy', payload.strategyApprovedBy || '');
    appendIfDefined('strategyApprovedAt', payload.strategyApprovedAt || '');

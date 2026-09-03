@@ -115,7 +115,6 @@ const ACTUALITY_STATUSES = [
    'Актуальний. Продзвін',
    'Актуальний. Проблемний',
    'Актуальний. Оглянутий! Не в роботі',
-   'Неактуальний. Реалізований мною',
    'Неактуальний. Реалізований не мною',
    'Неактуальний. Знятий з реалізації',
    'Неактуальний. Невідома причина',
@@ -294,9 +293,12 @@ function emptyRentOptions() {
       lastActualizedAt: '',
       rentStory: {
          rentedAt: '',
+         rentedByType: '',
+         rentedByEmployee: '',
          rentedBy: '',
          note: '',
       },
+      rentHistory: [],
    };
 }
 
@@ -310,6 +312,8 @@ function emptyFields(type_estate = 'flat', type_deal = 'продаж') {
       actualityGroup: 'active',
       actualityStatus: 'Актуальний. Продзвін',
       actualityNote: '',
+      inactiveAt: '',
+      inactiveNote: '',
 
       title: '',
       location_text: '',
@@ -422,6 +426,8 @@ function normalizeFormData(data) {
          ...(data.businessScore || {}),
       },
       source: data.source || '',
+      inactiveAt: data.inactiveAt ? String(data.inactiveAt).slice(0, 10) : '',
+      inactiveNote: data.inactiveNote || '',
       inspectedAt: data.inspectedAt ? String(data.inspectedAt).slice(0, 10) : '',
       originAction: {
          kind: data.originAction?.kind || '',
@@ -457,9 +463,23 @@ export default function PropertyForm({
    initialData = null,
    mode = 'create',
    employees = [],
+   formMode = 'default',
 }) {
    // const [fields, setFields] = useState(() => emptyFields('flat', 'продаж'));
-   const [fields, setFields] = useState(() => normalizeFormData(initialData));
+   const isRentFormMode = formMode === 'rent';
+   const [fields, setFields] = useState(() => {
+      const normalized = normalizeFormData(initialData);
+
+      if (!initialData && isRentFormMode) {
+         return {
+            ...normalized,
+            type_deal: 'оренда',
+            statusRent: 'rentActual',
+         };
+      }
+
+      return normalized;
+   });
 
    const [loading, setLoading] = useState(false);
 
@@ -487,9 +507,12 @@ export default function PropertyForm({
    }, [type]);
 
 
-   const isRentObject = fields.statusRent !== 'rentNo';
+   const showSaleOptions = !isRentFormMode;
+   const isRentObject = isRentFormMode || fields.statusRent !== 'rentNo';
 
    const toggleRentObject = () => {
+      if (isRentFormMode) return;
+
       setFields((p) => ({
          ...p,
          statusRent: p.statusRent === 'rentNo' ? 'rentActual' : 'rentNo',
@@ -535,6 +558,8 @@ export default function PropertyForm({
             actualityGroup: p.actualityGroup,
             actualityStatus: p.actualityStatus,
             actualityNote: p.actualityNote,
+            inactiveAt: p.inactiveAt,
+            inactiveNote: p.inactiveNote,
             inspectedAt: p.inspectedAt,
             originAction: p.originAction,
 
@@ -577,7 +602,37 @@ export default function PropertyForm({
       return stage || '';
    };
 
-   const set = (name, value) => setFields((p) => ({ ...p, [name]: value }));
+   const set = (name, value) =>
+      setFields((p) => {
+         if (name === 'actualityGroup') {
+            const next = { ...p, actualityGroup: value };
+            if (value === 'inactive' && !next.inactiveAt) {
+               next.inactiveAt = new Date().toISOString().slice(0, 10);
+            }
+            if (
+               value === 'inactive' &&
+               (
+                  !String(next.actualityStatus || '').startsWith('Неактуальний.') ||
+                  String(next.actualityStatus || '').includes('Реалізований мною')
+               )
+            ) {
+               next.actualityStatus = 'Неактуальний. Реалізований не мною';
+            }
+            if (value === 'active' && !String(next.actualityStatus || '').startsWith('Актуальний.')) {
+               next.actualityStatus = 'Актуальний. Продзвін';
+            }
+            if (value === 'paused' && !String(next.actualityStatus || '').startsWith('Зупинений.')) {
+               next.actualityStatus = 'Зупинений. Невиявлена причина власників';
+            }
+            if (value !== 'inactive') {
+               next.inactiveAt = '';
+               next.inactiveNote = '';
+            }
+            return next;
+         }
+
+         return { ...p, [name]: value };
+      });
 
    const setOriginAction = (key, value) =>
       setFields((p) => {
@@ -877,6 +932,8 @@ export default function PropertyForm({
 
          const payload = {
             ...fields,
+            type_deal: isRentFormMode ? 'оренда' : fields.type_deal,
+            originAction: isRentFormMode ? {} : fields.originAction,
             rooms: fields.rooms ? Number(fields.rooms) : undefined,
             square_tot: fields.square_tot ? Number(fields.square_tot) : undefined,
             square_liv: fields.square_liv ? Number(fields.square_liv) : undefined,
@@ -890,17 +947,17 @@ export default function PropertyForm({
             cost: fields.cost ? Number(fields.cost) : undefined,
 
             assignee: fields.assignee || '',
-            createdByEmployee: fields.createdByEmployee || '',
-
             advantages: (fields.advantages || []).map((x) => x?.trim()).filter(Boolean),
             disadvantages: (fields.disadvantages || []).map((x) => x?.trim()).filter(Boolean),
 
-            title: fields.title?.trim(),
+            title: isRentFormMode ? initialData?.title || fields.title || '' : fields.title?.trim(),
             location_text: fields.location_text?.trim(),
             description: fields.description?.trim(),
             actualityNote: fields.actualityNote?.trim(),
+            inactiveAt: fields.actualityGroup === 'inactive' ? fields.inactiveAt || '' : '',
+            inactiveNote: fields.actualityGroup === 'inactive' ? fields.inactiveNote?.trim() || '' : '',
 
-            statusRent: fields.statusRent,
+            statusRent: isRentFormMode && fields.statusRent === 'rentNo' ? 'rentActual' : fields.statusRent,
 
             owners: (fields.owners || [])
                .map((owner) => ({
@@ -926,32 +983,41 @@ export default function PropertyForm({
                      appliances: (fields.rentOptions?.appliances || []).map((x) => x?.trim()).filter(Boolean),
                      rentStory: {
                         rentedAt: fields.rentOptions?.rentStory?.rentedAt || '',
+                        rentedByType: fields.rentOptions?.rentStory?.rentedByType || '',
+                        rentedByEmployee: fields.rentOptions?.rentStory?.rentedByEmployee || '',
                         rentedBy: fields.rentOptions?.rentStory?.rentedBy || '',
                         note: fields.rentOptions?.rentStory?.note?.trim() || '',
                      },
+                     rentHistory: Array.isArray(fields.rentOptions?.rentHistory)
+                        ? fields.rentOptions.rentHistory
+                        : [],
                   },
 
-            source: fields.source?.trim() || '',
-            inspectedAt: fields.inspectedAt || '',
-            originAction: {
-               kind: fields.originAction?.kind || '',
-               occurredAt: fields.originAction?.occurredAt || '',
-               sourceOperationEvent: fields.originAction?.kind === 'showing' ? fields.originAction?.sourceOperationEvent || '' : '',
-               note: fields.originAction?.note?.trim() || '',
-            },
-            strategyApprovedBy: fields.strategyApprovedBy || '',
-            strategyApprovedAt: fields.strategyApprovedAt || '',
+            source: isRentFormMode ? '' : fields.source?.trim() || '',
+            inspectedAt: isRentFormMode ? '' : fields.inspectedAt || '',
+            originAction: isRentFormMode
+               ? {}
+               : {
+                  kind: fields.originAction?.kind || '',
+                  occurredAt: fields.originAction?.occurredAt || '',
+                  sourceOperationEvent: fields.originAction?.kind === 'showing' ? fields.originAction?.sourceOperationEvent || '' : '',
+                  note: fields.originAction?.note?.trim() || '',
+               },
+            strategyApprovedBy: isRentFormMode ? '' : fields.strategyApprovedBy || '',
+            strategyApprovedAt: isRentFormMode ? '' : fields.strategyApprovedAt || '',
 
-            businessScore: {
-               finance: fields.businessScore?.finance ? Number(fields.businessScore.finance) : undefined,
-               liquidity: fields.businessScore?.liquidity ? Number(fields.businessScore.liquidity) : undefined,
-               loyalty: fields.businessScore?.loyalty ? Number(fields.businessScore.loyalty) : undefined,
-               motivation: fields.businessScore?.motivation ? Number(fields.businessScore.motivation) : undefined,
-               problemFree: fields.businessScore?.problemFree ? Number(fields.businessScore.problemFree) : undefined,
-               adAttractiveness: fields.businessScore?.adAttractiveness ? Number(fields.businessScore.adAttractiveness) : undefined,
-               adHistory: fields.businessScore?.adHistory ? Number(fields.businessScore.adHistory) : undefined,
-               adStrategy: fields.businessScore?.adStrategy ? Number(fields.businessScore.adStrategy) : undefined,
-            },
+            businessScore: isRentFormMode
+               ? {}
+               : {
+                  finance: fields.businessScore?.finance ? Number(fields.businessScore.finance) : undefined,
+                  liquidity: fields.businessScore?.liquidity ? Number(fields.businessScore.liquidity) : undefined,
+                  loyalty: fields.businessScore?.loyalty ? Number(fields.businessScore.loyalty) : undefined,
+                  motivation: fields.businessScore?.motivation ? Number(fields.businessScore.motivation) : undefined,
+                  problemFree: fields.businessScore?.problemFree ? Number(fields.businessScore.problemFree) : undefined,
+                  adAttractiveness: fields.businessScore?.adAttractiveness ? Number(fields.businessScore.adAttractiveness) : undefined,
+                  adHistory: fields.businessScore?.adHistory ? Number(fields.businessScore.adHistory) : undefined,
+                  adStrategy: fields.businessScore?.adStrategy ? Number(fields.businessScore.adStrategy) : undefined,
+               },
 
             images: fields.images || [],
          };
@@ -963,6 +1029,18 @@ export default function PropertyForm({
 
          if (stillTooBig) {
             alert('Є фото більше 10MB — вони не пройдуть. Прибери або заміни їх.');
+            setLoading(false);
+            return;
+         }
+
+         if (fields.actualityGroup === 'inactive' && !fields.inactiveAt) {
+            alert('Вкажи дату неактуальності');
+            setLoading(false);
+            return;
+         }
+
+         if (fields.actualityGroup === 'inactive' && !fields.inactiveNote?.trim()) {
+            alert('Вкажи нотатку неактуальності');
             setLoading(false);
             return;
          }
@@ -984,8 +1062,119 @@ export default function PropertyForm({
       // }
    }, []); //initialData
 
+   const originActionBlock = (
+      <Box
+         sx={{
+            p: 1.4,
+            mb: 2,
+            borderRadius: 3,
+            border: '1px solid rgba(45,212,191,0.28)',
+            bgcolor: 'rgba(20,184,166,0.07)',
+         }}
+      >
+         <Stack spacing={1.1}>
+            <Stack spacing={0.15}>
+               <Typography sx={{ color: '#fff', fontWeight: 950 }}>
+                  Огляд
+               </Typography>
+               <Typography sx={{ color: 'rgba(255,255,255,0.62)', fontSize: 12.5 }}>
+                  Зафіксуй, звідки об’єкт потрапив у роботу: після огляду або як наслідок показу.
+               </Typography>
+            </Stack>
+
+            <Grid container spacing={1}>
+               <Grid item xs={12} md={3}>
+                  <TextField
+                     select
+                     fullWidth
+                     label="Вид огляду"
+                     value={fields.originAction?.kind || ''}
+                     onChange={(e) => setOriginAction('kind', e.target.value)}
+                     sx={fieldSx}
+                     SelectProps={{ MenuProps: selectMenuProps }}
+                  >
+                     {ORIGIN_ACTION_OPTIONS.map((x) => (
+                        <MenuItem key={x.value} value={x.value}>{x.label}</MenuItem>
+                     ))}
+                  </TextField>
+               </Grid>
+
+               <Grid item xs={12} md={3}>
+                  <TextField
+                     fullWidth
+                     type="date"
+                     label={fields.originAction?.kind === 'showing' ? 'Дата показу' : 'Дата огляду'}
+                     value={fields.originAction?.occurredAt || ''}
+                     onChange={(e) => setOriginAction('occurredAt', e.target.value)}
+                     sx={fieldSx}
+                     InputLabelProps={{ shrink: true }}
+                     disabled={!fields.originAction?.kind}
+                  />
+               </Grid>
+
+               {fields.originAction?.kind === 'showing' && (
+                  <Grid item xs={12} md={6}>
+                     <TextField
+                        select
+                        fullWidth
+                        label="Пов’язаний показ"
+                        value={fields.originAction?.sourceOperationEvent || ''}
+                        onChange={(e) => setOriginAction('sourceOperationEvent', e.target.value)}
+                        sx={fieldSx}
+                        SelectProps={{
+                           MenuProps: selectMenuProps,
+                           renderValue: (value) => {
+                              const selected = originShowings.find((item) => item._id === value);
+                              return selected ? showingOptionLabel(selected) : '—';
+                           },
+                        }}
+                        disabled={!fields.originAction?.occurredAt || originShowingsLoading}
+                        helperText={
+                           !fields.originAction?.occurredAt
+                              ? 'Спочатку вибери дату — тоді підтягнемо покази цього дня'
+                              : originShowingsLoading
+                                 ? 'Завантажую покази...'
+                                 : originShowings.length
+                                    ? 'Обери показ, під час якого об’єкт взяли в роботу'
+                                    : 'На цю дату показів не знайдено'
+                        }
+                     >
+                        <MenuItem value="">—</MenuItem>
+                        {originShowings.map((item) => (
+                           <MenuItem key={item._id} value={item._id} sx={{ alignItems: 'flex-start', py: 0.9 }}>
+                              <Stack spacing={0.15} sx={{ minWidth: 0, maxWidth: 640 }}>
+                                 <Typography sx={{ color: '#fff', fontWeight: 950, fontSize: 15, lineHeight: 1.16 }} noWrap>
+                                    {item.property?.title || item.property?.location_text || 'об’єкт без назви'}
+                                 </Typography>
+                                 <Typography sx={{ color: 'rgba(255,255,255,0.68)', fontSize: 12.5, lineHeight: 1.2 }} noWrap>
+                                    {showingOptionMeta(item)}
+                                 </Typography>
+                              </Stack>
+                           </MenuItem>
+                        ))}
+                     </TextField>
+                  </Grid>
+               )}
+
+               <Grid item xs={12} md={fields.originAction?.kind === 'showing' ? 12 : 6}>
+                  <TextField
+                     fullWidth
+                     label="Коментар до огляду"
+                     placeholder={fields.originAction?.kind === 'showing' ? 'Наприклад: під час показу побачили сусідній об’єкт і домовились взяти в роботу' : 'Наприклад: огляд проведено, власник погодив правила роботи'}
+                     value={fields.originAction?.note || ''}
+                     onChange={(e) => setOriginAction('note', e.target.value)}
+                     sx={fieldSx}
+                     disabled={!fields.originAction?.kind}
+                  />
+               </Grid>
+            </Grid>
+         </Stack>
+      </Box>
+   );
+
    return (
       <Box component="form" onSubmit={handleSubmit}>
+         {showSaleOptions && (
          <Stack
             direction={{ xs: 'column', md: 'row' }}
             alignItems={{ xs: 'stretch', md: 'center' }}
@@ -1068,6 +1257,7 @@ export default function PropertyForm({
                ))}
             </ToggleButtonGroup>
          </Stack>
+         )}
 
          <Stack spacing={1.2} sx={{ mb: 2 }}>
             <ToggleButtonGroup
@@ -1108,6 +1298,218 @@ export default function PropertyForm({
             </ToggleButtonGroup>
          </Stack>
 
+         <Grid container spacing={1.6} sx={{ mb: 2 }}>
+            <Grid item xs={12}>
+               <Typography sx={{ color: '#fff', fontWeight: 900, mb: 1 }}>
+                  Характеристики робочі
+               </Typography>
+            </Grid>
+
+            {showSaleOptions && (
+               <>
+                  <Grid item xs={12} md={3}>
+                     <TextField
+                        select
+                        label="Актуальність продажу"
+                        value={fields.actualityGroup}
+                        onChange={(e) => set('actualityGroup', e.target.value)}
+                        fullWidth
+                        sx={fieldSx}
+                        SelectProps={{ MenuProps: selectMenuProps }}
+                     >
+                        {ACTUALITY_GROUPS.map((x) => (
+                           <MenuItem key={x.value} value={x.value}>
+                              {x.label}
+                           </MenuItem>
+                        ))}
+                     </TextField>
+                  </Grid>
+
+                  <Grid item xs={12} md={5}>
+                     <TextField
+                        select
+                        label="Пояснення актуальності"
+                        value={fields.actualityStatus}
+                        onChange={(e) => set('actualityStatus', e.target.value)}
+                        fullWidth
+                        sx={fieldSx}
+                        SelectProps={{ MenuProps: selectMenuProps }}
+                     >
+                        {ACTUALITY_STATUSES.map((x) => (
+                           <MenuItem key={x} value={x}>
+                              {x}
+                           </MenuItem>
+                        ))}
+                     </TextField>
+                  </Grid>
+               </>
+            )}
+
+            <Grid item xs={12} md={6}>
+               <TextField
+                  select
+                  label="Публікація на сайті"
+                  value={String(fields.isPublic)}
+                  onChange={(e) => set('isPublic', e.target.value === 'true')}
+                  fullWidth
+                  sx={fieldSx}
+                  SelectProps={{ MenuProps: selectMenuProps }}
+               >
+                  <MenuItem value="true">Так, публічний</MenuItem>
+                  <MenuItem value="false">Ні, лише CRM</MenuItem>
+               </TextField>
+            </Grid>
+
+            {showSaleOptions && fields.actualityGroup === 'inactive' && (
+               <>
+                  <Grid item xs={12} md={4}>
+                     <TextField
+                        type="date"
+                        label="Дата неактуальності"
+                        value={fields.inactiveAt || ''}
+                        onChange={(e) => set('inactiveAt', e.target.value)}
+                        fullWidth
+                        required
+                        sx={fieldSx}
+                        InputLabelProps={{ shrink: true }}
+                     />
+                  </Grid>
+
+                  <Grid item xs={12} md={8}>
+                     <TextField
+                        label="Нотатка неактуальності"
+                        placeholder="Що сталося: продано не нами, зняв власник, передумали, інша причина..."
+                        value={fields.inactiveNote || ''}
+                        onChange={(e) => set('inactiveNote', e.target.value)}
+                        fullWidth
+                        required
+                        multiline
+                        minRows={1}
+                        sx={fieldSx}
+                     />
+                  </Grid>
+               </>
+            )}
+
+            <Grid item xs={12} md={6}>
+               <TextField
+                  select
+                  label="Відповідальний"
+                  value={fields.assignee}
+                  onChange={(e) => set('assignee', e.target.value)}
+                  fullWidth
+                  sx={fieldSx}
+                  SelectProps={{ MenuProps: selectMenuProps }}
+               >
+                  <MenuItem value="">Не призначено</MenuItem>
+                  {employees.map((emp) => (
+                     <MenuItem key={emp._id} value={emp._id}>
+                        {emp.fullName || [emp.surname, emp.name].filter(Boolean).join(' ') || emp.name}
+                     </MenuItem>
+                  ))}
+               </TextField>
+            </Grid>
+
+            {showSaleOptions && (
+               <>
+                  <Grid item xs={12}>
+                     <Typography sx={{ color: '#fff', fontWeight: 900, mb: 1 }}>
+                        Бізнес-оцінка
+                     </Typography>
+                  </Grid>
+
+                  {BUSINESS_SCORE_FIELDS.map((field) => (
+                     <Grid item xs={12} sm={6} md={3} key={field.key}>
+                        <TextField
+                           select
+                           label={BUSINESS_SCORE_OPTIONS[field.key].label}
+                           value={fields.businessScore?.[field.key] || ''}
+                           onChange={(e) =>
+                              setFields((p) => ({
+                                 ...p,
+                                 businessScore: {
+                                    ...(p.businessScore || {}),
+                                    [field.key]: e.target.value,
+                                 },
+                              }))
+                           }
+                           fullWidth
+                           sx={fieldSx}
+                        >
+                           <MenuItem value="">—</MenuItem>
+                           {[5, 4, 3, 2, 1].map((n) => (
+                              <MenuItem key={n} value={n}>
+                                 {n} — {BUSINESS_SCORE_OPTIONS[field.key].options[n]}
+                              </MenuItem>
+                           ))}
+                        </TextField>
+                     </Grid>
+                  ))}
+
+                  <Grid item xs={12} md={4}>
+                     <TextField
+                        label="Джерело"
+                        value={fields.source || ''}
+                        onChange={(e) => set('source', e.target.value)}
+                        fullWidth
+                        sx={fieldSx}
+                     />
+                  </Grid>
+
+                  <Grid item xs={12} md={4}>
+                     <TextField
+                        select
+                        label="Хто погодив стратегію"
+                        value={fields.strategyApprovedBy || ''}
+                        onChange={(e) => set('strategyApprovedBy', e.target.value)}
+                        fullWidth
+                        sx={fieldSx}
+                     >
+                        <MenuItem value="">—</MenuItem>
+                        {employees.map((emp) => (
+                           <MenuItem key={emp._id} value={emp._id}>
+                              {emp.fullName || [emp.surname, emp.name].filter(Boolean).join(' ') || emp.name}
+                           </MenuItem>
+                        ))}
+                     </TextField>
+                  </Grid>
+
+                  <Grid item xs={12} md={4}>
+                     <TextField
+                        type="date"
+                        label="Дата погодження стратегії"
+                        value={fields.strategyApprovedAt || ''}
+                        onChange={(e) => set('strategyApprovedAt', e.target.value)}
+                        fullWidth
+                        sx={fieldSx}
+                        InputLabelProps={{ shrink: true }}
+                     />
+                  </Grid>
+               </>
+            )}
+
+            {showSaleOptions && (
+               <Grid item xs={12}>
+                  <TextField
+                     label="Примітка по актуальності"
+                     placeholder="Коментар, причина, деталі..."
+                     value={fields.actualityNote}
+                     onChange={(e) => set('actualityNote', e.target.value)}
+                     fullWidth
+                     multiline
+                     minRows={2}
+                     sx={fieldSx}
+                  />
+               </Grid>
+            )}
+
+            <Grid item xs={12}>
+               <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)', my: 0.5 }} />
+            </Grid>
+         </Grid>
+
+         {showSaleOptions && originActionBlock}
+
          <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)', mb: 2 }} />
 
          <Grid container spacing={1.6}>
@@ -1117,17 +1519,19 @@ export default function PropertyForm({
                </Typography>
             </Grid>
 
-            <Grid item xs={12}>
-               <TextField
-                  label="Назва"
-                  placeholder={titleHint}
-                  InputLabelProps={{ shrink: true }}
-                  value={fields.title}
-                  onChange={(e) => set('title', e.target.value)}
-                  fullWidth
-                  sx={fieldSx}
-               />
-            </Grid>
+            {showSaleOptions && (
+               <Grid item xs={12}>
+                  <TextField
+                     label="Назва"
+                     placeholder={titleHint}
+                     InputLabelProps={{ shrink: true }}
+                     value={fields.title}
+                     onChange={(e) => set('title', e.target.value)}
+                     fullWidth
+                     sx={fieldSx}
+                  />
+               </Grid>
+            )}
 
             <Grid item xs={12}>
                <TextField
@@ -1555,33 +1959,37 @@ export default function PropertyForm({
                </>
             )}
 
-            <Grid item xs={12} md={2}>
-               <TextField
-                  label="Вартість"
-                  value={fields.cost}
-                  onChange={(e) => set('cost', e.target.value)}
-                  fullWidth
-                  sx={fieldSx}
-               />
-            </Grid>
+            {showSaleOptions && (
+               <>
+                  <Grid item xs={12} md={2}>
+                     <TextField
+                        label="Вартість"
+                        value={fields.cost}
+                        onChange={(e) => set('cost', e.target.value)}
+                        fullWidth
+                        sx={fieldSx}
+                     />
+                  </Grid>
 
-            <Grid item xs={12} md={2}>
-               <TextField
-                  select
-                  label="Валюта"
-                  value={fields.currency}
-                  onChange={(e) => set('currency', e.target.value)}
-                  fullWidth
-                  sx={fieldSx}
-                  SelectProps={{ MenuProps: selectMenuProps }}
-               >
-                  {CURRENCIES.map((x) => (
-                     <MenuItem key={x} value={x}>
-                        {x}
-                     </MenuItem>
-                  ))}
-               </TextField>
-            </Grid>
+                  <Grid item xs={12} md={2}>
+                     <TextField
+                        select
+                        label="Валюта"
+                        value={fields.currency}
+                        onChange={(e) => set('currency', e.target.value)}
+                        fullWidth
+                        sx={fieldSx}
+                        SelectProps={{ MenuProps: selectMenuProps }}
+                     >
+                        {CURRENCIES.map((x) => (
+                           <MenuItem key={x} value={x}>
+                              {x}
+                           </MenuItem>
+                        ))}
+                     </TextField>
+                  </Grid>
+               </>
+            )}
 
             <Grid item xs={12}>
                <TextField
@@ -1892,325 +2300,6 @@ export default function PropertyForm({
 
 
 
-
-            <Grid item xs={12}>
-               <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)', my: 0.5 }} />
-            </Grid>
-
-            <Grid item xs={12}>
-               <Box
-                  sx={{
-                     p: 1.4,
-                     borderRadius: 3,
-                     border: '1px solid rgba(45,212,191,0.28)',
-                     bgcolor: 'rgba(20,184,166,0.07)',
-                  }}
-               >
-                  <Stack spacing={1.1}>
-                     <Stack spacing={0.15}>
-                        <Typography sx={{ color: '#fff', fontWeight: 950 }}>
-                           Огляд
-                        </Typography>
-                        <Typography sx={{ color: 'rgba(255,255,255,0.62)', fontSize: 12.5 }}>
-                           Зафіксуй, звідки об’єкт потрапив у роботу: після огляду або як наслідок показу.
-                        </Typography>
-                     </Stack>
-
-                     <Grid container spacing={1}>
-                        <Grid item xs={12} md={3}>
-                           <TextField
-                              select
-                              fullWidth
-                              label="Вид огляду"
-                              value={fields.originAction?.kind || ''}
-                              onChange={(e) => setOriginAction('kind', e.target.value)}
-                              sx={fieldSx}
-                              SelectProps={{ MenuProps: selectMenuProps }}
-                           >
-                              {ORIGIN_ACTION_OPTIONS.map((x) => (
-                                 <MenuItem key={x.value} value={x.value}>{x.label}</MenuItem>
-                              ))}
-                           </TextField>
-                        </Grid>
-
-                        <Grid item xs={12} md={3}>
-                           <TextField
-                              fullWidth
-                              type="date"
-                              label={fields.originAction?.kind === 'showing' ? 'Дата показу' : 'Дата огляду'}
-                              value={fields.originAction?.occurredAt || ''}
-                              onChange={(e) => setOriginAction('occurredAt', e.target.value)}
-                              sx={fieldSx}
-                              InputLabelProps={{ shrink: true }}
-                              disabled={!fields.originAction?.kind}
-                           />
-                        </Grid>
-
-                        {fields.originAction?.kind === 'showing' && (
-                           <Grid item xs={12} md={6}>
-                              <TextField
-                                 select
-                                 fullWidth
-                                 label="Пов’язаний показ"
-                                 value={fields.originAction?.sourceOperationEvent || ''}
-                                 onChange={(e) => setOriginAction('sourceOperationEvent', e.target.value)}
-                                 sx={fieldSx}
-                                 SelectProps={{
-                                    MenuProps: selectMenuProps,
-                                    renderValue: (value) => {
-                                       const selected = originShowings.find((item) => item._id === value);
-                                       return selected ? showingOptionLabel(selected) : '—';
-                                    },
-                                 }}
-                                 disabled={!fields.originAction?.occurredAt || originShowingsLoading}
-                                 helperText={
-                                    !fields.originAction?.occurredAt
-                                       ? 'Спочатку вибери дату — тоді підтягнемо покази цього дня'
-                                       : originShowingsLoading
-                                          ? 'Завантажую покази...'
-                                          : originShowings.length
-                                             ? 'Обери показ, під час якого об’єкт взяли в роботу'
-                                             : 'На цю дату показів не знайдено'
-                                 }
-                              >
-                                  <MenuItem value="">—</MenuItem>
-                                  {originShowings.map((item) => (
-                                     <MenuItem key={item._id} value={item._id} sx={{ alignItems: 'flex-start', py: 0.9 }}>
-                                        <Stack spacing={0.15} sx={{ minWidth: 0, maxWidth: 640 }}>
-                                           <Typography sx={{ color: '#fff', fontWeight: 950, fontSize: 15, lineHeight: 1.16 }} noWrap>
-                                              {item.property?.title || item.property?.location_text || 'об’єкт без назви'}
-                                           </Typography>
-                                           <Typography sx={{ color: 'rgba(255,255,255,0.68)', fontSize: 12.5, lineHeight: 1.2 }} noWrap>
-                                              {showingOptionMeta(item)}
-                                           </Typography>
-                                        </Stack>
-                                     </MenuItem>
-                                  ))}
-                              </TextField>
-                           </Grid>
-                        )}
-
-                        <Grid item xs={12} md={fields.originAction?.kind === 'showing' ? 12 : 6}>
-                           <TextField
-                              fullWidth
-                              label="Коментар до огляду"
-                              placeholder={fields.originAction?.kind === 'showing' ? 'Наприклад: під час показу побачили сусідній об’єкт і домовились взяти в роботу' : 'Наприклад: огляд проведено, власник погодив правила роботи'}
-                              value={fields.originAction?.note || ''}
-                              onChange={(e) => setOriginAction('note', e.target.value)}
-                              sx={fieldSx}
-                              disabled={!fields.originAction?.kind}
-                           />
-                        </Grid>
-                     </Grid>
-                  </Stack>
-               </Box>
-            </Grid>
-
-            <Grid item xs={12}>
-               <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)', my: 0.5 }} />
-            </Grid>
-
-            <Grid item xs={12}>
-               <Typography sx={{ color: '#fff', fontWeight: 900, mb: 1 }}>
-                  Характеристики робочі
-               </Typography>
-            </Grid>
-
-            <Grid item xs={12} md={3}>
-               <TextField
-                  select
-                  label="Актуальність"
-                  value={fields.actualityGroup}
-                  onChange={(e) => set('actualityGroup', e.target.value)}
-                  fullWidth
-                  sx={fieldSx}
-                  SelectProps={{ MenuProps: selectMenuProps }}
-               >
-                  {ACTUALITY_GROUPS.map((x) => (
-                     <MenuItem key={x.value} value={x.value}>
-                        {x.label}
-                     </MenuItem>
-                  ))}
-               </TextField>
-            </Grid>
-
-            <Grid item xs={12} md={5}>
-               <TextField
-                  select
-                  label="Причина актуальності"
-                  value={fields.actualityStatus}
-                  onChange={(e) => set('actualityStatus', e.target.value)}
-                  fullWidth
-                  sx={fieldSx}
-                  SelectProps={{ MenuProps: selectMenuProps }}
-               >
-                  {ACTUALITY_STATUSES.map((x) => (
-                     <MenuItem key={x} value={x}>
-                        {x}
-                     </MenuItem>
-                  ))}
-               </TextField>
-            </Grid>
-
-            <Grid item xs={12} md={4}>
-               <TextField
-                  select
-                  label="Публікація на сайті"
-                  value={String(fields.isPublic)}
-                  onChange={(e) => set('isPublic', e.target.value === 'true')}
-                  fullWidth
-                  sx={fieldSx}
-                  SelectProps={{ MenuProps: selectMenuProps }}
-               >
-                  <MenuItem value="true">Так, публічний</MenuItem>
-                  <MenuItem value="false">Ні, лише CRM</MenuItem>
-               </TextField>
-            </Grid>
-
-            {/* <Grid item xs={12}>
-               <Typography sx={{ color: '#fff', fontWeight: 900, mb: 1 }}>
-                  Відповідальні
-               </Typography>
-            </Grid> */}
-
-            <Grid item xs={12} md={6}>
-               <TextField
-                  select
-                  label="Відповідальний"
-                  value={fields.assignee}
-                  onChange={(e) => set('assignee', e.target.value)}
-                  fullWidth
-                  sx={fieldSx}
-                  SelectProps={{ MenuProps: selectMenuProps }}
-               >
-                  <MenuItem value="">Не призначено</MenuItem>
-                  {employees.map((emp) => (
-                     <MenuItem key={emp._id} value={emp._id}>
-                        {emp.fullName || [emp.surname, emp.name].filter(Boolean).join(' ') || emp.name}
-                     </MenuItem>
-                  ))}
-               </TextField>
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-               <TextField
-                  select
-                  label="Хто вніс"
-                  value={fields.createdByEmployee}
-                  onChange={(e) => set('createdByEmployee', e.target.value)}
-                  fullWidth
-                  sx={fieldSx}
-                  SelectProps={{ MenuProps: selectMenuProps }}
-                  disabled={mode === 'edit'}
-                  helperText={mode === 'edit' ? 'Історичне поле, краще не змінювати' : ''}
-               >
-                  <MenuItem value="">Не вказано</MenuItem>
-                  {employees.map((emp) => (
-                     <MenuItem key={emp._id} value={emp._id}>
-                        {emp.fullName || [emp.surname, emp.name].filter(Boolean).join(' ') || emp.name}
-                     </MenuItem>
-                  ))}
-               </TextField>
-            </Grid>
-
-
-
-
-            <Grid item xs={12}>
-               <Typography sx={{ color: '#fff', fontWeight: 900, mb: 1 }}>
-                  Бізнес-оцінка
-               </Typography>
-            </Grid>
-
-            {BUSINESS_SCORE_FIELDS.map((field) => (
-               <Grid item xs={12} sm={6} md={3} key={field.key}>
-                  <TextField
-                     select
-                     // label={field.label}
-                     label={BUSINESS_SCORE_OPTIONS[field.key].label}
-                     value={fields.businessScore?.[field.key] || ''}
-                     onChange={(e) =>
-                        setFields((p) => ({
-                           ...p,
-                           businessScore: {
-                              ...(p.businessScore || {}),
-                              [field.key]: e.target.value,
-                           },
-                        }))
-                     }
-                     fullWidth
-                     sx={fieldSx}
-                  >
-                     <MenuItem value="">—</MenuItem>
-                     {/* {[5, 4, 3, 2, 1].map((n) => (
-                        <MenuItem key={n} value={n}>
-                           {n}
-                        </MenuItem>
-                     ))} */}
-                     {[5, 4, 3, 2, 1].map((n) => (
-                        <MenuItem key={n} value={n}>
-                           {n} — {BUSINESS_SCORE_OPTIONS[field.key].options[n]}
-                        </MenuItem>
-                     ))}
-                  </TextField>
-               </Grid>
-            ))}
-
-            <Grid item xs={12} md={4}>
-               <TextField
-                  label="Джерело"
-                  value={fields.source || ''}
-                  onChange={(e) => set('source', e.target.value)}
-                  fullWidth
-                  sx={fieldSx}
-               />
-            </Grid>
-
-            <Grid item xs={12} md={4}>
-               <TextField
-                  select
-                  label="Хто погодив стратегію"
-                  value={fields.strategyApprovedBy || ''}
-                  onChange={(e) => set('strategyApprovedBy', e.target.value)}
-                  fullWidth
-                  sx={fieldSx}
-               >
-                  <MenuItem value="">—</MenuItem>
-                  {employees.map((emp) => (
-                     <MenuItem key={emp._id} value={emp._id}>
-                        {emp.fullName || [emp.surname, emp.name].filter(Boolean).join(' ') || emp.name}
-                     </MenuItem>
-                  ))}
-               </TextField>
-            </Grid>
-
-            <Grid item xs={12} md={4}>
-               <TextField
-                  type="date"
-                  label="Дата погодження стратегії"
-                  value={fields.strategyApprovedAt || ''}
-                  onChange={(e) => set('strategyApprovedAt', e.target.value)}
-                  fullWidth
-                  sx={fieldSx}
-                  InputLabelProps={{ shrink: true }}
-               />
-            </Grid>
-
-
-
-
-            <Grid item xs={12}>
-               <TextField
-                  label="Примітка по актуальності"
-                  placeholder="Коментар, причина, деталі..."
-                  value={fields.actualityNote}
-                  onChange={(e) => set('actualityNote', e.target.value)}
-                  fullWidth
-                  multiline
-                  minRows={2}
-                  sx={fieldSx}
-               />
-            </Grid>
 
             <Grid item xs={12}>
                <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)', my: 0.5 }} />

@@ -10,7 +10,9 @@ export async function createProperty(payload) {
 
    if (!res.ok) {
       const text = await res.text();
-      throw new Error(text || 'Помилка створення обʼєкта');
+      const error = new Error(text || 'Помилка створення обʼєкта');
+      error.status = res.status;
+      throw error;
    }
 
    return res.json();
@@ -26,7 +28,9 @@ export async function updateProperty(id, payload) {
 
    if (!res.ok) {
       const text = await res.text();
-      throw new Error(text || 'Помилка оновлення обʼєкта');
+      const error = new Error(text || 'Помилка оновлення обʼєкта');
+      error.status = res.status;
+      throw error;
    }
 
    return res.json();

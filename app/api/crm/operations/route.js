@@ -15,7 +15,7 @@ void Employee;
 void Lead;
 void Property;
 
-const VALID_TYPES = ['showing', 'inspection', 'review', 'call', 'meeting', 'other', 'pzs'];
+const VALID_TYPES = ['showing', 'inspection', 'review', 'call', 'meeting', 'other', 'pzs', 'loss'];
 const VALID_FINANCIAL_PRODUCTS = ['OO', 'OP', 'PP', 'PO', ''];
 const VALID_PZS_STATUSES = ['active', 'deposit', 'failed', 'paused'];
 const VALID_PZS_STEP_TYPES = ['created', 'negotiation', 'next_step', 'deposit', 'failed', 'note'];

@@ -69,6 +69,23 @@ const OPERATION_EVENT_FIELDS = [
    "resultDescription",
    "pzs",
    "review",
+   "loss",
+];
+
+const PROPERTY_FIELDS = [
+   "title",
+   "location_text",
+   "actualityGroup",
+   "actualityStatus",
+   "actualityNote",
+   "inactiveAt",
+   "inactiveNote",
+   "crmStage",
+   "crmStageReason",
+   "inspectedAt",
+   "originAction",
+   "assignee",
+   "isPublic",
 ];
 
 const FINANCE_EVENT_FIELDS = [
@@ -199,4 +216,4 @@ export async function logActivity(payload = {}) {
    }
 }
 
-export { LEAD_PROPERTY_FIELDS, OPERATION_EVENT_FIELDS, FINANCE_EVENT_FIELDS };
+export { LEAD_PROPERTY_FIELDS, OPERATION_EVENT_FIELDS, PROPERTY_FIELDS, FINANCE_EVENT_FIELDS };

@@ -9,6 +9,7 @@ import {
    logActivity,
    pickActivitySnapshot,
 } from '@/utils/crm/activityLog';
+import { canManageOperationEvent } from '@/utils/crm/accessControl';
 import { getSessionUser } from '@/utils/getSessionUser';
 import { Types } from 'mongoose';
 
@@ -16,7 +17,7 @@ void Employee;
 void Lead;
 void Property;
 
-const VALID_TYPES = ['showing', 'inspection', 'review', 'call', 'meeting', 'other', 'pzs'];
+const VALID_TYPES = ['showing', 'inspection', 'review', 'call', 'meeting', 'other', 'pzs', 'loss'];
 const VALID_FINANCIAL_PRODUCTS = ['OO', 'OP', 'PP', 'PO', ''];
 const VALID_PZS_STATUSES = ['active', 'deposit', 'failed', 'paused'];
 const VALID_PZS_STEP_TYPES = ['created', 'negotiation', 'next_step', 'deposit', 'failed', 'note'];
@@ -208,6 +209,36 @@ export const PATCH = async (request, { params }) => {
       if (!existing) {
          return Response.json({ error: 'not found' }, { status: 404 });
       }
+
+      if (!(await canManageOperationEvent(sessionUser, existing))) {
+         const deniedPopulated = await populateEvent(OperationEvent.findById(id)).lean();
+         await logActivity({
+            entityType: 'operation',
+            entityId: existing._id,
+            action: 'access_denied',
+            sessionUser,
+            source: 'manual',
+            title: operationTitle(deniedPopulated || existing),
+            message: 'Спроба редагування операційної події без доступу',
+            before: pickActivitySnapshot(existing, OPERATION_EVENT_FIELDS),
+            meta: {
+               pageName: 'Операційка',
+               pagePath: '/crm/operations',
+               operationType: existing.type,
+               propertyId: existing.property,
+               leadId: existing.lead,
+               attemptedAction: 'update_operation',
+            },
+         });
+         return Response.json({ error: 'forbidden' }, { status: 403 });
+      }
+
+      if (existing.type === 'loss') {
+         return Response.json({
+            error: 'loss events are managed from property actuality',
+         }, { status: 409 });
+      }
+
       const beforeSnapshot = pickActivitySnapshot(existing, OPERATION_EVENT_FIELDS);
 
       const operationType = pick(body?.type, VALID_TYPES, 'showing');
@@ -312,6 +343,35 @@ export const DELETE = async (_request, { params }) => {
 
       if (!existing) {
          return Response.json({ error: 'not found' }, { status: 404 });
+      }
+
+      if (!(await canManageOperationEvent(sessionUser, existing))) {
+         const deniedPopulated = await populateEvent(OperationEvent.findById(id)).lean();
+         await logActivity({
+            entityType: 'operation',
+            entityId: existing._id,
+            action: 'access_denied',
+            sessionUser,
+            source: 'manual',
+            title: operationTitle(deniedPopulated || existing),
+            message: 'Спроба видалення операційної події без доступу',
+            before: pickActivitySnapshot(existing, OPERATION_EVENT_FIELDS),
+            meta: {
+               pageName: 'Операційка',
+               pagePath: '/crm/operations',
+               operationType: existing.type,
+               propertyId: existing.property,
+               leadId: existing.lead,
+               attemptedAction: 'delete_operation',
+            },
+         });
+         return Response.json({ error: 'forbidden' }, { status: 403 });
+      }
+
+      if (existing.type === 'loss') {
+         return Response.json({
+            error: 'loss events are deleted by changing property actuality',
+         }, { status: 409 });
       }
 
       const populated = await populateEvent(OperationEvent.findById(id)).lean();

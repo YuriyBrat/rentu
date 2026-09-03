@@ -12,14 +12,33 @@ export const GET = async () => {
       }
 
       if (session.user.isFallbackAdmin) {
+         await connectDB();
+
+         const envLogin = String(process.env.CRM_SUPERADMIN_LOGIN || '').trim().toLowerCase();
+         const employee = envLogin
+            ? await Employee.findOne({
+               isActive: true,
+               $or: [
+                  { login: envLogin },
+                  { emails: envLogin },
+                  { 'phones.number': envLogin },
+                  { phones: envLogin },
+               ],
+            }).lean()
+            : null;
+
          return Response.json(
             {
                user: {
-                  _id: 'env-superadmin',
-                  name: session.user.name || 'Super Admin',
-                  position: session.user.position || 'Власник',
+                  ...(employee || {}),
+                  _id: employee?._id || 'env-superadmin',
+                  employeeId: employee?._id || null,
+                  login: employee?.login || envLogin || '',
+                  name: employee?.name || session.user.name || 'Super Admin',
+                  fullName: employee?.fullName || session.user.name || 'Super Admin',
+                  position: employee?.position || session.user.position || 'Власник',
                   role: session.user.role || 'owner',
-                  avatarUrl: session.user.avatarUrl || '',
+                  avatarUrl: employee?.avatarUrl || session.user.avatarUrl || '',
                   isFallbackAdmin: true,
                },
             },

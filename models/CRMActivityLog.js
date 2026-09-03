@@ -21,6 +21,7 @@ export const CRM_ACTIVITY_ACTIONS = [
    "moved",
    "linked",
    "unlinked",
+   "access_denied",
 ];
 
 const CRMActivityLogSchema = new Schema(
@@ -47,7 +48,7 @@ const CRMActivityLogSchema = new Schema(
 
       source: {
          type: String,
-         enum: ["manual", "system", "dimria", "reamak", "api", "import", "unknown", ""],
+         enum: ["manual", "system", "dimria", "reamak", "api", "import", "properties", "unknown", ""],
          default: "unknown",
          index: true,
       },

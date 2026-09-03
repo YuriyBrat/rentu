@@ -20,6 +20,9 @@ void Property;
 const VALID_STATUSES = ['waiting', 'completed_success', 'completed_improved', 'completed_worse', 'failed'];
 const VALID_PLACE_TYPES = ['notary', 'developer_sales', 'other'];
 const VALID_FINANCIAL_PRODUCTS = ['OO', 'OP', 'PP', 'PO', ''];
+const SUCCESSFUL_REREGISTRATION_STATUSES = ['completed_success', 'completed_improved', 'completed_worse'];
+const SOLD_BY_US_STATUS = 'Неактуальний. Реалізований мною';
+const RESTORED_AFTER_PERS_STATUS = 'Зупинений. Завдаток мій';
 
 function parseDate(value) {
    if (!value) return undefined;
@@ -147,6 +150,65 @@ function mapEvent(item) {
    };
 }
 
+async function markPropertySoldByReregistration(item, noteText = '') {
+   if (!item?.property || !SUCCESSFUL_REREGISTRATION_STATUSES.includes(item.status)) return;
+
+   const soldNote = ['Продано через ПЕРС', String(noteText || item.resultSummary || '').trim()]
+      .filter(Boolean)
+      .join('. ');
+
+   await Property.findByIdAndUpdate(
+      item.property,
+      {
+         $set: {
+            actualityGroup: 'inactive',
+            actualityStatus: SOLD_BY_US_STATUS,
+            inactiveAt: item.occurredAt || new Date(),
+            inactiveNote: soldNote,
+            crmStage: 'archived',
+            crmStageReason: 'Продано через ПЕРС',
+         },
+      },
+      { runValidators: true }
+   );
+}
+
+async function restorePropertyAfterReregistration(item, excludedReregistrationId) {
+   if (!item?.property) return;
+
+   const otherSuccessfulPers = await FinanceEvent.findOne({
+      _id: { $ne: excludedReregistrationId },
+      financeType: 'reregistration',
+      property: item.property,
+      status: { $in: SUCCESSFUL_REREGISTRATION_STATUSES },
+   })
+      .select('_id')
+      .lean();
+
+   if (otherSuccessfulPers) return;
+
+   await Property.findOneAndUpdate(
+      {
+         _id: item.property,
+         actualityGroup: 'inactive',
+         actualityStatus: SOLD_BY_US_STATUS,
+      },
+      {
+         $set: {
+            actualityGroup: 'paused',
+            actualityStatus: RESTORED_AFTER_PERS_STATUS,
+            inactiveNote: '',
+            crmStage: 'zs',
+            crmStageReason: 'ПЕРС видалено або зірвано',
+         },
+         $unset: {
+            inactiveAt: 1,
+         },
+      },
+      { runValidators: true }
+   );
+}
+
 function financeTitle(item) {
    const typeLabel = item?.financeType === 'reregistration' ? 'ПЕРС' : 'Завдаток';
    const propertyTitle = item?.property?.title || item?.property?.location_text;
@@ -228,6 +290,22 @@ export const PATCH = async (request, { params }) => {
       const populated = await populateEvent(FinanceEvent.findById(updated._id)).lean();
       const afterSnapshot = pickActivitySnapshot(updated, FINANCE_EVENT_FIELDS);
 
+      if (updated.financeType === 'reregistration') {
+         const wasSuccessfulPers = SUCCESSFUL_REREGISTRATION_STATUSES.includes(existing.status);
+         const isSuccessfulPers = SUCCESSFUL_REREGISTRATION_STATUSES.includes(updated.status);
+         const propertyChanged = idString(existing.property) !== idString(updated.property);
+
+         if (wasSuccessfulPers && propertyChanged) {
+            await restorePropertyAfterReregistration(existing, updated._id);
+         }
+
+         if (isSuccessfulPers) {
+            await markPropertySoldByReregistration(updated, noteText);
+         } else if (wasSuccessfulPers && !propertyChanged) {
+            await restorePropertyAfterReregistration(updated, updated._id);
+         }
+      }
+
       if (updated.financeType === 'deposit' && updated.sourcePreDepositEvent) {
          await OperationEvent.findOneAndUpdate(
             { _id: updated.sourcePreDepositEvent, type: 'pzs' },
@@ -236,6 +314,16 @@ export const PATCH = async (request, { params }) => {
                   'pzs.status': 'deposit',
                   'pzs.resultFinanceEvent': updated._id,
                   'pzs.closedAt': updated.occurredAt,
+               },
+            },
+            { runValidators: true }
+         );
+      } else if (updated.financeType === 'deposit' && updated.sourceOperationEvent) {
+         await OperationEvent.findOneAndUpdate(
+            { _id: updated.sourceOperationEvent, type: 'showing' },
+            {
+               $set: {
+                  resultShowing: 'zs',
                },
             },
             { runValidators: true }
@@ -317,6 +405,13 @@ export const DELETE = async (_request, { params }) => {
          await FinanceEvent.findByIdAndUpdate(existing.deposit, {
             $set: { reregistrationEvent: null, status: 'waiting' },
          });
+      }
+
+      if (
+         existing.financeType === 'reregistration' &&
+         SUCCESSFUL_REREGISTRATION_STATUSES.includes(existing.status)
+      ) {
+         await restorePropertyAfterReregistration(existing, existing._id);
       }
 
       if (existing.financeType === 'deposit' && existing.sourcePreDepositEvent) {

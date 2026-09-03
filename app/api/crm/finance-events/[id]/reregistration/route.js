@@ -18,6 +18,8 @@ void Property;
 
 const VALID_RESULTS = ['completed_success', 'completed_improved', 'completed_worse', 'failed'];
 const VALID_PLACE_TYPES = ['notary', 'developer_sales', 'other'];
+const SUCCESSFUL_REREGISTRATION_STATUSES = ['completed_success', 'completed_improved', 'completed_worse'];
+const SOLD_BY_US_STATUS = 'Неактуальний. Реалізований мною';
 
 function parseDate(value) {
    if (!value) return undefined;
@@ -67,6 +69,29 @@ function mapEvent(item) {
       kind: 'financeEvent',
       depositId: item.deposit?._id?.toString?.() || item.deposit?.toString?.() || item.deposit || null,
    };
+}
+
+async function markPropertySoldByReregistration(item, noteText = '') {
+   if (!item?.property || !SUCCESSFUL_REREGISTRATION_STATUSES.includes(item.status)) return;
+
+   const soldNote = ['Продано через ПЕРС', String(noteText || item.resultSummary || '').trim()]
+      .filter(Boolean)
+      .join('. ');
+
+   await Property.findByIdAndUpdate(
+      item.property,
+      {
+         $set: {
+            actualityGroup: 'inactive',
+            actualityStatus: SOLD_BY_US_STATUS,
+            inactiveAt: item.occurredAt || new Date(),
+            inactiveNote: soldNote,
+            crmStage: 'archived',
+            crmStageReason: 'Продано через ПЕРС',
+         },
+      },
+      { runValidators: true }
+   );
 }
 
 function financeTitle(item) {
@@ -144,6 +169,8 @@ export const POST = async (request, { params }) => {
          ];
       }
       await deposit.save();
+
+      await markPropertySoldByReregistration(item, noteText);
 
       const populated = await populateEvent(FinanceEvent.findById(item._id)).lean();
       const updatedDeposit = await FinanceEvent.findById(deposit._id);

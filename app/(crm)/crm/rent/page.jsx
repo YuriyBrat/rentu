@@ -11,21 +11,23 @@ import {
    CircularProgress,
    Alert,
    Chip,
-   Dialog
+   Button,
 } from '@mui/material';
 
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import HomeWorkRoundedIcon from '@mui/icons-material/HomeWorkRounded';
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
 
 import RentRowCard from '@/crm_components/rent/RentRowCard';
 import EditPropertyDialog from '@/crm_components/EditPropertyDialog';
-import { updateProperty } from '@/utils/crm/propertyApi';
+import CreatePropertyDialog from '@/crm_components/CreatePropertyDialog';
+import { createProperty, updateProperty } from '@/utils/crm/propertyApi';
 
 
 const STATUS_OPTIONS = [
    { value: 'all', label: 'Усі статуси' },
-   { value: 'rentActual', label: 'Актуальні' },
-   { value: 'rentPause', label: 'Пауза' },
+   { value: 'rentActual', label: 'Актуальні для здачі' },
+   { value: 'rentPause', label: 'Пауза / завдаток' },
    { value: 'rentRented', label: 'Здані' },
 ];
 
@@ -101,6 +103,7 @@ export default function RentPage() {
 
    const [employees, setEmployees] = useState([]);
    const [editingItem, setEditingItem] = useState(null);
+   const [openCreate, setOpenCreate] = useState(false);
 
    const loadEmployees = async () => {
       try {
@@ -188,6 +191,99 @@ export default function RentPage() {
       };
    }, [items]);
 
+   const handleCreate = async (payload) => {
+      try {
+         await createProperty({
+            ...payload,
+            type_deal: 'оренда',
+            statusRent: payload.statusRent === 'rentNo' ? 'rentActual' : payload.statusRent,
+            originAction: {},
+         });
+         setOpenCreate(false);
+         await loadItems();
+      } catch (e) {
+         console.error(e);
+         setError(e?.message || 'Не вдалося додати об’єкт оренди');
+      }
+   };
+
+   const handleRentStatusChange = async (item, statusData) => {
+      const rentOptions = item?.rentOptions || {};
+      const rentStory = rentOptions?.rentStory || {};
+      const isActual = statusData.statusRent === 'rentActual';
+      const rentedByLabel = isActual
+         ? ''
+         : statusData.rentedByType === 'employee'
+            ? 'employee'
+            : statusData.rentedByType || '';
+
+      const fd = new FormData();
+      fd.append('statusRent', statusData.statusRent);
+      fd.append(
+         'rentOptions',
+         JSON.stringify({
+            ...rentOptions,
+            lastActualizedAt: isActual ? statusData.statusDate || '' : rentOptions.lastActualizedAt || '',
+            rentStory: {
+               ...rentStory,
+               rentedAt: isActual ? rentStory.rentedAt || '' : statusData.statusDate || '',
+               rentedByType: isActual ? '' : statusData.rentedByType || '',
+               rentedByEmployee: !isActual && statusData.rentedByType === 'employee' ? statusData.rentedByEmployee || '' : '',
+               rentedBy: rentedByLabel,
+               note: statusData.note || '',
+            },
+            rentHistory: Array.isArray(rentOptions.rentHistory) ? rentOptions.rentHistory : [],
+         })
+      );
+
+      const res = await fetch(`/api/crm/properties/${item._id}`, {
+         method: 'PATCH',
+         body: fd,
+      });
+
+      if (!res.ok) {
+         const text = await res.text();
+         throw new Error(text || 'Не вдалося оновити статус здачі');
+      }
+
+      await loadItems();
+   };
+
+   const handleRentHistoryAdd = async (item, historyData) => {
+      const rentOptions = item?.rentOptions || {};
+      const rentHistory = Array.isArray(rentOptions.rentHistory) ? rentOptions.rentHistory : [];
+
+      const fd = new FormData();
+      fd.append(
+         'rentOptions',
+         JSON.stringify({
+            ...rentOptions,
+            rentHistory: [
+               ...rentHistory,
+               {
+                  rentedAt: historyData.rentedAt || '',
+                  movedOutAt: historyData.movedOutAt || '',
+                  rentedByType: historyData.rentedByType || '',
+                  rentedByEmployee: historyData.rentedByType === 'employee' ? historyData.rentedByEmployee || '' : '',
+                  note: historyData.note || '',
+               },
+            ],
+         })
+      );
+
+      const res = await fetch(`/api/crm/properties/${item._id}`, {
+         method: 'PATCH',
+         body: fd,
+      });
+
+      if (!res.ok) {
+         const text = await res.text();
+         throw new Error(text || 'Не вдалося додати історію здачі');
+      }
+
+      await loadItems();
+   };
+
    return (
       <Box
          sx={{
@@ -218,6 +314,27 @@ export default function RentPage() {
                </Stack>
 
                <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                  <Button
+                     variant="contained"
+                     startIcon={<AddRoundedIcon />}
+                     onClick={() => setOpenCreate(true)}
+                     sx={{
+                        borderRadius: 3,
+                        fontWeight: 950,
+                        px: 1.8,
+                        minHeight: 32,
+                        whiteSpace: 'nowrap',
+                        color: '#0b0b12',
+                        background: 'linear-gradient(90deg, rgba(139,92,246,1), rgba(168,85,247,1))',
+                        boxShadow: '0 14px 34px rgba(139,92,246,0.28)',
+                        '&:hover': {
+                           background: 'linear-gradient(90deg, rgba(124,58,237,1), rgba(147,51,234,1))',
+                        },
+                     }}
+                  >
+                     Внести об’єкт оренди
+                  </Button>
+
                   <Chip
                      label={`Усього: ${counts.all}`}
                      sx={{
@@ -227,7 +344,7 @@ export default function RentPage() {
                      }}
                   />
                   <Chip
-                     label={`Актуальні: ${counts.rentActual}`}
+                     label={`Для здачі: ${counts.rentActual}`}
                      sx={{
                         color: '#d1fae5',
                         bgcolor: 'rgba(16,185,129,0.16)',
@@ -235,7 +352,7 @@ export default function RentPage() {
                      }}
                   />
                   <Chip
-                     label={`Пауза: ${counts.rentPause}`}
+                     label={`Пауза/завдаток: ${counts.rentPause}`}
                      sx={{
                         color: '#fde68a',
                         bgcolor: 'rgba(245,158,11,0.14)',
@@ -281,7 +398,7 @@ export default function RentPage() {
 
                <TextField
                   select
-                  label="Статус оренди"
+                  label="Статус здачі"
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
                   sx={{ minWidth: { xs: '100%', lg: 220 }, ...fieldSx }}
@@ -340,7 +457,14 @@ export default function RentPage() {
             {!loading && !error && (
                <Stack spacing={1.2}>
                   {filtered.map((item) => (
-                     <RentRowCard key={item._id} item={item} onEdit={(row) => setEditingItem(row)} />
+                     <RentRowCard
+                        key={item._id}
+                        item={item}
+                        employees={employees}
+                        onEdit={(row) => setEditingItem(row)}
+                        onRentStatusChange={handleRentStatusChange}
+                        onRentHistoryAdd={handleRentHistoryAdd}
+                     />
                   ))}
                </Stack>
             )}
@@ -349,6 +473,14 @@ export default function RentPage() {
 
 
 
+
+         <CreatePropertyDialog
+            open={openCreate}
+            onClose={() => setOpenCreate(false)}
+            onSubmit={handleCreate}
+            employees={employees}
+            formMode="rent"
+         />
 
          {/* <Dialog
             open={!!editingItem}
@@ -361,6 +493,7 @@ export default function RentPage() {
                open={!!editingItem}
                item={editingItem}
                employees={employees}
+               formMode="rent"
                onClose={() => setEditingItem(null)}
                onSubmit={async (payload) => {
                   await updateProperty(editingItem._id, payload);

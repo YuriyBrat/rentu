@@ -21,23 +21,29 @@ import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
 import ExpandLessRoundedIcon from '@mui/icons-material/ExpandLessRounded';
+import EditRoundedIcon from '@mui/icons-material/EditRounded';
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
+import PestControlRoundedIcon from '@mui/icons-material/PestControlRounded';
+import SentimentDissatisfiedRoundedIcon from '@mui/icons-material/SentimentDissatisfiedRounded';
 
 function getPlatformLabel(platform) {
    if (platform === 'olx') return 'OLX';
    if (platform === 'dimria') return 'DIM.RIA';
-   if (platform === 'rieltor') return 'RIELTOR';
+   if (platform === 'rieltor') return 'RIELTOR.UA';
+   if (platform === 'lun') return 'LUN.UA';
+   if (platform === 'flatfy') return 'Flatfy.ua';
+   if (platform === 'real-estate') return 'Real-estate';
    if (platform === 'facebook') return 'Facebook';
    if (platform === 'instagram') return 'Instagram';
+   if (platform === 'tiktok') return 'TikTok';
+   if (platform === 'telegram') return 'Telegram';
    if (platform === 'site') return 'Сайт';
    return 'Інше';
 }
 
-function getAdStatusLabel(status) {
-   if (status === 'active') return 'Активна';
-   if (status === 'paused') return 'Пауза';
-   if (status === 'archived') return 'Архів';
-   if (status === 'problem') return 'Проблема';
-   return '—';
+function getAdStatusLabel(status, closedAt) {
+   if (closedAt) return 'Неактивна';
+   return 'Активна';
 }
 
 function formatDateTime(value) {
@@ -71,9 +77,9 @@ function getLinksBySource(links = [], sourceType) {
 function getSourceColors(sourceType, mode, theme) {
    if (sourceType === 'competitor') {
       return {
-         text: mode === 'light' ? '#92400e' : '#fde68a',
-         bg: mode === 'light' ? 'rgba(245,158,11,0.12)' : 'rgba(245,158,11,0.13)',
-         border: '1px solid rgba(245,158,11,0.28)',
+         text: mode === 'light' ? '#1e40af' : '#bfdbfe',
+         bg: mode === 'light' ? 'rgba(59,130,246,0.10)' : 'rgba(59,130,246,0.12)',
+         border: '1px solid rgba(59,130,246,0.25)',
       };
    }
 
@@ -86,10 +92,20 @@ function getSourceColors(sourceType, mode, theme) {
    }
 
    return {
-      text: mode === 'light' ? '#1e40af' : '#bfdbfe',
-      bg: mode === 'light' ? 'rgba(59,130,246,0.10)' : 'rgba(59,130,246,0.12)',
-      border: '1px solid rgba(59,130,246,0.25)',
+      text: mode === 'light' ? '#92400e' : '#fde68a',
+      bg: mode === 'light' ? 'rgba(245,158,11,0.12)' : 'rgba(245,158,11,0.13)',
+      border: '1px solid rgba(245,158,11,0.28)',
    };
+}
+
+function getSourceIcon(sourceType) {
+   if (sourceType === 'competitor') return <PestControlRoundedIcon sx={{ fontSize: 15 }} />;
+   if (sourceType === 'owner') return <SentimentDissatisfiedRoundedIcon sx={{ fontSize: 15 }} />;
+   return (
+      <Box component="span" sx={{ fontSize: 14, lineHeight: 1 }}>
+         🐯
+      </Box>
+   );
 }
 
 async function copyLink(url) {
@@ -116,17 +132,24 @@ function AdsBadgeSection({ title, sourceType, links, mode, theme, onOpenGroup })
          }}
       >
          <Stack direction="row" spacing={0.7} alignItems="center" flexWrap="wrap" useFlexGap>
-            <Typography
-               sx={{
-                  color: colors.text,
-                  fontSize: 11,
-                  fontWeight: 950,
-                  mr: 0.2,
-                  whiteSpace: 'nowrap',
-               }}
-            >
-               {title}
-            </Typography>
+            <Tooltip title={title}>
+               <Box
+                  sx={{
+                     width: 24,
+                     height: 24,
+                     display: 'inline-flex',
+                     alignItems: 'center',
+                     justifyContent: 'center',
+                     flex: '0 0 auto',
+                     color: colors.text,
+                     bgcolor: colors.bg,
+                     border: colors.border,
+                     borderRadius: '50%',
+                  }}
+               >
+                  {getSourceIcon(sourceType)}
+               </Box>
+            </Tooltip>
 
             {groups.length ? (
                groups.map(([platform, group]) => (
@@ -136,10 +159,11 @@ function AdsBadgeSection({ title, sourceType, links, mode, theme, onOpenGroup })
                      color="primary"
                      sx={{
                         '& .MuiBadge-badge': {
-                           height: 16,
-                           minWidth: 16,
-                           fontSize: 10,
+                           height: 14,
+                           minWidth: 14,
+                           fontSize: 9,
                            fontWeight: 950,
+                           px: 0.35,
                         },
                      }}
                   >
@@ -149,13 +173,17 @@ function AdsBadgeSection({ title, sourceType, links, mode, theme, onOpenGroup })
                         onMouseEnter={(e) => onOpenGroup(e.currentTarget, group)}
                         onClick={(e) => onOpenGroup(e.currentTarget, group)}
                         sx={{
-                           height: 22,
-                           fontSize: 11,
+                           height: 20,
+                           fontSize: 10.5,
+                           px: 0.2,
                            fontWeight: 950,
                            color: colors.text,
                            bgcolor: colors.bg + '!important',
                            border: colors.border,
                            cursor: 'pointer',
+                           '& .MuiChip-label': {
+                              px: 0.9,
+                           },
                         }}
                      />
                   </Badge>
@@ -170,8 +198,24 @@ function AdsBadgeSection({ title, sourceType, links, mode, theme, onOpenGroup })
    );
 }
 
-function AdvertisingLinkRow({ link, mode, theme }) {
+function AdvertisingLinkRow({ link, mode, theme, canManage, onStatusClick }) {
    const colors = getSourceColors(link.sourceType || 'ours', mode, theme);
+   const isInactive = !!link.closedAt;
+   const statusColor = isInactive
+      ? {
+         text: mode === 'light' ? '#991b1b' : '#fecaca',
+         bg: mode === 'light' ? 'rgba(239,68,68,0.08) !important' : 'rgba(239,68,68,0.13) !important',
+         border: mode === 'light'
+            ? '1px solid rgba(239,68,68,0.22)'
+            : '1px solid rgba(239,68,68,0.28)',
+      }
+      : {
+         text: mode === 'light' ? '#166534' : '#bbf7d0',
+         bg: mode === 'light' ? 'rgba(22,101,52,0.08) !important' : 'rgba(34,197,94,0.12) !important',
+         border: mode === 'light'
+            ? '1px solid rgba(22,101,52,0.18)'
+            : '1px solid rgba(34,197,94,0.22)',
+      };
 
    return (
       <Box
@@ -189,30 +233,43 @@ function AdvertisingLinkRow({ link, mode, theme }) {
             border: `1px solid ${theme.border}`,
          }}
       >
-         <Chip
-            label={getPlatformLabel(link.platform)}
-            size="small"
-            sx={{
-               height: 22,
-               color: colors.text,
-               bgcolor: colors.bg + '!important',
-               border: colors.border,
-               fontWeight: 900,
-            }}
-         />
+          <Chip
+             label={getPlatformLabel(link.platform)}
+             size="small"
+             sx={{
+                height: 20,
+                fontSize: 10.5,
+                px: 0.25,
+                color: colors.text,
+                bgcolor: colors.bg + '!important',
+                border: colors.border,
+                fontWeight: 900,
+                '& .MuiChip-label': {
+                   px: 1,
+                },
+             }}
+          />
 
-         <Chip
-            label={getAdStatusLabel(link.status)}
+          <Chip
+            label={getAdStatusLabel(link.status, link.closedAt)}
             size="small"
-            sx={{
-               height: 22,
-               color: mode === 'light' ? '#166534' : '#bbf7d0',
-               bgcolor: mode === 'light' ? 'rgba(22,101,52,0.08) !important' : 'rgba(34,197,94,0.12) !important',
-               border: mode === 'light'
-                  ? '1px solid rgba(22,101,52,0.18)'
-                  : '1px solid rgba(34,197,94,0.22)',
+            onClick={(event) => {
+               event.stopPropagation();
+               onStatusClick?.(link);
+            }}
+             sx={{
+               height: 20,
+               fontSize: 10.5,
+               color: statusColor.text,
+               bgcolor: statusColor.bg,
+               border: statusColor.border,
                fontWeight: 850,
                display: { xs: 'none', md: 'inline-flex' },
+               cursor: canManage ? 'pointer' : 'default',
+               pointerEvents: canManage ? 'auto' : 'none',
+               '& .MuiChip-label': {
+                  px: 1,
+               },
             }}
          />
 
@@ -246,19 +303,19 @@ function AdvertisingLinkRow({ link, mode, theme }) {
                display: { xs: 'none', md: 'block' },
             }}
          >
-            {link.note || '—'}
-         </Typography>
+            {isInactive ? (link.closedNote || link.note || '—') : (link.note || '—')}
+          </Typography>
 
-         <Typography
-            sx={{
-               color: theme.textSoft,
-               fontSize: 11,
-               whiteSpace: 'nowrap',
-               display: { xs: 'none', md: 'block' },
-            }}
-         >
-            {formatDateTime(link.createdAt)}
-         </Typography>
+          <Stack spacing={0.15} sx={{ display: { xs: 'none', md: 'flex' }, minWidth: 0 }}>
+             <Typography sx={{ color: theme.textSoft, fontSize: 11, whiteSpace: 'nowrap' }}>
+                {formatDateTime(link.createdAt)}
+             </Typography>
+             {isInactive && (
+                <Typography sx={{ color: '#fca5a5', fontSize: 10.5, whiteSpace: 'nowrap' }}>
+                   до {formatDateTime(link.closedAt)}
+                </Typography>
+             )}
+          </Stack>
 
          <Tooltip title="Скопіювати посилання">
             <IconButton
@@ -277,7 +334,7 @@ function AdvertisingLinkRow({ link, mode, theme }) {
    );
 }
 
-function AdTextCard({ item, theme, mode }) {
+function AdTextCard({ item, theme, mode, expanded, canManage, onToggle, onEdit, onDelete }) {
    return (
       <Box
          sx={{
@@ -285,7 +342,14 @@ function AdTextCard({ item, theme, mode }) {
             borderRadius: 2.5,
             bgcolor: mode === 'light' ? 'rgba(124,58,237,0.025)' : 'rgba(255,255,255,0.025)',
             border: `1px solid ${theme.border}`,
+            cursor: 'pointer',
+            transition: 'border-color 160ms ease, background-color 160ms ease',
+            '&:hover': {
+               borderColor: mode === 'light' ? 'rgba(124,58,237,0.34)' : 'rgba(255,255,255,0.22)',
+               bgcolor: mode === 'light' ? 'rgba(124,58,237,0.045)' : 'rgba(255,255,255,0.038)',
+            },
          }}
+         onClick={onToggle}
       >
          <Stack direction="row" justifyContent="space-between" spacing={1}>
             <Typography sx={{ color: theme.text, fontWeight: 950, fontSize: 13 }}>
@@ -297,25 +361,71 @@ function AdTextCard({ item, theme, mode }) {
             </Typography>
          </Stack>
 
-         <Typography
-            sx={{
-               color: theme.textSoft,
-               fontSize: 12,
-               mt: 0.45,
-               display: '-webkit-box',
-               WebkitLineClamp: 3,
-               WebkitBoxOrient: 'vertical',
-               overflow: 'hidden',
-            }}
-         >
-            {item.text}
+          <Typography
+             sx={{
+                color: theme.textSoft,
+                fontSize: 12,
+                mt: 0.45,
+                lineHeight: 1.55,
+                whiteSpace: expanded ? 'pre-wrap' : 'normal',
+                display: expanded ? 'block' : '-webkit-box',
+                WebkitLineClamp: expanded ? 'unset' : 3,
+                WebkitBoxOrient: expanded ? 'unset' : 'vertical',
+                overflow: 'hidden',
+             }}
+          >
+             {item.text}
          </Typography>
 
-         {!!item.note && (
-            <Typography sx={{ color: theme.textSoft, fontSize: 11, mt: 0.45 }}>
-               {item.note}
-            </Typography>
-         )}
+          {!!item.note && (
+             <Typography sx={{ color: theme.textSoft, fontSize: 11, mt: 0.45 }}>
+                {item.note}
+             </Typography>
+          )}
+
+          <Collapse in={expanded && canManage} timeout="auto" unmountOnExit>
+             <Stack
+                direction="row"
+                spacing={0.7}
+                justifyContent="flex-end"
+                sx={{ mt: 1.1, pt: 0.9, borderTop: `1px solid ${theme.border}` }}
+                onClick={(event) => event.stopPropagation()}
+             >
+                <Button
+                   size="small"
+                   startIcon={<EditRoundedIcon sx={{ fontSize: 16 }} />}
+                   onClick={onEdit}
+                   sx={{
+                      minHeight: 30,
+                      borderRadius: 999,
+                      px: 1.4,
+                      color: theme.accentLight,
+                      fontWeight: 900,
+                      textTransform: 'none',
+                      bgcolor: mode === 'light' ? 'rgba(124,58,237,0.08)' : 'rgba(124,58,237,0.16)',
+                   }}
+                >
+                   Редагувати
+                </Button>
+
+                <Button
+                   size="small"
+                   startIcon={<DeleteOutlineRoundedIcon sx={{ fontSize: 16 }} />}
+                   onClick={onDelete}
+                   sx={{
+                      minHeight: 30,
+                      borderRadius: 999,
+                      px: 1.4,
+                      color: '#fca5a5',
+                      fontWeight: 900,
+                      textTransform: 'none',
+                      bgcolor: mode === 'light' ? 'rgba(239,68,68,0.08)' : 'rgba(239,68,68,0.14)',
+                   }}
+                >
+                   Видалити
+                </Button>
+             </Stack>
+          </Collapse>
       </Box>
    );
 }
@@ -329,9 +439,14 @@ export default function ObjectAdvertisingPanel({
    onToggleOpen,
    onAddLink,
    onAddText,
+   onEditText,
+   onDeleteText,
+   onEditLink,
+   canManage = false,
 }) {
    const [anchorEl, setAnchorEl] = useState(null);
    const [hoveredLinks, setHoveredLinks] = useState([]);
+   const [expandedTextId, setExpandedTextId] = useState('');
 
    const allLinks = item?.advertisingLinks || [];
    const ownLinks = getLinksBySource(allLinks, 'ours');
@@ -496,19 +611,21 @@ export default function ObjectAdvertisingPanel({
                      Рекламний блок
                   </Typography>
 
-                  <Stack direction="row" spacing={0.6}>
-                     <Tooltip title="Додати рекламний текст">
-                        <IconButton onClick={onAddText} sx={actionIconSx}>
-                           <AddRoundedIcon />
-                        </IconButton>
-                     </Tooltip>
+                  {canManage && (
+                     <Stack direction="row" spacing={0.6}>
+                        <Tooltip title="Додати рекламний текст">
+                           <IconButton onClick={onAddText} sx={actionIconSx}>
+                              <AddRoundedIcon />
+                           </IconButton>
+                        </Tooltip>
 
-                     <Tooltip title="Додати посилання">
-                        <IconButton onClick={onAddLink} sx={actionIconSx}>
-                           <LinkRoundedIcon />
-                        </IconButton>
-                     </Tooltip>
-                  </Stack>
+                        <Tooltip title="Додати посилання">
+                           <IconButton onClick={onAddLink} sx={actionIconSx}>
+                              <LinkRoundedIcon />
+                           </IconButton>
+                        </Tooltip>
+                     </Stack>
+                  )}
                </Stack>
 
                <Box
@@ -553,14 +670,22 @@ export default function ObjectAdvertisingPanel({
                         }}
                      >
                         <Stack spacing={0.75}>
-                           {(item?.advertisingTexts || []).slice(0, 20).map((text) => (
-                              <AdTextCard
-                                 key={text._id || text.createdAt}
-                                 item={text}
-                                 theme={theme}
-                                 mode={mode}
-                              />
-                           ))}
+                            {(item?.advertisingTexts || []).slice(0, 20).map((text) => (
+                               <AdTextCard
+                                  key={text._id || text.createdAt}
+                                  item={text}
+                                  theme={theme}
+                                  mode={mode}
+                                  canManage={canManage}
+                                  expanded={expandedTextId === String(text._id || text.createdAt)}
+                                  onToggle={() => {
+                                     const id = String(text._id || text.createdAt);
+                                     setExpandedTextId((current) => current === id ? '' : id);
+                                  }}
+                                  onEdit={() => onEditText?.(text)}
+                                  onDelete={() => onDeleteText?.(text)}
+                               />
+                            ))}
 
                            {!item?.advertisingTexts?.length && (
                               <Typography sx={{ color: theme.textSoft, fontSize: 13 }}>
@@ -607,6 +732,8 @@ export default function ObjectAdvertisingPanel({
                                  link={link}
                                  theme={theme}
                                  mode={mode}
+                                 canManage={canManage}
+                                 onStatusClick={onEditLink}
                               />
                            ))}
 

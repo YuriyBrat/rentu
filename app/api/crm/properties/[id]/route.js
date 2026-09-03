@@ -1,6 +1,15 @@
 import connectDB from '@/config/database';
 import LeadProperty from '@/models/LeadProperty';
 import Property from '@/models/Property';
+import OperationEvent from '@/models/OperationEvent';
+import {
+   PROPERTY_FIELDS,
+   OPERATION_EVENT_FIELDS,
+   buildActivityDiff,
+   logActivity,
+   pickActivitySnapshot,
+} from '@/utils/crm/activityLog';
+import { canManageProperty } from '@/utils/crm/accessControl';
 import { getSessionUser } from '@/utils/getSessionUser';
 import cloudinary from '@/config/cloudinary';
 import { Types } from 'mongoose';
@@ -55,6 +64,13 @@ function buildImageVariants(publicId) {
    };
 }
 
+function getLossReasonFromStatus(status = '') {
+   const value = String(status || '').toLowerCase();
+   if (value.includes('реалізований не мною')) return 'sold_by_other';
+   if (value.includes('знятий з реалізації')) return 'owner_removed';
+   return 'other';
+}
+
 // GET /api/crm/properties/:id
 export const GET = async (_request, { params }) => {
    try {
@@ -64,6 +80,8 @@ export const GET = async (_request, { params }) => {
       const item = await Property.findById(params.id)
          .populate('assignee', 'name fullName surname phone email avatar')
          .populate('createdByEmployee', 'name fullName surname phone email avatar')
+         .populate('rentOptions.rentStory.rentedByEmployee', 'name fullName surname phone email avatar')
+         .populate('rentOptions.rentHistory.rentedByEmployee', 'name fullName surname phone email avatar')
          .lean();
       if (!item) return new Response('Property Not Found', { status: 404 });
 
@@ -178,16 +196,32 @@ export const PATCH = async (request, { params }) => {
       await connectDB();
 
       const sessionUser = await getSessionUser().catch(() => null);
-      const userId = sessionUser?.userId || null;
-
       const existing = await Property.findById(params.id);
       if (!existing) return new Response('Property Not Found', { status: 404 });
 
-      if (existing.owner && userId && existing.owner.toString() !== userId) {
-         return new Response('Unauthorized', { status: 401 });
+      if (!(await canManageProperty(sessionUser, existing))) {
+         await logActivity({
+            entityType: 'property',
+            entityId: existing._id,
+            action: 'access_denied',
+            sessionUser,
+            source: 'properties',
+            title: existing.title || existing.location_text || 'Об’єкт',
+            message: 'Спроба редагування об’єкта без доступу',
+            before: pickActivitySnapshot(existing, PROPERTY_FIELDS),
+            meta: {
+               pageName: 'Об’єкти',
+               pagePath: '/crm/objects3',
+               propertyId: existing._id,
+               attemptedAction: 'update_property',
+            },
+         });
+         return new Response('Недостатньо прав для зміни цього об’єкта', { status: 403 });
       }
 
       const formData = await request.formData();
+      const wasInactive = existing.actualityGroup === 'inactive';
+      const beforePropertySnapshot = pickActivitySnapshot(existing, PROPERTY_FIELDS);
 
       const parseNumber = (value) => {
          if (value === undefined || value === null || value === '') return undefined;
@@ -205,6 +239,18 @@ export const PATCH = async (request, { params }) => {
          if (!value) return null;
          return Types.ObjectId.isValid(value) ? value : null;
       };
+
+      const normalizeRentHistory = (items = []) =>
+         (Array.isArray(items) ? items : [])
+            .map((row) => ({
+               rentedAt: parseDate(row?.rentedAt),
+               movedOutAt: parseDate(row?.movedOutAt),
+               rentedByType: row?.rentedByType || '',
+               rentedByEmployee: parseObjectId(row?.rentedByEmployee?._id || row?.rentedByEmployee),
+               note: row?.note || '',
+               createdAt: parseDate(row?.createdAt) || new Date(),
+            }))
+            .filter((row) => row.rentedAt || row.movedOutAt || row.rentedByType || row.rentedByEmployee || row.note);
 
       const parseOriginAction = () => {
          let raw = {};
@@ -307,6 +353,8 @@ export const PATCH = async (request, { params }) => {
       if (hasKey('actualityGroup')) existing.actualityGroup = formData.get('actualityGroup') || 'active';
       if (hasKey('actualityStatus')) existing.actualityStatus = formData.get('actualityStatus') || '';
       if (hasKey('actualityNote')) existing.actualityNote = formData.get('actualityNote') || '';
+      if (hasKey('inactiveAt')) existing.inactiveAt = parseDate(formData.get('inactiveAt'));
+      if (hasKey('inactiveNote')) existing.inactiveNote = formData.get('inactiveNote') || '';
       if (hasKey('crmStage')) existing.crmStage = formData.get('crmStage') || 'rs';
       if (hasKey('crmStageReason')) existing.crmStageReason = formData.get('crmStageReason') || '';
       if (hasKey('inspectedAt')) existing.inspectedAt = parseDate(formData.get('inspectedAt'));
@@ -375,9 +423,12 @@ export const PATCH = async (request, { params }) => {
                appliances: Array.isArray(rentOptions?.appliances) ? rentOptions.appliances.filter(Boolean) : [],
                rentStory: {
                   rentedAt: parseDate(rentOptions?.rentStory?.rentedAt),
+                  rentedByType: rentOptions?.rentStory?.rentedByType || '',
+                  rentedByEmployee: parseObjectId(rentOptions?.rentStory?.rentedByEmployee?._id || rentOptions?.rentStory?.rentedByEmployee),
                   rentedBy: rentOptions?.rentStory?.rentedBy || '',
                   note: rentOptions?.rentStory?.note || '',
                },
+               rentHistory: normalizeRentHistory(rentOptions?.rentHistory),
                lastActualizedAt: parseDate(rentOptions?.lastActualizedAt),
             };
          } catch (e) {
@@ -479,11 +530,220 @@ export const PATCH = async (request, { params }) => {
          existing.images = mergedImages;
       }
 
+      const shouldCreateLossEvent =
+         !wasInactive &&
+         existing.actualityGroup === 'inactive' &&
+         String(existing.actualityStatus || '').trim() !== 'Неактуальний. Реалізований мною';
+      const touchesInactiveStatus =
+         ['actualityGroup', 'actualityStatus', 'inactiveAt', 'inactiveNote'].some((field) => hasKey(field));
+      const submitsInactiveStatus = touchesInactiveStatus && existing.actualityGroup === 'inactive';
+      const shouldDeleteLossEvents = wasInactive && existing.actualityGroup !== 'inactive';
+
+      if (submitsInactiveStatus && !existing.inactiveAt) {
+         return Response.json({ error: 'inactive date required' }, { status: 400 });
+      }
+
+      if (submitsInactiveStatus && !String(existing.inactiveNote || '').trim()) {
+         return Response.json({ error: 'inactive note required' }, { status: 400 });
+      }
+
       await existing.save();
+
+      const afterPropertySnapshot = pickActivitySnapshot(existing, PROPERTY_FIELDS);
+      const propertyDiff = buildActivityDiff(beforePropertySnapshot, afterPropertySnapshot, PROPERTY_FIELDS);
+
+      if (propertyDiff.length) {
+         const statusFields = ['actualityGroup', 'actualityStatus', 'actualityNote', 'inactiveAt', 'inactiveNote', 'crmStage', 'crmStageReason'];
+         const isStatusChange = propertyDiff.some((change) => statusFields.includes(change.field));
+
+         await logActivity({
+            entityType: 'property',
+            entityId: existing._id,
+            action: isStatusChange ? 'status_changed' : 'updated',
+            sessionUser,
+            source: 'properties',
+            title: existing.title || existing.location_text || 'Об’єкт',
+            message: isStatusChange ? 'Змінено статус об’єкта' : 'Оновлено об’єкт',
+            before: beforePropertySnapshot,
+            after: afterPropertySnapshot,
+            diff: propertyDiff,
+            meta: {
+               pageName: 'Об’єкти',
+               pagePath: '/crm/objects3',
+               propertyId: existing._id,
+            },
+         });
+      }
+
+      if (shouldCreateLossEvent) {
+         const lossNote =
+            String(existing.inactiveNote || '').trim() ||
+            String(existing.actualityNote || '').trim() ||
+            String(existing.actualityStatus || '').trim();
+
+         const lossEvent = await OperationEvent.create({
+            type: 'loss',
+            occurredAt: existing.inactiveAt || new Date(),
+            responsibleEmployee: existing.assignee || sessionUser?.employeeId || null,
+            property: existing._id,
+            propertyStage: existing.actualityGroup || '',
+            resultDescription: lossNote,
+            loss: {
+               target: 'object',
+               reason: getLossReasonFromStatus(existing.actualityStatus),
+               note: lossNote,
+               linkedPropertyStatus: existing.actualityStatus || '',
+            },
+            createdByEmployee: sessionUser?.employeeId || null,
+         });
+
+         await logActivity({
+            entityType: 'operation',
+            entityId: lossEvent._id,
+            action: 'created',
+            sessionUser,
+            source: 'properties',
+            title: existing.title || existing.location_text || 'Втрата об’єкта',
+            message: 'Створено подію втрати об’єкта',
+            after: pickActivitySnapshot(lossEvent, OPERATION_EVENT_FIELDS),
+            meta: {
+               pageName: 'Об’єкти',
+               pagePath: '/crm/objects3',
+               operationType: 'loss',
+               propertyId: existing._id,
+            },
+         });
+      }
+
+      const shouldSyncLossEvent =
+         !shouldCreateLossEvent &&
+         !shouldDeleteLossEvents &&
+         wasInactive &&
+         existing.actualityGroup === 'inactive' &&
+         String(existing.actualityStatus || '').trim() !== 'Неактуальний. Реалізований мною' &&
+         propertyDiff.some((change) => ['actualityStatus', 'actualityNote', 'inactiveAt', 'inactiveNote', 'assignee'].includes(change.field));
+
+      if (shouldSyncLossEvent) {
+         const lossNote =
+            String(existing.inactiveNote || '').trim() ||
+            String(existing.actualityNote || '').trim() ||
+            String(existing.actualityStatus || '').trim();
+
+         const lossEvent = await OperationEvent.findOne({
+            property: existing._id,
+            type: 'loss',
+            'loss.target': 'object',
+         }).sort({ occurredAt: -1, createdAt: -1 });
+
+         if (lossEvent) {
+            const beforeLossSnapshot = pickActivitySnapshot(lossEvent, OPERATION_EVENT_FIELDS);
+
+            lossEvent.occurredAt = existing.inactiveAt || lossEvent.occurredAt || new Date();
+            lossEvent.responsibleEmployee = existing.assignee || sessionUser?.employeeId || null;
+            lossEvent.propertyStage = existing.actualityGroup || '';
+            lossEvent.resultDescription = lossNote;
+            lossEvent.loss = {
+               ...(lossEvent.loss?.toObject?.() || lossEvent.loss || {}),
+               target: 'object',
+               reason: getLossReasonFromStatus(existing.actualityStatus),
+               note: lossNote,
+               linkedPropertyStatus: existing.actualityStatus || '',
+            };
+
+            await lossEvent.save();
+
+            const afterLossSnapshot = pickActivitySnapshot(lossEvent, OPERATION_EVENT_FIELDS);
+            await logActivity({
+               entityType: 'operation',
+               entityId: lossEvent._id,
+               action: 'updated',
+               sessionUser,
+               source: 'properties',
+               title: existing.title || existing.location_text || 'Втрата об’єкта',
+               message: 'Оновлено подію втрати об’єкта',
+               before: beforeLossSnapshot,
+               after: afterLossSnapshot,
+               diff: buildActivityDiff(beforeLossSnapshot, afterLossSnapshot, OPERATION_EVENT_FIELDS),
+               meta: {
+                  pageName: 'Об’єкти',
+                  pagePath: '/crm/objects3',
+                  operationType: 'loss',
+                  propertyId: existing._id,
+               },
+            });
+         } else {
+            const createdLossEvent = await OperationEvent.create({
+               type: 'loss',
+               occurredAt: existing.inactiveAt || new Date(),
+               responsibleEmployee: existing.assignee || sessionUser?.employeeId || null,
+               property: existing._id,
+               propertyStage: existing.actualityGroup || '',
+               resultDescription: lossNote,
+               loss: {
+                  target: 'object',
+                  reason: getLossReasonFromStatus(existing.actualityStatus),
+                  note: lossNote,
+                  linkedPropertyStatus: existing.actualityStatus || '',
+               },
+               createdByEmployee: sessionUser?.employeeId || null,
+            });
+
+            await logActivity({
+               entityType: 'operation',
+               entityId: createdLossEvent._id,
+               action: 'created',
+               sessionUser,
+               source: 'properties',
+               title: existing.title || existing.location_text || 'Втрата об’єкта',
+               message: 'Створено подію втрати об’єкта',
+               after: pickActivitySnapshot(createdLossEvent, OPERATION_EVENT_FIELDS),
+               meta: {
+                  pageName: 'Об’єкти',
+                  pagePath: '/crm/objects3',
+                  operationType: 'loss',
+                  propertyId: existing._id,
+                  reason: 'loss_event_missing',
+               },
+            });
+         }
+      }
+
+      if (shouldDeleteLossEvents) {
+         const lossEvents = await OperationEvent.find({
+            property: existing._id,
+            type: 'loss',
+            'loss.target': 'object',
+         });
+
+         for (const lossEvent of lossEvents) {
+            const lossSnapshot = pickActivitySnapshot(lossEvent, OPERATION_EVENT_FIELDS);
+            await lossEvent.deleteOne();
+
+            await logActivity({
+               entityType: 'operation',
+               entityId: lossEvent._id,
+               action: 'deleted',
+               sessionUser,
+               source: 'properties',
+               title: existing.title || existing.location_text || 'Втрата об’єкта',
+               message: 'Видалено подію втрати об’єкта',
+               before: lossSnapshot,
+               meta: {
+                  pageName: 'Об’єкти',
+                  pagePath: '/crm/objects3',
+                  operationType: 'loss',
+                  propertyId: existing._id,
+                  reason: 'property_reactivated',
+               },
+            });
+         }
+      }
 
       const saved = await Property.findById(existing._id)
          .populate('assignee', 'name fullName surname phone email avatar')
          .populate('createdByEmployee', 'name fullName surname phone email avatar')
+         .populate('rentOptions.rentStory.rentedByEmployee', 'name fullName surname phone email avatar')
+         .populate('rentOptions.rentHistory.rentedByEmployee', 'name fullName surname phone email avatar')
          .lean();
 
       return new Response(JSON.stringify({ item: saved }), { status: 200 });
@@ -506,13 +766,27 @@ export const DELETE = async (_request, { params }) => {
       await connectDB();
 
       const sessionUser = await getSessionUser().catch(() => null);
-      const userId = sessionUser?.userId || null;
-
       const property = await Property.findById(params.id);
       if (!property) return new Response('Property Not Found', { status: 404 });
 
-      if (property.owner && userId && property.owner.toString() !== userId) {
-         return new Response('Unauthorized', { status: 401 });
+      if (!(await canManageProperty(sessionUser, property))) {
+         await logActivity({
+            entityType: 'property',
+            entityId: property._id,
+            action: 'access_denied',
+            sessionUser,
+            source: 'properties',
+            title: property.title || property.location_text || 'Об’єкт',
+            message: 'Спроба видалення об’єкта без доступу',
+            before: pickActivitySnapshot(property, PROPERTY_FIELDS),
+            meta: {
+               pageName: 'Об’єкти',
+               pagePath: '/crm/objects3',
+               propertyId: property._id,
+               attemptedAction: 'delete_property',
+            },
+         });
+         return new Response('Недостатньо прав для видалення цього об’єкта', { status: 403 });
       }
 
       // 1. видаляємо всі фото з cloudinary

@@ -9,6 +9,7 @@ import {
    logActivity,
    pickActivitySnapshot,
 } from '@/utils/crm/activityLog';
+import { canManageOperationEvent } from '@/utils/crm/accessControl';
 import { getSessionUser } from '@/utils/getSessionUser';
 import { Types } from 'mongoose';
 
@@ -116,6 +117,28 @@ export const POST = async (request, { params }) => {
       if (!existing) {
          return Response.json({ error: 'pzs not found' }, { status: 404 });
       }
+      if (!(await canManageOperationEvent(sessionUser, existing))) {
+         const populated = await populateEvent(OperationEvent.findById(id)).lean();
+         await logActivity({
+            entityType: 'operation',
+            entityId: existing._id,
+            action: 'access_denied',
+            sessionUser,
+            source: 'manual',
+            title: operationTitle(populated || existing),
+            message: 'Спроба додати крок ПЗС без доступу',
+            before: pickActivitySnapshot(existing, OPERATION_EVENT_FIELDS),
+            meta: {
+               pageName: 'Операційка',
+               pagePath: '/crm/operations',
+               operationType: existing.type,
+               propertyId: existing.property,
+               leadId: existing.lead,
+               attemptedAction: 'create_pzs_step',
+            },
+         });
+         return Response.json({ error: 'forbidden' }, { status: 403 });
+      }
       const beforeSnapshot = pickActivitySnapshot(existing, OPERATION_EVENT_FIELDS);
 
       const at = parseDate(body?.at) || new Date();
@@ -204,6 +227,29 @@ export const PATCH = async (request, { params }) => {
       if (!existing) {
          return Response.json({ error: 'pzs not found' }, { status: 404 });
       }
+      if (!(await canManageOperationEvent(sessionUser, existing))) {
+         const populated = await populateEvent(OperationEvent.findById(id)).lean();
+         await logActivity({
+            entityType: 'operation',
+            entityId: existing._id,
+            action: 'access_denied',
+            sessionUser,
+            source: 'manual',
+            title: operationTitle(populated || existing),
+            message: 'Спроба редагування кроку ПЗС без доступу',
+            before: pickActivitySnapshot(existing, OPERATION_EVENT_FIELDS),
+            meta: {
+               pageName: 'Операційка',
+               pagePath: '/crm/operations',
+               operationType: existing.type,
+               propertyId: existing.property,
+               leadId: existing.lead,
+               attemptedAction: 'update_pzs_step',
+               pzsStepIndex: index,
+            },
+         });
+         return Response.json({ error: 'forbidden' }, { status: 403 });
+      }
       if (!existing.pzs?.steps?.[index]) {
          return Response.json({ error: 'step not found' }, { status: 404 });
       }
@@ -262,6 +308,29 @@ export const DELETE = async (request, { params }) => {
       const existing = await OperationEvent.findOne({ _id: id, type: 'pzs' });
       if (!existing) {
          return Response.json({ error: 'pzs not found' }, { status: 404 });
+      }
+      if (!(await canManageOperationEvent(sessionUser, existing))) {
+         const populated = await populateEvent(OperationEvent.findById(id)).lean();
+         await logActivity({
+            entityType: 'operation',
+            entityId: existing._id,
+            action: 'access_denied',
+            sessionUser,
+            source: 'manual',
+            title: operationTitle(populated || existing),
+            message: 'Спроба видалення кроку ПЗС без доступу',
+            before: pickActivitySnapshot(existing, OPERATION_EVENT_FIELDS),
+            meta: {
+               pageName: 'Операційка',
+               pagePath: '/crm/operations',
+               operationType: existing.type,
+               propertyId: existing.property,
+               leadId: existing.lead,
+               attemptedAction: 'delete_pzs_step',
+               pzsStepIndex: index,
+            },
+         });
+         return Response.json({ error: 'forbidden' }, { status: 403 });
       }
       if (!existing.pzs?.steps?.[index]) {
          return Response.json({ error: 'step not found' }, { status: 404 });

@@ -55,12 +55,17 @@ export default function RentOptionsSection({
       lastActualizedAt: '',
       rentStory: {
          rentedAt: '',
+         rentedByType: '',
+         rentedByEmployee: '',
          rentedBy: '',
          note: '',
       },
+      rentHistory: [],
       ...(value || {}),
       rentStory: {
          rentedAt: '',
+         rentedByType: '',
+         rentedByEmployee: '',
          rentedBy: '',
          note: '',
          ...(value?.rentStory || {}),
@@ -141,7 +146,7 @@ export default function RentOptionsSection({
 
             <TextField
                select
-               label="Статус оренди"
+               label="Актуальність оренди"
                value={statusRent}
                onChange={(e) => onStatusChange?.(e.target.value)}
                sx={{ minWidth: { xs: '100%', md: 280 }, ...fieldSx }}

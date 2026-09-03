@@ -59,6 +59,17 @@ const REVIEW_OBJECT_RESULTS = [
    'documents_risk',
    'other',
 ];
+const LOSS_TARGET_OPTIONS = ['object', 'client'];
+const LOSS_REASON_OPTIONS = [
+   'sold_by_other',
+   'owner_removed',
+   'owner_refused',
+   'client_bought_other',
+   'client_disappeared',
+   'price_issue',
+   'competitor',
+   'other',
+];
 
 const PzsStepSchema = new Schema(
    {
@@ -89,7 +100,7 @@ const OperationEventSchema = new Schema(
    {
       type: {
          type: String,
-         enum: ['showing', 'inspection', 'review', 'call', 'meeting', 'other', 'pzs'],
+         enum: ['showing', 'inspection', 'review', 'call', 'meeting', 'other', 'pzs', 'loss'],
          default: 'showing',
          index: true,
       },
@@ -313,6 +324,31 @@ const OperationEventSchema = new Schema(
             type: String,
             trim: true,
             default: '',
+         },
+         note: {
+            type: String,
+            trim: true,
+            default: '',
+         },
+         linkedPropertyStatus: {
+            type: String,
+            trim: true,
+            default: '',
+         },
+      },
+
+      loss: {
+         target: {
+            type: String,
+            enum: LOSS_TARGET_OPTIONS,
+            default: 'object',
+            index: true,
+         },
+         reason: {
+            type: String,
+            enum: LOSS_REASON_OPTIONS,
+            default: 'other',
+            index: true,
          },
          note: {
             type: String,
