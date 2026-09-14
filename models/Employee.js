@@ -149,7 +149,7 @@ const EmployeeSchema = new Schema(
 
       role: {
          type: String,
-         enum: ['owner', 'admin', 'manager', 'realtor', 'callcenter', 'viewer'],
+         enum: ['owner', 'admin', 'manager', 'trainee', 'realtor', 'marketing', 'callcenter', 'viewer'],
          default: 'viewer',
          index: true,
       },

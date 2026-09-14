@@ -31,8 +31,12 @@
 // }
 
 
+import { getServerSession } from 'next-auth/next';
 import { redirect } from 'next/navigation';
+import { authOptions } from '@/utils/authOptions';
 
-export default function CrmHome() {
+export default async function CrmHome() {
+   const session = await getServerSession(authOptions);
+   if (session?.user?.role === 'marketing') redirect('/crm/advertising');
    redirect('/crm/objects3');
 }

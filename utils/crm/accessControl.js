@@ -1,14 +1,39 @@
 import Employee from '@/models/Employee';
 import Lead from '@/models/Lead';
 import Property from '@/models/Property';
+import { Types } from 'mongoose';
+
+export const CRM_ROLES = ['owner', 'admin', 'realtor', 'trainee', 'manager', 'marketing', 'callcenter', 'viewer'];
+export const ELEVATED_CRM_ROLES = ['owner', 'admin'];
+export const CRM_WORKSPACE_ROLES = ['owner', 'admin', 'realtor', 'trainee', 'manager', 'callcenter', 'viewer'];
+export const ADVERTISING_CABINET_ROLES = ['owner', 'admin', 'realtor', 'trainee', 'manager', 'marketing', 'viewer'];
 
 export function idString(value) {
    return value?._id?.toString?.() || value?.toString?.() || '';
 }
 
+function objectIdOrString(value) {
+   const id = idString(value);
+   return Types.ObjectId.isValid(id) ? new Types.ObjectId(id) : id;
+}
+
 export function isElevatedCrmUser(sessionUser) {
    const role = sessionUser?.role || sessionUser?.user?.role || '';
-   return !!sessionUser?.isFallbackAdmin || ['owner', 'admin'].includes(role);
+   return !!sessionUser?.isFallbackAdmin || ELEVATED_CRM_ROLES.includes(role);
+}
+
+export function canEnterCrmWorkspace(sessionUser) {
+   if (!sessionUser) return false;
+   if (sessionUser?.isFallbackAdmin) return true;
+   const role = sessionUser?.role || sessionUser?.user?.role || '';
+   return CRM_WORKSPACE_ROLES.includes(role);
+}
+
+export function canEnterAdvertisingCabinet(sessionUser) {
+   if (!sessionUser) return false;
+   if (sessionUser?.isFallbackAdmin) return true;
+   const role = sessionUser?.role || sessionUser?.user?.role || '';
+   return ADVERTISING_CABINET_ROLES.includes(role);
 }
 
 async function managerByEmployeeId() {
@@ -19,6 +44,56 @@ async function managerByEmployeeId() {
          employee.manager ? String(employee.manager) : '',
       ])
    );
+}
+
+export async function getEmployeeScopeIds(sessionUser) {
+   if (isElevatedCrmUser(sessionUser)) return [];
+
+   const actorId = String(sessionUser?.employeeId || '');
+   if (!actorId) return [];
+
+   const managers = await managerByEmployeeId();
+   const scoped = new Set([actorId]);
+   let changed = true;
+
+   while (changed) {
+      changed = false;
+      for (const [employeeId, managerId] of managers.entries()) {
+         if (managerId && scoped.has(managerId) && !scoped.has(employeeId)) {
+            scoped.add(employeeId);
+            changed = true;
+         }
+      }
+   }
+
+   return [...scoped];
+}
+
+export async function buildPropertyAccessFilter(sessionUser) {
+   if (isElevatedCrmUser(sessionUser)) return {};
+
+   const employeeScopeIds = await getEmployeeScopeIds(sessionUser);
+   const userId = String(sessionUser?.userId || '');
+   const conditions = [];
+
+   if (userId) conditions.push({ owner: objectIdOrString(userId) });
+   if (employeeScopeIds.length) {
+      const scopedObjectIds = employeeScopeIds.map(objectIdOrString);
+      conditions.push(
+         { assignee: { $in: scopedObjectIds } },
+         { createdByEmployee: { $in: scopedObjectIds } },
+         { 'advertisingSettings.assignedEmployee': { $in: scopedObjectIds } }
+      );
+   }
+
+   return conditions.length ? { $or: conditions } : { _id: null };
+}
+
+export function combineMongoFilters(...filters) {
+   const active = filters.filter((filter) => filter && Object.keys(filter).length);
+   if (!active.length) return {};
+   if (active.length === 1) return active[0];
+   return { $and: active };
 }
 
 export async function canManageEmployeeScope(sessionUser, employeeIds = []) {
@@ -57,6 +132,7 @@ export async function canManageProperty(sessionUser, property) {
    return canManageEmployeeScope(sessionUser, [
       property.assignee,
       property.createdByEmployee,
+      property.advertisingSettings?.assignedEmployee,
    ]);
 }
 

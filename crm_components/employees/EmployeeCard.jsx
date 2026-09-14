@@ -31,8 +31,10 @@ import { useCRMTheme } from '@/app/(crm)/crm/context/CRMThemeContext';
 const roleMeta = {
    owner: { bg: '#e9d5ff', color: '#111', label: 'Власник' },
    admin: { bg: '#c4b5fd', color: '#111', label: 'Адміністратор' },
-   manager: { bg: '#93c5fd', color: '#111', label: 'Менеджер' },
+   manager: { bg: '#93c5fd', color: '#111', label: 'Стажер' },
+   trainee: { bg: '#93c5fd', color: '#111', label: 'Стажер' },
    realtor: { bg: '#5eead4', color: '#111', label: 'Рієлтор' },
+   marketing: { bg: '#fed7aa', color: '#111', label: 'Маркетинг' },
    callcenter: { bg: '#fde68a', color: '#111', label: 'Кол-центр' },
    viewer: { bg: '#d1d5db', color: '#111', label: 'Перегляд' },
 };

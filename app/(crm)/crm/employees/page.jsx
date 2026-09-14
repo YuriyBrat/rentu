@@ -27,8 +27,10 @@ const ROLE_OPTIONS = [
    { value: 'all', label: 'Усі ролі' },
    { value: 'owner', label: 'Власник' },
    { value: 'admin', label: 'Адміністратор' },
-   { value: 'manager', label: 'Менеджер' },
    { value: 'realtor', label: 'Рієлтор' },
+   { value: 'trainee', label: 'Стажер' },
+   { value: 'manager', label: 'Стажер (старі записи)' },
+   { value: 'marketing', label: 'Маркетинг' },
    { value: 'callcenter', label: 'Кол-центр' },
    { value: 'viewer', label: 'Перегляд' },
 ];

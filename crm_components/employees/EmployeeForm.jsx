@@ -25,8 +25,9 @@ import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded';
 const ROLE_OPTIONS = [
    { value: 'owner', label: 'Власник' },
    { value: 'admin', label: 'Адміністратор' },
-   { value: 'manager', label: 'Менеджер' },
    { value: 'realtor', label: 'Рієлтор' },
+   { value: 'trainee', label: 'Стажер' },
+   { value: 'marketing', label: 'Маркетинг' },
    { value: 'callcenter', label: 'Кол-центр' },
    { value: 'viewer', label: 'Перегляд' },
 ];

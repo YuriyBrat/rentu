@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
    Box,
    Typography,
@@ -52,16 +52,19 @@ import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
 import Badge from '@mui/material/Badge';
 import Popover from '@mui/material/Popover';
 import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
-import CampaignRoundedIcon from '@mui/icons-material/CampaignRounded';
+import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 
 import ShareRoundedIcon from '@mui/icons-material/ShareRounded';
 
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
+import ImageRoundedIcon from '@mui/icons-material/ImageRounded';
 import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded';
 import TextSnippetRoundedIcon from '@mui/icons-material/TextSnippetRounded';
 import TelegramIcon from '@mui/icons-material/Telegram';
 import PlayCircleFilledRoundedIcon from '@mui/icons-material/PlayCircleFilledRounded';
 import VideoLibraryRoundedIcon from '@mui/icons-material/VideoLibraryRounded';
+import StarRoundedIcon from '@mui/icons-material/StarRounded';
+import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded';
 import ArrowBackIosNewRoundedIcon from '@mui/icons-material/ArrowBackIosNewRounded';
 import ArrowForwardIosRoundedIcon from '@mui/icons-material/ArrowForwardIosRounded';
 
@@ -97,6 +100,44 @@ const getFieldSx = (theme, mode) => ({
    },
 });
 
+const AD_PRIORITY_OPTIONS = [
+   [5, '5 - Надвисокий'],
+   [4, '4 - Високий'],
+   [3, '3 - Нормальний'],
+   [2, '2 - Низький'],
+   [1, '1 - Найнижчий'],
+];
+
+const AD_CURRENCY_OPTIONS = [
+   ['USD', 'долар'],
+   ['UAH', 'гривня'],
+   ['EUR', 'євро'],
+];
+
+const PHOTO_STAGES = [
+   { value: 'draft', label: 'Чорнові' },
+   { value: 'processed', label: 'Оброблені' },
+   { value: 'branded', label: 'З лого' },
+];
+
+function getPhotoStageLabel(stage) {
+   return PHOTO_STAGES.find((item) => item.value === stage)?.label || stage || 'Чорнові';
+}
+
+const emptyAdvertisingSettingsForm = (item = {}) => {
+   const settings = item?.advertisingSettings || {};
+   return {
+      property: item?._id || '',
+      assignedEmployee: settings.assignedEmployee?._id || settings.assignedEmployee || '',
+      status: settings.status || 'active',
+      priority: settings.priority || 3,
+      price: settings.price ?? '',
+      currency: settings.currency || 'USD',
+      draftText: settings.draftText || '',
+      note: settings.note || '',
+   };
+};
+
 
 function formatMoney(value, currency = 'USD') {
    if (!value && value !== 0) return '—';
@@ -127,6 +168,20 @@ function getImageUrl(item) {
       main?.url ||
       '/krm/logo-krm.png'
    );
+}
+
+function getImageStageUrl(image = {}) {
+   if (image.stage === 'branded') {
+      return image.brandedUrl || image.url || image.processedUrl || image.preview || image.variants?.card || image.variants?.preview || '';
+   }
+   if (image.stage === 'processed') {
+      return image.processedUrl || image.url || image.brandedUrl || image.preview || image.variants?.card || image.variants?.preview || '';
+   }
+   return image.url || image.preview || image.processedUrl || image.brandedUrl || image.variants?.card || image.variants?.preview || '';
+}
+
+function getImageActionId(image = {}) {
+   return image._id || image.public_id || image.url || image.processedUrl || image.brandedUrl || '';
 }
 
 function getEmployeeName(employee) {
@@ -216,7 +271,7 @@ function InfoPill({ icon, label, value, theme }) {
    );
 }
 
-function DetailBox({ title, children, theme, mode }) {
+function DetailBox({ title, children, theme, mode, sx }) {
    const bg =
       mode === 'light'
          ? '#fff'
@@ -235,6 +290,7 @@ function DetailBox({ title, children, theme, mode }) {
             boxShadow: mode === 'light' ? '0 8px 22px rgba(124,58,237,0.05)' : 'none',
             // height: '90%',
             width: '100%',
+            ...sx,
          }}
       >
          <Typography sx={{ color: theme?.text || '#fff', fontWeight: 950, mb: 0.9 }}>
@@ -322,16 +378,29 @@ function PropertyVideosPanel({ item, theme, mode, canManage, onAdd, onOpen, onEd
    const videos = Array.isArray(item?.propertyVideos) ? item.propertyVideos : [];
 
    return (
-      <DetailBox title="Відео" theme={theme} mode={mode}>
+      <Box
+         sx={{
+            p: 1,
+            borderRadius: 3,
+            bgcolor: mode === 'light' ? '#fff' : mode === 'luxury' ? 'rgba(212,175,55,0.045)' : 'rgba(255,255,255,0.018)',
+            border: `1px solid ${theme?.border || 'rgba(255,255,255,0.06)'}`,
+            width: '100%',
+         }}
+      >
          <Stack spacing={0.7}>
             <Stack direction="row" justifyContent="space-between" alignItems="center" spacing={1}>
-               <Typography sx={{ color: theme.textSoft, fontSize: 12.5 }}>
-                  {videos.length ? `${videos.length} відео` : 'Відео ще немає'}
-               </Typography>
+               <Stack direction="row" spacing={1} alignItems="center" minWidth={0}>
+                  <Typography sx={{ color: theme.text, fontWeight: 950, fontSize: 16, lineHeight: 1, whiteSpace: 'nowrap' }}>
+                     Відео
+                  </Typography>
+                  <Typography sx={{ color: theme.textSoft, fontSize: 12.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                     {videos.length ? `${videos.length} відео` : 'Відео ще немає'}
+                  </Typography>
+               </Stack>
 
                {canManage && (
                   <Tooltip title="Додати відео">
-                     <IconButton size="small" onClick={onAdd} sx={{ color: theme.text, border: `1px solid ${theme.border}` }}>
+                     <IconButton size="small" onClick={onAdd} sx={{ width: 34, height: 34, flexShrink: 0, color: theme.text, border: `1px solid ${theme.border}` }}>
                         <AddRoundedIcon fontSize="small" />
                      </IconButton>
                   </Tooltip>
@@ -419,7 +488,292 @@ function PropertyVideosPanel({ item, theme, mode, canManage, onAdd, onOpen, onEd
                </Box>
             ))}
          </Stack>
-      </DetailBox>
+      </Box>
+   );
+}
+
+function PropertyGalleryPanel({
+   item,
+   images = [],
+   theme,
+   mode,
+   canManage,
+   imageActionLoading,
+   photoUploadStage,
+   photoUploading,
+   onPhotoStageChange,
+   onAddPhotoClick,
+   onOpen,
+   onImageAction,
+   onImageDelete,
+}) {
+   const [showAll, setShowAll] = useState(false);
+   const allImages = Array.isArray(item?.images) ? item.images : [];
+   const compactLimit = 6;
+   const activeStage = photoUploadStage || 'draft';
+   const stageCounts = PHOTO_STAGES.reduce((acc, stage) => {
+      acc[stage.value] = allImages.filter((image) => (image.stage || 'draft') === stage.value).length;
+      return acc;
+   }, {});
+   const allGalleryImages = allImages
+      .slice()
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+      .filter((img) => (img.stage || 'draft') === activeStage)
+      .map((img) => ({
+         ...img,
+         url: getImageStageUrl(img),
+      }))
+      .filter((img) => img.url);
+   const visibleStageImages = allGalleryImages.filter((img) => !img.isHidden);
+   const previewImages = showAll ? allGalleryImages : visibleStageImages.slice(0, compactLimit);
+   const hasMore = visibleStageImages.length > compactLimit || allGalleryImages.length !== visibleStageImages.length;
+
+   return (
+      <Box
+         sx={{
+            p: 1,
+            borderRadius: 3,
+            bgcolor: mode === 'light' ? '#fff' : mode === 'luxury' ? 'rgba(212,175,55,0.045)' : 'rgba(255,255,255,0.018)',
+            border: `1px solid ${theme?.border || 'rgba(255,255,255,0.06)'}`,
+            width: '100%',
+         }}
+      >
+         <Stack direction="row" spacing={0.65} alignItems="center" sx={{ minWidth: 0 }}>
+            <Stack spacing={0.35} sx={{ width: 82, flex: '0 0 82px', minWidth: 0 }}>
+               <Typography sx={{ color: theme.text, fontWeight: 950, fontSize: 13.5, lineHeight: 1, whiteSpace: 'nowrap' }}>
+                  Галерея
+               </Typography>
+               <Stack direction="row" spacing={0.35} alignItems="center">
+                  <Tooltip title={`Фото: ${allImages.length}`}>
+                     <Chip size="small" icon={<ImageRoundedIcon sx={{ fontSize: '12px !important' }} />} label={allImages.length} sx={{ height: 18, minWidth: 34, fontSize: 9.5, fontWeight: 850, '& .MuiChip-icon': { ml: 0.35, mr: 0.1 } }} />
+                  </Tooltip>
+                  {canManage && (
+                     <Tooltip title="Додати фото">
+                        <span>
+                           <IconButton
+                              size="small"
+                              disabled={photoUploading}
+                              onClick={onAddPhotoClick}
+                              sx={{ width: 24, height: 24, color: '#fb923c', border: `1px solid ${theme.border}` }}
+                           >
+                              <AddRoundedIcon sx={{ fontSize: 16 }} />
+                           </IconButton>
+                        </span>
+                     </Tooltip>
+                  )}
+               </Stack>
+            </Stack>
+            <Stack direction="row" spacing={0.45} alignItems="center" flexWrap={showAll ? 'wrap' : 'nowrap'} useFlexGap sx={{ minWidth: 0, flex: 1, overflow: showAll ? 'visible' : 'hidden', pr: 0.25 }}>
+               <TextField
+                  select
+                  size="small"
+                  label="Група"
+                  value={activeStage}
+                  onChange={(event) => {
+                     onPhotoStageChange?.(event.target.value);
+                     setShowAll(false);
+                  }}
+                  sx={{
+                     width: 126,
+                     flex: '0 0 auto',
+                     '& .MuiOutlinedInput-root': {
+                        height: 32,
+                        borderRadius: 2,
+                        color: theme.text,
+                        bgcolor: mode === 'light' ? 'rgba(124,58,237,0.05)' : 'rgba(255,255,255,0.035)',
+                        '& fieldset': { borderColor: theme.border },
+                     },
+                     '& .MuiInputLabel-root': {
+                        color: theme.textSoft,
+                        fontSize: 11,
+                        transform: 'translate(11px, -7px) scale(0.75)',
+                     },
+                     '& .MuiSelect-select': { py: 0.35, fontSize: 11, fontWeight: 900 },
+                     '& .MuiSelect-icon': { color: theme.textSoft },
+                  }}
+               >
+                  {PHOTO_STAGES.map((stage) => (
+                     <MenuItem key={stage.value} value={stage.value}>
+                        {stage.label} {stageCounts[stage.value] || 0}
+                     </MenuItem>
+                  ))}
+               </TextField>
+               {previewImages.length ? (
+               <>
+                  {previewImages.map((image, index) => {
+                      const visibleIndex = images.findIndex((img) => String(img._id) === String(image._id));
+                     const openIndex = visibleIndex >= 0 ? visibleIndex : 0;
+                     const actionId = getImageActionId(image);
+                     const isLoading = imageActionLoading === String(actionId);
+                     return (
+                      <Box
+                         key={image._id || image.url || index}
+                         role="button"
+                         tabIndex={image.isHidden ? -1 : 0}
+                         onClick={() => !image.isHidden && onOpen?.(openIndex)}
+                         onKeyDown={(event) => {
+                            if (!image.isHidden && (event.key === 'Enter' || event.key === ' ')) {
+                               event.preventDefault();
+                               onOpen?.(openIndex);
+                            }
+                         }}
+                         sx={{
+                            position: 'relative',
+                           width: 54,
+                            height: 42,
+                           flex: '0 0 auto',
+                           border: `1px solid ${image.isMain ? 'rgba(245,158,11,0.72)' : theme.border}`,
+                           borderRadius: 2,
+                           overflow: 'hidden',
+                            p: 0,
+                            cursor: image.isHidden ? 'default' : 'pointer',
+                            opacity: image.isHidden ? 0.45 : 1,
+                            bgcolor: mode === 'light' ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.035)',
+                            boxShadow: image.isMain ? '0 0 0 1px rgba(245,158,11,0.35)' : 'none',
+                            '&:hover .gallery-actions': {
+                               opacity: 1,
+                            },
+                         }}
+                      >
+                        <Box
+                           component="img"
+                           src={image.url}
+                           alt={image.title || 'Фото об’єкта'}
+                           sx={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                        />
+                        {image.isMain && (
+                           <Box
+                              sx={{
+                                 position: 'absolute',
+                                 left: 4,
+                                 top: 4,
+                                 px: 0.55,
+                                 py: 0.15,
+                                 borderRadius: 999,
+                                 fontSize: 9.5,
+                                 fontWeight: 950,
+                                 color: '#fde68a',
+                                 bgcolor: 'rgba(15,15,23,0.78)',
+                              }}
+                           >
+                              головне
+                           </Box>
+                        )}
+                        {canManage && (
+                           <Stack
+                              className="gallery-actions"
+                              direction="row"
+                              spacing={0.12}
+                              sx={{
+                                 position: 'absolute',
+                                 right: 2,
+                                 bottom: 2,
+                                 zIndex: 4,
+                                 opacity: 0.88,
+                                 transition: 'opacity 0.15s ease',
+                              }}
+                              onMouseDown={(event) => {
+                                 event.preventDefault();
+                                 event.stopPropagation();
+                              }}
+                              onClick={(event) => {
+                                 event.preventDefault();
+                                 event.stopPropagation();
+                              }}
+                            >
+                              {!image.isMain && !image.isHidden && (
+                                 <Tooltip title="Зробити головним">
+                                    <IconButton
+                                       size="small"
+                                       disabled={isLoading}
+                                       onMouseDown={(event) => {
+                                          event.preventDefault();
+                                          event.stopPropagation();
+                                       }}
+                                       onClick={(event) => {
+                                          event.preventDefault();
+                                          event.stopPropagation();
+                                          onImageAction?.(image, 'setMain');
+                                       }}
+                                       sx={{ width: 16, height: 16, p: 0, color: '#fde68a', bgcolor: 'rgba(15,15,23,0.84)' }}
+                                    >
+                                       <StarRoundedIcon sx={{ fontSize: 10.5 }} />
+                                    </IconButton>
+                                 </Tooltip>
+                              )}
+                              <Tooltip title={image.isHidden ? 'Показати фото' : 'Сховати фото'}>
+                                 <IconButton
+                                     size="small"
+                                     disabled={isLoading}
+                                     onMouseDown={(event) => {
+                                        event.preventDefault();
+                                        event.stopPropagation();
+                                     }}
+                                     onClick={(event) => {
+                                       event.preventDefault();
+                                       event.stopPropagation();
+                                       onImageAction?.(image, 'setHidden', !image.isHidden);
+                                     }}
+                                     sx={{ width: 16, height: 16, p: 0, color: image.isHidden ? '#86efac' : '#fecaca', bgcolor: 'rgba(15,15,23,0.84)' }}
+                                  >
+                                    <VisibilityOffRoundedIcon sx={{ fontSize: 10.5 }} />
+                                  </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Видалити фото">
+                                 <IconButton
+                                     size="small"
+                                     disabled={isLoading}
+                                     onMouseDown={(event) => {
+                                        event.preventDefault();
+                                        event.stopPropagation();
+                                     }}
+                                     onClick={(event) => {
+                                       event.preventDefault();
+                                       event.stopPropagation();
+                                       onImageDelete?.(image);
+                                     }}
+                                     sx={{ width: 16, height: 16, p: 0, color: '#fca5a5', bgcolor: 'rgba(15,15,23,0.84)' }}
+                                  >
+                                    <DeleteOutlineRoundedIcon sx={{ fontSize: 10.5 }} />
+                                  </IconButton>
+                              </Tooltip>
+                           </Stack>
+                        )}
+                      </Box>
+                     );
+                  })}
+                  {hasMore && (
+                     <Button
+                        size="small"
+                        onClick={() => setShowAll((value) => !value)}
+                        sx={{
+                           flexShrink: 0,
+                           minHeight: 30,
+                           borderRadius: 2,
+                           px: 0.85,
+                           minWidth: 36,
+                           maxWidth: showAll ? 'none' : 40,
+                           overflow: 'hidden',
+                           textOverflow: 'ellipsis',
+                           color: theme.accentLight,
+                           fontSize: 10,
+                           fontWeight: 950,
+                           border: `1px solid ${theme.border}`,
+                           bgcolor: mode === 'light' ? 'rgba(124,58,237,0.06)' : 'rgba(139,92,246,0.10)',
+                        }}
+                     >
+                        {showAll ? 'Сховати' : 'Всі'}
+                      </Button>
+                   )}
+                </>
+            ) : (
+               <Typography sx={{ color: theme.textSoft, fontSize: 13 }}>
+                  Фото ще немає
+               </Typography>
+            )}
+         </Stack>
+         </Stack>
+      </Box>
    );
 }
 
@@ -736,20 +1090,20 @@ function formatDateTime(value) {
 // };
 
 
-function BusinessScoreView({ score = {}, theme, mode }) {
+function BusinessScoreView({ score = {}, theme, mode, strategyApprovedByName = '' }) {
    return (
-      <Stack spacing={0.45}>
+      <Stack spacing={0.18}>
          {Object.entries(BUSINESS_SCORE_OPTIONS).map(([key, config]) => {
             const value = score?.[key];
             if (!value) return null;
 
-            return (
+            const row = (
                <Box
                   key={key}
                   sx={{
-                     px: 0.8,
-                     py: 0.5,
-                     borderRadius: 2,
+                     px: 0.58,
+                     py: 0.2,
+                     borderRadius: 1.45,
                      bgcolor:
                         mode === 'light'
                            ? 'rgba(124,58,237,0.035)'
@@ -757,7 +1111,7 @@ function BusinessScoreView({ score = {}, theme, mode }) {
                      border: `1px solid ${theme.border}`,
                      display: 'flex',
                      alignItems: 'center',
-                     gap: 0.6,
+                     gap: 0.38,
                      minWidth: 0,
                   }}
                >
@@ -765,7 +1119,7 @@ function BusinessScoreView({ score = {}, theme, mode }) {
                      sx={{
                         color: theme.text,
                         fontWeight: 950,
-                        fontSize: 12.3,
+                        fontSize: 10.8,
                         whiteSpace: 'nowrap',
                      }}
                   >
@@ -775,7 +1129,7 @@ function BusinessScoreView({ score = {}, theme, mode }) {
                   <Typography
                      sx={{
                         color: theme.textSoft,
-                        fontSize: 12,
+                        fontSize: 10.6,
                         minWidth: 0,
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
@@ -787,6 +1141,16 @@ function BusinessScoreView({ score = {}, theme, mode }) {
                   </Typography>
                </Box>
             );
+
+            if (key === 'adStrategy' && strategyApprovedByName) {
+               return (
+                  <Tooltip key={key} title={`Стратегію погодив: ${strategyApprovedByName}`} arrow>
+                     {row}
+                  </Tooltip>
+               );
+            }
+
+            return row;
          })}
       </Stack>
    );
@@ -1250,7 +1614,7 @@ function OperationCounters({ summary = {}, theme, mode }) {
 
 
 
-export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRefresh, showAdvertisingRows = true, canManage = false }) {
+export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRefresh, showAdvertisingRows = true, canManage = false, employees = [] }) {
    const [open, setOpen] = useState(false);
 
    const [adTitle, setAdTitle] = useState('');
@@ -1296,6 +1660,10 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
    const [openAdText, setOpenAdText] = useState(false);
 
    const [showAdvertisingPanel, setShowAdvertisingPanel] = useState(false);
+   const [openAdvertisingSettings, setOpenAdvertisingSettings] = useState(false);
+   const [advertisingSettingsForm, setAdvertisingSettingsForm] = useState(() => emptyAdvertisingSettingsForm(item));
+   const [advertisingSettingsSaving, setAdvertisingSettingsSaving] = useState(false);
+   const [advertisingSettingsError, setAdvertisingSettingsError] = useState('');
 
    const [adCreatedAt, setAdCreatedAt] = useState(getNowLocal());
 
@@ -1321,6 +1689,11 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
 
    const [photoOpen, setPhotoOpen] = useState(false);
    const [photoIndex, setPhotoIndex] = useState(0);
+   const [imageActionLoading, setImageActionLoading] = useState('');
+   const [photoUploadStage, setPhotoUploadStage] = useState('draft');
+   const [photoUploading, setPhotoUploading] = useState(false);
+   const [imageDeleteTarget, setImageDeleteTarget] = useState(null);
+   const photoUploadInputRef = useRef(null);
 
 
    const [editingLink, setEditingLink] = useState(null);
@@ -1337,7 +1710,7 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
       .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
       .map((img) => ({
          ...img,
-         url: img.brandedUrl || img.processedUrl || img.url || img.preview,
+         url: getImageStageUrl(img),
       }));
 
    const closeLinksMenu = () => {
@@ -1438,6 +1811,122 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
          .filter(Boolean)
          .join(', ') ||
       'Адреса не вказана';
+
+   const openAdvertisingSettingsDialog = () => {
+      setAdvertisingSettingsForm(emptyAdvertisingSettingsForm(item));
+      setAdvertisingSettingsError('');
+      setOpenAdvertisingSettings(true);
+   };
+
+   const handleSaveAdvertisingSettings = async () => {
+      setAdvertisingSettingsSaving(true);
+      setAdvertisingSettingsError('');
+      try {
+         const res = await fetch('/api/crm/advertising/properties', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+               ...advertisingSettingsForm,
+               property: item?._id,
+            }),
+         });
+
+         if (!res.ok) {
+            const body = await res.json().catch(async () => ({ error: await res.text() }));
+            throw new Error(body.error || 'Не вдалося зберегти рекламне завдання');
+         }
+
+         setOpenAdvertisingSettings(false);
+         await onRefresh?.();
+      } catch (err) {
+         setAdvertisingSettingsError(err.message || 'Не вдалося зберегти рекламне завдання');
+      } finally {
+         setAdvertisingSettingsSaving(false);
+      }
+   };
+
+   const handleImageAction = async (image, action, hidden, stage) => {
+      const imageId = getImageActionId(image);
+      if (!item?._id || !imageId) return;
+      setImageActionLoading(String(imageId));
+      try {
+         const res = await fetch(`/api/crm/properties/${item._id}/images`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+               imageId,
+               action,
+               hidden,
+               stage,
+            }),
+         });
+
+         if (!res.ok) {
+            const body = await res.json().catch(async () => ({ error: await res.text() }));
+            throw new Error(body.error || 'Не вдалося оновити фото');
+         }
+
+         await onRefresh?.();
+      } catch (error) {
+         console.error('Gallery image action failed', error);
+      } finally {
+         setImageActionLoading('');
+      }
+   };
+
+   const handleUploadGalleryPhotos = async (event) => {
+      const files = Array.from(event.target.files || []);
+      event.target.value = '';
+      if (!item?._id || !files.length) return;
+
+      setPhotoUploading(true);
+      try {
+         const formData = new FormData();
+         files.forEach((file) => formData.append('images', file));
+         formData.append('stage', photoUploadStage);
+
+         const res = await fetch(`/api/crm/properties/${item._id}/images`, {
+            method: 'POST',
+            body: formData,
+         });
+
+         if (!res.ok) {
+            const body = await res.json().catch(async () => ({ error: await res.text() }));
+            throw new Error(body.error || 'Не вдалося додати фото');
+         }
+
+         await onRefresh?.();
+      } catch (error) {
+         console.error('Gallery image upload failed', error);
+      } finally {
+         setPhotoUploading(false);
+      }
+   };
+
+   const handleDeleteGalleryPhoto = async (image) => {
+      const imageId = getImageActionId(image);
+      if (!item?._id || !imageId) return;
+      setImageActionLoading(String(imageId));
+      try {
+         const res = await fetch(`/api/crm/properties/${item._id}/images`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageId }),
+         });
+
+         if (!res.ok) {
+            const body = await res.json().catch(async () => ({ error: await res.text() }));
+            throw new Error(body.error || 'Не вдалося видалити фото');
+         }
+
+         await onRefresh?.();
+         setImageDeleteTarget(null);
+      } catch (error) {
+         console.error('Gallery image delete failed', error);
+      } finally {
+         setImageActionLoading('');
+      }
+   };
 
 
    const handleAddAdvertisingLink = async () => {
@@ -2421,8 +2910,10 @@ ${url}`;
                 onEditText={openEditAdText}
                 onDeleteText={openDeleteAdTextDialog}
                 onEditLink={openEditAdvertisingLink}
-                canManage={canManage}
-             />
+                 onEditSettings={openAdvertisingSettingsDialog}
+                 employees={employees}
+                 canManage={canManage}
+              />
          </Collapse>
 
 
@@ -2448,17 +2939,6 @@ ${url}`;
                         <Box sx={{ mt: 0.6 }}>
                            <DetailLine label="Джерело" value={item?.source} theme={theme} />
 
-                           <DetailLine
-                              label="Стратегію погодив"
-                              value={getEmployeeName(item?.strategyApprovedBy)}
-                              theme={theme}
-                           />
-
-                           <DetailLine
-                              label="Дата погодження"
-                              value={formatDate(item?.strategyApprovedAt)}
-                              theme={theme}
-                           />
                         </Box>
                      </DetailBox>
                   </Grid>
@@ -2492,6 +2972,7 @@ ${url}`;
                            score={item?.businessScore}
                            theme={theme}
                            mode={mode}
+                           strategyApprovedByName={getEmployeeName(item?.strategyApprovedBy)}
                         />
                      </DetailBox>
                   </Grid>
@@ -2506,7 +2987,7 @@ ${url}`;
                       </Grid>
                    )}
 
-                   <Grid item xs={12} lg={6}>
+                   <Grid item xs={12} lg={6} sx={{ display: 'flex', alignItems: 'flex-start' }}>
                       <PropertyVideosPanel
                          item={item}
                          theme={theme}
@@ -2519,8 +3000,36 @@ ${url}`;
                       />
                    </Grid>
 
-                </Grid>
-             </Box>
+                   <Grid item xs={12} lg={6} sx={{ display: 'flex', alignItems: 'flex-start' }}>
+                      <PropertyGalleryPanel
+                         item={item}
+                         images={galleryImages}
+                         theme={theme}
+                         mode={mode}
+                         canManage={canManage}
+                         imageActionLoading={imageActionLoading}
+                         photoUploadStage={photoUploadStage}
+                         photoUploading={photoUploading}
+                         onPhotoStageChange={setPhotoUploadStage}
+                         onAddPhotoClick={() => photoUploadInputRef.current?.click()}
+                         onOpen={(index) => {
+                            setPhotoIndex(index);
+                            setPhotoOpen(true);
+                         }}
+                          onImageAction={handleImageAction}
+                          onImageDelete={setImageDeleteTarget}
+                       />
+                      <input
+                         ref={photoUploadInputRef}
+                         type="file"
+                         accept="image/*"
+                         multiple
+                         hidden
+                         onChange={handleUploadGalleryPhotos}
+                      />
+                   </Grid>
+                 </Grid>
+              </Box>
 
 
             <Grid item xs={12} lg={6}>
@@ -2559,6 +3068,154 @@ ${url}`;
                </Box>
             )}
           </Collapse>
+
+
+          <Dialog
+             open={!!imageDeleteTarget}
+             onClose={() => !imageActionLoading && setImageDeleteTarget(null)}
+             fullWidth
+             maxWidth="xs"
+             PaperProps={{
+                sx: {
+                   borderRadius: 4,
+                   bgcolor: theme.bgPanel,
+                   color: theme.text,
+                   border: `1px solid ${theme.border}`,
+                   boxShadow: '0 24px 80px rgba(0,0,0,0.42)',
+                },
+             }}
+          >
+             <DialogTitle sx={{ fontWeight: 950, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <WarningAmberRoundedIcon sx={{ color: '#fb7185' }} />
+                Видалити фото?
+             </DialogTitle>
+             <DialogContent>
+                <Typography sx={{ color: theme.textSoft, fontWeight: 750 }}>
+                   Видалиться тільки це одне фото з галереї об’єкта.
+                </Typography>
+             </DialogContent>
+             <DialogActions sx={{ px: 3, pb: 2 }}>
+                <Button onClick={() => setImageDeleteTarget(null)} disabled={!!imageActionLoading} sx={{ color: theme.textSoft, fontWeight: 900 }}>
+                   Скасувати
+                </Button>
+                <Button
+                   onClick={() => handleDeleteGalleryPhoto(imageDeleteTarget)}
+                   disabled={!!imageActionLoading}
+                   variant="contained"
+                   startIcon={<DeleteOutlineRoundedIcon />}
+                   sx={{
+                      borderRadius: 999,
+                      fontWeight: 950,
+                      bgcolor: '#ef4444',
+                      color: '#fff',
+                      '&:hover': { bgcolor: '#dc2626' },
+                   }}
+                >
+                   Видалити
+                </Button>
+             </DialogActions>
+          </Dialog>
+
+
+
+          <Dialog
+             open={openAdvertisingSettings}
+             onClose={() => setOpenAdvertisingSettings(false)}
+             fullWidth
+             maxWidth="sm"
+             PaperProps={{
+                sx: {
+                   borderRadius: 4,
+                   bgcolor: theme.bgPanel,
+                   color: theme.text,
+                   border: `1px solid ${theme.border}`,
+                },
+             }}
+          >
+             <DialogTitle sx={{ fontWeight: 950 }}>Рекламні параметри об’єкта</DialogTitle>
+             <DialogContent>
+                <Stack spacing={1.5} sx={{ pt: 1 }}>
+                   {!!advertisingSettingsError && (
+                      <Typography sx={{ color: '#fb7185', fontWeight: 850, fontSize: 13 }}>
+                         {advertisingSettingsError}
+                      </Typography>
+                   )}
+
+                   <TextField
+                      select
+                      label="Рекламщик"
+                      value={advertisingSettingsForm.assignedEmployee}
+                      onChange={(e) => setAdvertisingSettingsForm((prev) => ({ ...prev, assignedEmployee: e.target.value }))}
+                      sx={fieldSx}
+                   >
+                      <MenuItem value="">Не призначено</MenuItem>
+                      {employees.map((employee) => (
+                         <MenuItem key={employee._id} value={employee._id}>{getEmployeeName(employee)}</MenuItem>
+                      ))}
+                   </TextField>
+
+                   <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.1}>
+                      <TextField select label="Статус" value={advertisingSettingsForm.status} onChange={(e) => setAdvertisingSettingsForm((prev) => ({ ...prev, status: e.target.value }))} sx={{ ...fieldSx, flex: 1 }}>
+                         <MenuItem value="active">Активно</MenuItem>
+                         <MenuItem value="paused">Пауза</MenuItem>
+                         <MenuItem value="done">Готово</MenuItem>
+                         <MenuItem value="none">Без реклами</MenuItem>
+                      </TextField>
+                      <TextField select label="Пріоритет" value={advertisingSettingsForm.priority} onChange={(e) => setAdvertisingSettingsForm((prev) => ({ ...prev, priority: e.target.value }))} sx={{ ...fieldSx, flex: 1 }}>
+                         {AD_PRIORITY_OPTIONS.map(([value, label]) => (
+                            <MenuItem key={value} value={value}>{label}</MenuItem>
+                         ))}
+                      </TextField>
+                   </Stack>
+
+                   <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.1}>
+                      <TextField
+                         label="Рекламна ціна"
+                         type="number"
+                         value={advertisingSettingsForm.price}
+                         onChange={(e) => setAdvertisingSettingsForm((prev) => ({ ...prev, price: e.target.value }))}
+                         sx={{
+                            ...fieldSx,
+                            flex: 1,
+                            '& input[type=number]': { MozAppearance: 'textfield' },
+                            '& input[type=number]::-webkit-outer-spin-button, & input[type=number]::-webkit-inner-spin-button': {
+                               WebkitAppearance: 'none',
+                               margin: 0,
+                            },
+                         }}
+                      />
+                      <TextField select label="Валюта" value={advertisingSettingsForm.currency} onChange={(e) => setAdvertisingSettingsForm((prev) => ({ ...prev, currency: e.target.value }))} sx={{ ...fieldSx, flex: 0.7 }}>
+                         {AD_CURRENCY_OPTIONS.map(([value, label]) => (
+                            <MenuItem key={value} value={value}>{label}</MenuItem>
+                         ))}
+                      </TextField>
+                   </Stack>
+
+                   <TextField
+                      label="Чорновий текст"
+                      multiline
+                      minRows={3}
+                      value={advertisingSettingsForm.draftText}
+                      onChange={(e) => setAdvertisingSettingsForm((prev) => ({ ...prev, draftText: e.target.value }))}
+                      sx={fieldSx}
+                   />
+                   <TextField
+                      label="Завдання"
+                      multiline
+                      minRows={2}
+                      value={advertisingSettingsForm.note}
+                      onChange={(e) => setAdvertisingSettingsForm((prev) => ({ ...prev, note: e.target.value }))}
+                      sx={fieldSx}
+                   />
+                </Stack>
+             </DialogContent>
+             <DialogActions sx={{ px: 3, pb: 2.5 }}>
+                <Button onClick={() => setOpenAdvertisingSettings(false)} sx={{ color: theme.textSoft, fontWeight: 900 }}>Скасувати</Button>
+                <Button onClick={handleSaveAdvertisingSettings} disabled={advertisingSettingsSaving || !item?._id} variant="contained" startIcon={<TuneRoundedIcon />} sx={{ borderRadius: 999, fontWeight: 950 }}>
+                   {advertisingSettingsSaving ? 'Зберігаю...' : 'Зберегти'}
+                </Button>
+             </DialogActions>
+          </Dialog>
 
 
 

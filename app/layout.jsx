@@ -26,8 +26,8 @@ const MainLayout = ({ children }) => {
          </head>
 
 
-         <body>
-            <main>
+         <body style={{ margin: 0, background: '#070711' }}>
+            <main style={{ minHeight: '100vh', background: '#070711' }}>
                <MuiThemeProvider>
                   {children}
                </MuiThemeProvider>

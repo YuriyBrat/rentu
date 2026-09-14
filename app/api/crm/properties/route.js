@@ -8,6 +8,7 @@ import {
    pickActivitySnapshot,
 } from '@/utils/crm/activityLog';
 import { getSessionUser } from '@/utils/getSessionUser';
+import { buildPropertyAccessFilter, combineMongoFilters } from '@/utils/crm/accessControl';
 import cloudinary from '@/config/cloudinary';
 import { Types } from 'mongoose';
 
@@ -289,6 +290,9 @@ export const GET = async (req) => {
    try {
       await connectDB();
 
+      const sessionUser = await getSessionUser().catch(() => null);
+      if (!sessionUser) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
       const sp = req.nextUrl.searchParams;
 
       const page = Math.max(parseInt(sp.get('page') || '1', 10), 1);
@@ -381,7 +385,10 @@ export const GET = async (req) => {
          }
       }
 
-      const total = await Property.countDocuments(filter);
+      const accessFilter = await buildPropertyAccessFilter(sessionUser);
+      const scopedFilter = combineMongoFilters(filter, accessFilter);
+
+      const total = await Property.countDocuments(scopedFilter);
       const now = new Date();
       const sevenDaysAgo = new Date(now);
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -390,7 +397,9 @@ export const GET = async (req) => {
       const threeMonthsAgo = new Date(now);
       threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
-      const movementFilter = { ...filter };
+      const movementBaseFilter = { ...filter };
+      delete movementBaseFilter.actualityGroup;
+      const movementFilter = combineMongoFilters(movementBaseFilter, accessFilter);
       delete movementFilter.actualityGroup;
       const movementPropertyIds = await Property.distinct('_id', movementFilter);
       const successfulPersStatuses = ['completed_success', 'completed_improved', 'completed_worse'];
@@ -463,7 +472,7 @@ export const GET = async (req) => {
       };
 
       const portfolioRowsPromise = Property.aggregate([
-         { $match: filter },
+         { $match: scopedFilter },
          {
             $group: {
                _id: { $ifNull: ['$currency', 'USD'] },
@@ -498,7 +507,7 @@ export const GET = async (req) => {
          portfolioRowsPromise,
       ]);
 
-      const rawItems = await Property.find(filter)
+      const rawItems = await Property.find(scopedFilter)
          .populate('assignee', 'name fullName surname phone email avatar')
          .populate('createdByEmployee', 'name fullName surname')
          .populate('rentOptions.rentStory.rentedByEmployee', 'name fullName surname phone email avatar')

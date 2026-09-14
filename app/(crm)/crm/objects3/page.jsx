@@ -1073,10 +1073,11 @@ export default function ObjectsPage() {
                   onEdit={(item) => setEditingItem(item)}
                   onView={(item) => console.log('view', item)}
                   // onRefresh={() => load()}
-                  onRefresh={() => load(q, filters)}
-                  showAdvertisingRows={showAdvertisingRows}
-                  canManage={canManagePropertyItem(p)}
-                />
+                   onRefresh={() => load(q, filters)}
+                   showAdvertisingRows={showAdvertisingRows}
+                   canManage={canManagePropertyItem(p)}
+                   employees={employees}
+                 />
             ))}
          </Stack>
 

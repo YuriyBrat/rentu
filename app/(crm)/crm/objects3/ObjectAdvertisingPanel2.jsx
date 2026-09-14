@@ -19,12 +19,15 @@ import CampaignRoundedIcon from '@mui/icons-material/CampaignRounded';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
+import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
+import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 import ExpandMoreRoundedIcon from '@mui/icons-material/ExpandMoreRounded';
 import ExpandLessRoundedIcon from '@mui/icons-material/ExpandLessRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import PestControlRoundedIcon from '@mui/icons-material/PestControlRounded';
 import SentimentDissatisfiedRoundedIcon from '@mui/icons-material/SentimentDissatisfiedRounded';
+import { BUSINESS_SCORE_OPTIONS } from '@/utils/crm/BusinessScore';
 
 function getPlatformLabel(platform) {
    if (platform === 'olx') return 'OLX';
@@ -45,6 +48,34 @@ function getAdStatusLabel(status, closedAt) {
    if (closedAt) return 'Неактивна';
    return 'Активна';
 }
+
+const adPriorityOptions = [
+   [5, '5 - Надвисокий'],
+   [4, '4 - Високий'],
+   [3, '3 - Нормальний'],
+   [2, '2 - Низький'],
+   [1, '1 - Найнижчий'],
+];
+
+function adPriorityLabel(value) {
+   return adPriorityOptions.find(([v]) => Number(v) === Number(value))?.[1] || '3 - Нормальний';
+}
+
+function getEmployeeName(employee) {
+   if (!employee) return '';
+   return [employee.surname, employee.name, employee.fullName].filter(Boolean).join(' ') || employee.email || '';
+}
+
+function formatMoney(value, currency = 'USD') {
+   if (!value && value !== 0) return '—';
+   return `${Number(value).toLocaleString('uk-UA')} ${currency || ''}`;
+}
+
+const adScoreBadges = [
+   ['adAttractiveness', 'рп'],
+   ['adHistory', 'рі'],
+   ['adStrategy', 'рс'],
+];
 
 function formatDateTime(value) {
    if (!value) return '—';
@@ -72,6 +103,10 @@ function groupByPlatform(links = []) {
 
 function getLinksBySource(links = [], sourceType) {
    return links.filter((x) => (x.sourceType || 'ours') === sourceType);
+}
+
+function isActiveAdLink(link) {
+   return !link?.closedAt;
 }
 
 function getSourceColors(sourceType, mode, theme) {
@@ -118,7 +153,9 @@ async function copyLink(url) {
 
 function AdsBadgeSection({ title, sourceType, links, mode, theme, onOpenGroup }) {
    const colors = getSourceColors(sourceType, mode, theme);
-   const grouped = groupByPlatform(links);
+   const activeLinks = links.filter(isActiveAdLink);
+   const inactiveCount = links.length - activeLinks.length;
+   const grouped = groupByPlatform(activeLinks);
    const groups = Object.entries(grouped);
 
    return (
@@ -132,26 +169,65 @@ function AdsBadgeSection({ title, sourceType, links, mode, theme, onOpenGroup })
          }}
       >
          <Stack direction="row" spacing={0.7} alignItems="center" flexWrap="wrap" useFlexGap>
-            <Tooltip title={title}>
-               <Box
-                  sx={{
-                     width: 24,
-                     height: 24,
-                     display: 'inline-flex',
-                     alignItems: 'center',
-                     justifyContent: 'center',
-                     flex: '0 0 auto',
-                     color: colors.text,
-                     bgcolor: colors.bg,
-                     border: colors.border,
-                     borderRadius: '50%',
-                  }}
-               >
-                  {getSourceIcon(sourceType)}
-               </Box>
-            </Tooltip>
+             <Stack direction="row" spacing={0.35} alignItems="center" sx={{ flex: '0 0 auto' }}>
+                <Tooltip title={title}>
+                   <Box
+                      sx={{
+                         width: 24,
+                         height: 24,
+                         display: 'inline-flex',
+                         alignItems: 'center',
+                         justifyContent: 'center',
+                         color: colors.text,
+                         bgcolor: colors.bg,
+                         border: colors.border,
+                         borderRadius: '50%',
+                      }}
+                   >
+                      {getSourceIcon(sourceType)}
+                   </Box>
+                </Tooltip>
 
-            {groups.length ? (
+                {!!inactiveCount && (
+                   <Tooltip title={`Неактивні ${title.toLowerCase()}: ${inactiveCount}`}>
+                      <Box
+                         component="span"
+                         sx={{
+                            width: 20,
+                            height: 20,
+                            borderRadius: '50%',
+                            position: 'relative',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: mode === 'light' ? '#64748b' : '#9ca3af',
+                            bgcolor: mode === 'light' ? 'rgba(100,116,139,0.12)' : 'rgba(156,163,175,0.13)',
+                            border: mode === 'light' ? '1px solid rgba(100,116,139,0.28)' : '1px solid rgba(156,163,175,0.25)',
+                            fontSize: 12.5,
+                            fontWeight: 950,
+                            lineHeight: 1,
+                            boxShadow: mode === 'light' ? '0 3px 8px rgba(15,23,42,0.05)' : 'none',
+                            '&::after': {
+                               content: '""',
+                               position: 'absolute',
+                               left: '50%',
+                               top: '50%',
+                               width: 14,
+                               height: 0,
+                               borderTop: `1px solid ${mode === 'light' ? '#475569' : '#d1d5db'}`,
+                               bgcolor: 'transparent',
+                               opacity: 0.9,
+                               transform: 'translate(-50%, -50%) rotate(-35deg)',
+                            },
+                         }}
+                      >
+                         {inactiveCount}
+                      </Box>
+                   </Tooltip>
+                )}
+             </Stack>
+
+             {groups.length ? (
                groups.map(([platform, group]) => (
                   <Badge
                      key={platform}
@@ -188,7 +264,7 @@ function AdsBadgeSection({ title, sourceType, links, mode, theme, onOpenGroup })
                      />
                   </Badge>
                ))
-            ) : (
+            ) : inactiveCount ? null : (
                <Typography sx={{ color: theme.textSoft, fontSize: 11 }}>
                   —
                </Typography>
@@ -442,6 +518,8 @@ export default function ObjectAdvertisingPanel({
    onEditText,
    onDeleteText,
    onEditLink,
+   onEditSettings,
+   employees = [],
    canManage = false,
 }) {
    const [anchorEl, setAnchorEl] = useState(null);
@@ -452,6 +530,20 @@ export default function ObjectAdvertisingPanel({
    const ownLinks = getLinksBySource(allLinks, 'ours');
    const competitorLinks = getLinksBySource(allLinks, 'competitor');
    const ownerLinks = getLinksBySource(allLinks, 'owner');
+   const settings = item?.advertisingSettings || {};
+   const advertisingEmployeeId = settings.assignedEmployee?._id || settings.assignedEmployee || '';
+   const advertisingEmployee =
+      settings.assignedEmployee?._id
+         ? settings.assignedEmployee
+         : employees.find((employee) => String(employee._id) === String(advertisingEmployeeId));
+   const advertisingStatusLabel =
+      settings.status === 'paused'
+         ? 'Пауза'
+         : settings.status === 'done'
+            ? 'Готово'
+            : settings.status === 'none'
+               ? 'Без реклами'
+               : 'Активно';
 
    const handleOpenGroup = (anchor, links) => {
       setAnchorEl(anchor);
@@ -514,16 +606,22 @@ export default function ObjectAdvertisingPanel({
             </Stack>
          </Box>
 
-         <Popover
-            open={!!anchorEl}
-            anchorEl={anchorEl}
-            onClose={handleCloseGroup}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
-            transformOrigin={{ vertical: 'top', horizontal: 'left' }}
-            PaperProps={{
-               sx: {
-                  mt: 0.8,
-                  p: 1,
+          <Popover
+             open={!!anchorEl}
+             anchorEl={anchorEl}
+             onClose={handleCloseGroup}
+             disableScrollLock
+             disableAutoFocus
+             disableEnforceFocus
+             disableRestoreFocus
+             marginThreshold={8}
+             anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+             transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+             PaperProps={{
+                onMouseLeave: handleCloseGroup,
+                sx: {
+                   mt: 0.8,
+                   p: 1,
                   borderRadius: 3,
                   minWidth: 280,
                   bgcolor: theme.bgPanel,
@@ -626,10 +724,78 @@ export default function ObjectAdvertisingPanel({
                         </Tooltip>
                      </Stack>
                   )}
-               </Stack>
+                </Stack>
 
-               <Box
-                  sx={{
+                <Box
+                   sx={{
+                      mb: 0.8,
+                      p: 0.85,
+                      borderRadius: 2.5,
+                      border: `1px solid ${theme.border}`,
+                      bgcolor: mode === 'light'
+                         ? 'rgba(245,158,11,0.045)'
+                         : 'rgba(251,146,60,0.055)',
+                   }}
+                >
+                   <Stack direction={{ xs: 'column', md: 'row' }} spacing={0.75} alignItems={{ xs: 'stretch', md: 'center' }}>
+                      <Stack direction="row" spacing={0.55} flexWrap="wrap" useFlexGap sx={{ minWidth: 0, flex: 1 }}>
+                         <Chip size="small" icon={<PersonRoundedIcon sx={{ fontSize: '14px !important' }} />} label={getEmployeeName(advertisingEmployee) || 'Рекламщик не призначений'} sx={{ height: 22, fontSize: 11, fontWeight: 850 }} />
+                         <Chip size="small" icon={<CampaignRoundedIcon sx={{ fontSize: '14px !important' }} />} label={advertisingStatusLabel} sx={{ height: 22, fontSize: 11, fontWeight: 850, color: settings.status === 'none' ? '#fb7185' : '#86efac', bgcolor: settings.status === 'none' ? 'rgba(251,113,133,0.10)' : 'rgba(34,197,94,0.10)' }} />
+                         <Chip size="small" label={adPriorityLabel(settings.priority || 3)} sx={{ height: 22, fontSize: 11, fontWeight: 850, color: '#facc15', bgcolor: 'rgba(250,204,21,0.10)' }} />
+                         <Chip size="small" label={`ціна ${settings.price ? formatMoney(settings.price, settings.currency || 'USD') : '—'}`} sx={{ height: 22, fontSize: 11, fontWeight: 850 }} />
+                         {adScoreBadges.map(([key, shortLabel]) => {
+                            const scoreValue = item?.businessScore?.[key];
+                            const config = BUSINESS_SCORE_OPTIONS[key];
+                            if (!scoreValue || !config) return null;
+                            return (
+                               <Tooltip key={key} title={`${config.label}: ${scoreValue} — ${config.options?.[scoreValue] || ''}`} arrow>
+                                  <Chip
+                                     size="small"
+                                     label={`${shortLabel} ${scoreValue}`}
+                                     sx={{
+                                        height: 22,
+                                        fontSize: 11,
+                                        fontWeight: 950,
+                                        color: '#bfdbfe',
+                                        bgcolor: 'rgba(59,130,246,0.12)',
+                                        border: '1px solid rgba(59,130,246,0.24)',
+                                     }}
+                                  />
+                               </Tooltip>
+                            );
+                         })}
+                      </Stack>
+
+                      {canManage && (
+                         <Button
+                            size="small"
+                            onClick={onEditSettings}
+                            startIcon={<TuneRoundedIcon />}
+                            sx={{
+                               borderRadius: 2,
+                               px: 1.25,
+                               py: 0.35,
+                               color: theme.accentLight,
+                               fontWeight: 950,
+                               border: `1px solid ${theme.border}`,
+                               bgcolor: mode === 'light' ? 'rgba(124,58,237,0.06)' : 'rgba(139,92,246,0.10)',
+                               whiteSpace: 'nowrap',
+                            }}
+                         >
+                            Редагувати завдання
+                         </Button>
+                      )}
+                   </Stack>
+
+                   {(settings.note || settings.draftText) && (
+                      <Typography sx={{ mt: 0.5, color: settings.note ? '#fdba74' : theme.textSoft, fontSize: 12, fontWeight: settings.note ? 850 : 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                         {settings.note ? `Завдання: ${settings.note}` : `Чорновий текст: ${settings.draftText}`}
+                      </Typography>
+                   )}
+                </Box>
+
+                <Box
+                   sx={{
                      display: 'grid',
                      gridTemplateColumns: {
                         xs: '1fr',

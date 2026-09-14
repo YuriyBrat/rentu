@@ -51,6 +51,7 @@ import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import BedRoundedIcon from '@mui/icons-material/BedRounded';
 import TimelineRoundedIcon from '@mui/icons-material/TimelineRounded';
 import AutoGraphRoundedIcon from '@mui/icons-material/AutoGraphRounded';
+import CampaignRoundedIcon from '@mui/icons-material/CampaignRounded';
 
 // для наводок варіанти
 import TipsAndUpdatesIcon from '@mui/icons-material/TipsAndUpdates';
@@ -123,6 +124,7 @@ export default function CRMLayout({ children }) {
 
    const { theme, mode, toggleTheme } = useCRMTheme();
    const { data: session } = useSession();
+   const canOpenAdvertising = session?.user?.role !== 'callcenter';
 
    const { user } = useCurrentUser();
    const userPhones = (user?.phones || [])
@@ -519,6 +521,16 @@ export default function CRMLayout({ children }) {
                            )}
                         </Stack>
                       </Box>
+
+                     {canOpenAdvertising && (
+                        <MenuItem component={Link} href="/crm/advertising" onClick={handleMenuClose}>
+                           <CampaignRoundedIcon sx={{ mr: 1, color: '#fb923c' }} /> Рекламний кабінет
+                        </MenuItem>
+                     )}
+
+                     <MenuItem component={Link} href="/crm/roles" onClick={handleMenuClose}>
+                        <ManageAccountsRoundedIcon sx={{ mr: 1, color: ACCENT }} /> Логіка ролей
+                     </MenuItem>
 
                      <MenuItem onClick={handleLogout}>
                         <LogoutIcon sx={{ mr: 1, color: ACCENT }} /> Вийти

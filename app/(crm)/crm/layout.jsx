@@ -16,7 +16,7 @@ export default function Layout({ children }) {
 }
 
 function CRMAuthWrapper({ children }) {
-   const { status } = useSession();
+   const { data: session, status } = useSession();
    const router = useRouter();
    const pathname = usePathname();
 
@@ -25,7 +25,16 @@ function CRMAuthWrapper({ children }) {
       if (status === 'unauthenticated' && pathname !== '/login') {
          router.push('/login');
       }
-   }, [status, router, pathname]);
+      if (status === 'authenticated') {
+         const role = session?.user?.role || 'viewer';
+         if (role === 'marketing' && !pathname?.startsWith('/crm/advertising')) {
+            router.replace('/crm/advertising');
+         }
+         if (role === 'callcenter' && pathname?.startsWith('/crm/advertising')) {
+            router.replace('/crm/objects3');
+         }
+      }
+   }, [status, session, router, pathname]);
 
    if (status === 'loading') {
       return <p style={{ padding: 24 }}>Завантаження...</p>;
@@ -34,9 +43,13 @@ function CRMAuthWrapper({ children }) {
    // ✅ Якщо не авторизований — нічого не рендеримо (щоб не мигало)
    if (status === 'unauthenticated') return null;
 
+   const role = session?.user?.role || 'viewer';
+   if (role === 'marketing' && !pathname?.startsWith('/crm/advertising')) return null;
+   if (role === 'callcenter' && pathname?.startsWith('/crm/advertising')) return null;
+
    return (
       <CRMThemeProvider>
-         <CRMLayout>{children}</CRMLayout>
+         {pathname?.startsWith('/crm/advertising') ? children : <CRMLayout>{children}</CRMLayout>}
       </CRMThemeProvider>
    );
 }

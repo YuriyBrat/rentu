@@ -230,6 +230,7 @@ const AdvertisingLinkSchema = new Schema(
       default: 'other',
     },
     title: { type: String, trim: true, default: '' },
+    workTitle: { type: String, trim: true, default: '' },
     url: { type: String, trim: true, default: '' },
 
     status: {
@@ -259,6 +260,30 @@ const AdvertisingLinkSchema = new Schema(
     lastCheckedAt: { type: Date, default: null },
   },
   { _id: true }
+);
+
+const PropertyAdvertisingSettingsSchema = new Schema(
+  {
+    assignedEmployee: {
+      type: Schema.Types.ObjectId,
+      ref: 'Employee',
+      default: null,
+      index: true,
+    },
+    status: {
+      type: String,
+      enum: ['active', 'paused', 'done', 'none'],
+      default: 'active',
+      index: true,
+    },
+    price: { type: Number, default: null },
+    currency: { type: String, enum: ['USD', 'UAH', 'EUR'], default: 'USD' },
+    draftText: { type: String, trim: true, default: '' },
+    note: { type: String, trim: true, default: '' },
+    priority: { type: Number, min: 1, max: 5, default: 3, index: true },
+    updatedAt: { type: Date, default: null },
+  },
+  { _id: false }
 );
 
 
@@ -587,6 +612,11 @@ const PropertySchema = new Schema(
       default: [],
     },
 
+    advertisingSettings: {
+      type: PropertyAdvertisingSettingsSchema,
+      default: () => ({}),
+    },
+
 
     shareLinks: {
       type: [ShareLinkSchema],
@@ -609,6 +639,7 @@ const PropertySchema = new Schema(
 
 PropertySchema.index({ actualityGroup: 1, actualityStatus: 1, updatedAt: -1 });
 PropertySchema.index({ crmStage: 1, updatedAt: -1 });
+PropertySchema.index({ 'advertisingSettings.assignedEmployee': 1, 'advertisingSettings.priority': -1 });
 PropertySchema.index({ 'shareLinks.slug': 1 });
 
 const Property = models.Property || model("Property", PropertySchema);
