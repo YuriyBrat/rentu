@@ -117,9 +117,14 @@ const StyledWrapperStack = styled(Stack)(({ theme }) => ({
    },
 
    [theme.breakpoints.down("sm")]: {
-      backgroundImage: "none",
+      minHeight: "430px",
+      maxHeight: "none",
+      backgroundImage: `url('/krm/krm-city2.jpg')`,
+      backgroundSize: "cover",
+      backgroundPosition: "center top",
       "&::before": {
-         display: "none",
+         display: "block",
+         background: "linear-gradient(180deg, rgba(0,0,0,0.66) 0%, rgba(0,0,0,0.34) 42%, rgba(0,0,0,0.78) 100%)",
       },
    },
 }));
@@ -137,11 +142,12 @@ const StyledRoundBox = styled(Box)(({ theme }) => ({
    position: "absolute",
    left: "43%",
    top: "38%",
+   zIndex: 3,
    animation: `${rotateAnimation} 10s linear infinite`,
    [theme.breakpoints.down("md")]: {
-      width: "110px",
-      top: "29%",
-      left: "0%",
+      width: "92px",
+      top: "164px",
+      left: "calc(50% - 46px)",
    },
 }));
 
@@ -153,15 +159,16 @@ const VisitSection = () => {
          <Box
             sx={{
                position: "absolute",
-               top: "30%", // 🔸 трішки нижче
-               left: "8%",
+               top: { xs: "255px", md: "30%" },
+               left: { xs: "18px", md: "8%" },
                zIndex: 3,
                color: "white",
-               fontSize: "1.2rem",
+               fontSize: { xs: "0.72rem", md: "1.2rem" },
                fontWeight: 400,
                textAlign: "left",
-               maxWidth: "300px",
+               maxWidth: { xs: "150px", md: "300px" },
                whiteSpace: "normal",
+               display: "block",
             }}
          >
             <Swiper
@@ -177,8 +184,8 @@ const VisitSection = () => {
                   <SwiperSlide key={idx}>
                      <Box
                         sx={{
-                           lineHeight: 1.5,
-                           fontSize: "1.1rem",
+                           lineHeight: { xs: 1.25, md: 1.5 },
+                           fontSize: { xs: "0.72rem", md: "1.1rem" },
                            transition: "opacity 0.8s ease-in-out",
                         }}
                      >
@@ -193,12 +200,12 @@ const VisitSection = () => {
          <Box
             sx={{
                position: "absolute",
-               top: "18%",
-               right: "8%",
+               top: { xs: "236px", md: "18%" },
+               right: { xs: "14px", md: "8%" },
                zIndex: 3,
                display: "flex",
                flexDirection: "column",
-               gap: 2,
+               gap: { xs: 0.45, md: 2 },
             }}
          >
             {[
@@ -211,21 +218,21 @@ const VisitSection = () => {
                   sx={{
                      backgroundColor: "rgba(255, 255, 255, 0.12)",
                      border: "1px solid rgba(255, 255, 255, 0.3)",
-                     borderRadius: "12px",
-                     px: 2,
-                     py: 0.3,
+                     borderRadius: { xs: "9px", md: "12px" },
+                     px: { xs: 0.8, md: 2 },
+                     py: { xs: 0.15, md: 0.3 },
                      backdropFilter: "blur(6px)",
                      color: "white",
-                     fontSize: "1rem",
+                     fontSize: { xs: "0.62rem", md: "1rem" },
                      fontWeight: 400,
                      boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
                      textAlign: "center",
                      whiteSpace: "nowrap",
-                     minWidth: "150px",
+                     minWidth: { xs: "78px", md: "150px" },
                   }}
                >
-                  <Box sx={{ fontWeight: 600, fontSize: "1.4rem", lineHeight: 1.2 }}>{item.number}</Box>
-                  <Box sx={{ fontSize: "1rem" }}>{item.label}</Box>
+                  <Box sx={{ fontWeight: 600, fontSize: { xs: "0.82rem", md: "1.4rem" }, lineHeight: 1.15 }}>{item.number}</Box>
+                  <Box sx={{ fontSize: { xs: "0.58rem", md: "1rem" } }}>{item.label}</Box>
                </Box>
             ))}
          </Box>
@@ -236,8 +243,8 @@ const VisitSection = () => {
                <Grid2
                   container
                   pt="20px"
-                  pb={{ xs: "20px", md: "252px" }}
-                  sx={{ position: "relative", zIndex: 5 }}
+                  pb={{ xs: "36px", md: "252px" }}
+                  sx={{ position: "relative", zIndex: 5, minHeight: { xs: "340px", md: "auto" } }}
                >
 
                   <Stack
@@ -248,13 +255,23 @@ const VisitSection = () => {
                      // spacing={1}
                      sx={{
                         position: 'absolute',
-                        top: '25%',
+                        top: { xs: '118px', sm: '25%' },
                         left: '50%',
                         transform: 'translate(-50%, -50%)',
                         zIndex: 2,
+                        width: { xs: '100%', sm: 'auto' },
+                        px: { xs: 2, sm: 0 },
                      }}
                   >
-                     <Typography variant="h2" color="text.secondary">
+                     <Typography
+                        variant="h2"
+                        color="text.secondary"
+                        sx={{
+                           fontSize: { xs: '1.72rem', sm: '2.6rem', md: '3.75rem' },
+                           lineHeight: { xs: 1.06, md: 1.16 },
+                           whiteSpace: { xs: 'nowrap', sm: 'normal' },
+                        }}
+                     >
                         Вас вітає{" "}
                         <Box component="span" sx={{ color: "#ff8803", fontWeight: 600 }}>
                            Karamax
@@ -275,8 +292,11 @@ const VisitSection = () => {
                         variant="subtitle2"
                         color="text.secondary"
                         sx={{
-                           fontSize: "1.5rem",
-                           mt: -1.5, // 🔸 це зменшує відстань у 2 рази
+                           fontSize: { xs: "1.08rem", sm: "1.5rem" },
+                           lineHeight: 1.15,
+                           mt: { xs: 0.3, sm: -1.5 },
+                           maxWidth: { xs: 250, sm: "none" },
+                           mx: "auto",
                         }}
                      >
                         Обирай житло у нас
@@ -285,12 +305,14 @@ const VisitSection = () => {
 
 
 
-                  <Grid2 size={{ xs: 12, md: 6 }} pt={{ xs: "30px", md: "180px" }}>
+                  <Grid2
+                     size={{ xs: 12, md: 6 }}
+                     pt={{ xs: "0px", md: "180px" }}
+                     sx={{ display: "block" }}
+                  >
 
 
-                     <Box display={{ xs: "block", sm: "none", md: "none" }} mb={10}>
-                        <Image src="/esta/assets/home/Image-mobile.png" />
-                     </Box>
+                     <Box display={{ xs: "none", sm: "none", md: "none" }} />
 
                      <StyledRoundBox>
                         <Box

@@ -74,6 +74,11 @@ import ObjectAdvertisingPanel from './ObjectAdvertisingPanel2';
 import ObjectWorkHistoryPanel from './ObjectWorkHistoryPanel';
 
 import ImageLightbox from '@/crm_components/ImageLightbox';
+import {
+   formatImageBytes,
+   prepareImageUploadFiles,
+   SAFE_IMAGE_PAYLOAD_BYTES,
+} from '@/utils/crm/clientImageTools';
 
 const getFieldSx = (theme, mode) => ({
    '& .MuiOutlinedInput-root': {
@@ -1881,8 +1886,14 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
 
       setPhotoUploading(true);
       try {
+         const prepared = await prepareImageUploadFiles(files);
+         if (!prepared.accepted.length) {
+            const reason = prepared.failed[0] || prepared.skipped[0] || 'фото не вдалося підготувати';
+            throw new Error(reason);
+         }
+
          const formData = new FormData();
-         files.forEach((file) => formData.append('images', file));
+         prepared.accepted.forEach((file) => formData.append('images', file));
          formData.append('stage', photoUploadStage);
 
          const res = await fetch(`/api/crm/properties/${item._id}/images`, {
@@ -1896,8 +1907,15 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
          }
 
          await onRefresh?.();
+         if (prepared.skipped.length) {
+            alert(`Частина фото не додана, бо безпечний ліміт одного завантаження ${formatImageBytes(SAFE_IMAGE_PAYLOAD_BYTES)}. Додай їх наступною партією: ${prepared.skipped.join(', ')}`);
+         }
+         if (prepared.failed.length) {
+            alert(`Не вдалося обробити частину фото: ${prepared.failed.join(', ')}`);
+         }
       } catch (error) {
          console.error('Gallery image upload failed', error);
+         alert(error?.message || 'Не вдалося додати фото');
       } finally {
          setPhotoUploading(false);
       }
