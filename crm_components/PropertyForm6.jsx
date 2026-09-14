@@ -33,112 +33,112 @@ import {
 } from '@/utils/crm/clientImageTools';
 
 const PHOTO_STAGES = [
-   { value: 'draft', label: 'Р В§Р С•РЎР‚Р Р…Р С•Р Р†РЎвЂ“' },
-   { value: 'processed', label: 'Р С›Р В±РЎР‚Р С•Р В±Р В»Р ВµР Р…РЎвЂ“' },
-   { value: 'branded', label: 'Р вЂ” Р В»Р С•Р С–Р С•' },
+   { value: 'draft', label: 'Чорнові' },
+   { value: 'processed', label: 'Оброблені' },
+   { value: 'branded', label: 'З лого' },
 ];
 
 const ESTATE_TYPES = [
-   { value: 'flat', label: 'Р С™Р Р†Р В°РЎР‚РЎвЂљР С‘РЎР‚Р В°' },
-   { value: 'house', label: 'Р вЂРЎС“Р Т‘Р С‘Р Р…Р С•Р С”' },
-   { value: 'land', label: 'Р вЂќРЎвЂ“Р В»РЎРЏР Р…Р С”Р В°' },
-   { value: 'commerce', label: 'Р С™Р С•Р СР ВµРЎР‚РЎвЂ РЎвЂ“РЎРЏ' },
+   { value: 'flat', label: 'Квартира' },
+   { value: 'house', label: 'Будинок' },
+   { value: 'land', label: 'Ділянка' },
+   { value: 'commerce', label: 'Комерція' },
 ];
 
 const DEAL_TYPES = [
-   { value: 'Р С—РЎР‚Р С•Р Т‘Р В°Р В¶', label: 'Р СџР В Р С›Р вЂќР С’Р вЂ“' },
-   { value: 'Р С•РЎР‚Р ВµР Р…Р Т‘Р В°', label: 'Р С›Р В Р вЂўР СњР вЂќР С’' },
+   { value: 'продаж', label: 'ПРОДАЖ' },
+   { value: 'оренда', label: 'ОРЕНДА' },
 ];
 
 const CURRENCIES = ['USD', 'UAH', 'EUR'];
 
 const ORIGIN_ACTION_OPTIONS = [
-   { value: '', label: 'Р Р…Р Вµ Р Р†Р С”Р В°Р В·Р В°Р Р…Р С•' },
-   { value: 'review', label: 'Р С•Р С–Р В»РЎРЏР Т‘' },
-   { value: 'showing', label: 'Р Р…Р В°РЎРѓР В»РЎвЂ“Р Т‘Р С•Р С” Р С—Р С•Р С”Р В°Р В·РЎС“' },
+   { value: '', label: 'не вказано' },
+   { value: 'review', label: 'огляд' },
+   { value: 'showing', label: 'наслідок показу' },
 ];
 
 const USING_COMMERCE = [
-   'Р С›РЎвЂћРЎвЂ“РЎРѓ',
-   'Р С™Р В°РЎвЂћР Вµ/РЎР‚Р ВµРЎРѓРЎвЂљР С•РЎР‚Р В°Р Р…',
-   'Р СљР В°Р С–Р В°Р В·Р С‘Р Р…',
-   'Р РЋР С”Р В»Р В°Р Т‘',
-   'Р вЂњР С•РЎвЂљР ВµР В»РЎРЉ',
-   'Р вЂ™Р С‘РЎР‚Р С•Р В±Р Р…Р С‘РЎвЂ РЎвЂљР Р†Р С•',
-   'Р С™Р С•Р Р†Р С•РЎР‚Р С”РЎвЂ“Р Р…Р С–',
-   'Р СљР ВµР Т‘Р С‘РЎвЂЎР Р…Р Вµ',
-   'Р вЂ Р Р…РЎв‚¬Р Вµ',
+   'Офіс',
+   'Кафе/ресторан',
+   'Магазин',
+   'Склад',
+   'Готель',
+   'Виробництво',
+   'Коворкінг',
+   'Медичне',
+   'Інше',
 ];
 
 const BUILDING_COMMERCE = [
-   'Р В¤Р В°РЎРѓР В°Р Т‘Р Р…Р Вµ Р В· Р С•Р С”РЎР‚Р ВµР СР С‘Р С Р Р†РЎвЂ¦Р С•Р Т‘Р С•Р С',
-   'Р вЂРЎвЂ“Р В·Р Р…Р ВµРЎРѓ-РЎвЂ Р ВµР Р…РЎвЂљРЎР‚',
-   'Р СћР С•РЎР‚Р С–Р С•Р Р†Р С‘Р в„– РЎвЂ Р ВµР Р…РЎвЂљРЎР‚',
-   'Р С›Р С”РЎР‚Р ВµР СР В° Р В±РЎС“Р Т‘РЎвЂ“Р Р†Р В»РЎРЏ',
-   'Р СњР ВµР В¶Р С‘РЎвЂљР В»Р С•Р Р†Р С‘Р в„– РЎвЂћР С•Р Р…Р Т‘',
-   'Р вЂ“Р С‘РЎвЂљР В»Р С•Р Р†Р С‘Р в„– РЎвЂћР С•Р Р…Р Т‘',
-   'Р вЂєР С•Р С–РЎвЂ“РЎРѓРЎвЂљР С‘РЎвЂЎР Р…Р С‘Р в„– Р С”Р С•Р СР С—Р В»Р ВµР С”РЎРѓ',
-   'Р С’Р Р…Р С–Р В°РЎР‚',
+   'Фасадне з окремим входом',
+   'Бізнес-центр',
+   'Торговий центр',
+   'Окрема будівля',
+   'Нежитловий фонд',
+   'Житловий фонд',
+   'Логістичний комплекс',
+   'Ангар',
 ];
 
-const COMMERCE_SUBTYPE = ['Р С’Р Р†РЎвЂљР С•Р СР С‘Р в„–Р С”Р В°', 'Р С’Р вЂ”Р РЋ', 'Р С’Р С—РЎвЂљР ВµР С”Р В°', 'Р СџР ВµРЎР‚РЎС“Р С”Р В°РЎР‚Р Р…РЎРЏ', 'Р РЋР В°Р В»Р С•Р Р… Р С”РЎР‚Р В°РЎРѓР С‘', 'Р РЋР СћР С›'];
+const COMMERCE_SUBTYPE = ['Автомийка', 'АЗС', 'Аптека', 'Перукарня', 'Салон краси', 'СТО'];
 
 const BUILDING_FLAT = [
-   'Р С’Р Р†РЎРѓРЎвЂљРЎР‚РЎвЂ“Р в„–РЎРѓРЎРЉР С”Р С‘Р в„–',
-   'Р СџР С•Р В»РЎРЉРЎРѓРЎРЉР С”Р С‘Р в„–',
-   'Р РЋРЎвЂљР В°Р В»РЎвЂ“Р Р…Р С”Р В°',
-   'Р ТђРЎР‚РЎС“РЎвЂ°Р С•Р Р†Р С”Р В°',
-   'Р В§Р ВµРЎв‚¬Р С”Р В°',
-   'Р СљР В°Р В»Р С•РЎРѓРЎвЂ“Р СР ВµР в„–Р С”Р В°',
-   'Р СњР С•Р Р†Р С•Р В±РЎС“Р Т‘Р С•Р Р†Р В° 2000-2010',
-   'Р СњР С•Р Р†Р С•Р В±РЎС“Р Т‘Р С•Р Р†Р В° 2010-2020',
-   'Р СњР С•Р Р†Р С•Р В±РЎС“Р Т‘Р С•Р Р†Р В° Р Р†РЎвЂ“Р Т‘ 2020',
+   'Австрійський',
+   'Польський',
+   'Сталінка',
+   'Хрущовка',
+   'Чешка',
+   'Малосімейка',
+   'Новобудова 2000-2010',
+   'Новобудова 2010-2020',
+   'Новобудова від 2020',
 ];
 
-const WALLS = ['Р В¦Р ВµР С–Р В»Р В°', 'Р СџР В°Р Р…Р ВµР В»РЎРЉ', 'Р вЂР В»Р С•Р С”', 'Р вЂР ВµРЎвЂљР С•Р Р…', 'Р вЂќР ВµРЎР‚Р ВµР Р†Р С•'];
+const WALLS = ['Цегла', 'Панель', 'Блок', 'Бетон', 'Дерево'];
 
-const HOUSE_TYPES = ['Р вЂРЎС“Р Т‘Р С‘Р Р…Р С•Р С”', 'Р вЂќР В°РЎвЂЎР В°', 'Р С™Р С•РЎвЂљР ВµР Т‘Р В¶', 'Р С›РЎРѓР С•Р В±Р Р…РЎРЏР С”', 'Р РЋР В°Р Т‘Р С‘Р В±Р В°', 'Р СћР В°РЎС“Р Р…РЎвЂ¦Р В°РЎС“РЎРѓ', 'Р В§Р В°РЎРѓРЎвЂљР С‘Р Р…Р В° Р В±РЎС“Р Т‘Р С‘Р Р…Р С”РЎС“'];
+const HOUSE_TYPES = ['Будинок', 'Дача', 'Котедж', 'Особняк', 'Садиба', 'Таунхаус', 'Частина будинку'];
 
-const AREA_UNITS = ['Р РЋР С•РЎвЂљР С•Р С”', 'Р вЂњР В°'];
+const AREA_UNITS = ['Соток', 'Га'];
 
 const PURPOSE_LAND = [
-   'Р С—РЎвЂ“Р Т‘ Р В¶Р С‘РЎвЂљР В»Р С•Р Р†РЎС“ Р В·Р В°Р В±РЎС“Р Т‘Р С•Р Р†РЎС“',
-   'Р В±Р В°Р С–Р В°РЎвЂљР С•Р С”Р Р†Р В°РЎР‚РЎвЂљР С‘РЎР‚Р Р…Р С•Р С–Р С•',
-   'Р С”Р С•Р СР ВµРЎР‚РЎвЂ РЎвЂ“Р в„–Р Р…Р С•Р С–Р С•',
-   'Р С—РЎР‚Р С•Р СР С‘РЎРѓР В»Р С•Р Р†Р С•Р С–Р С•',
-   'РЎРѓРЎвЂ“Р В»РЎРЉРЎРѓРЎРЉР С”Р С•Р С–Р С•РЎРѓР С—Р С•Р Т‘Р В°РЎР‚РЎРѓРЎРЉР С”Р С•Р С–Р С•',
-   'РЎРѓР В°Р Т‘РЎвЂ“Р Р†Р Р…Р С‘РЎвЂ РЎвЂљР Р†Р С•',
+   'під житлову забудову',
+   'багатоквартирного',
+   'комерційного',
+   'промислового',
+   'сільськогосподарського',
+   'садівництво',
 ];
 
 const ACTUALITY_GROUPS = [
-   { value: 'active', label: 'Р С’Р С”РЎвЂљРЎС“Р В°Р В»РЎРЉР Р…Р С‘Р в„–' },
-   { value: 'paused', label: 'Р вЂ”РЎС“Р С—Р С‘Р Р…Р ВµР Р…Р С‘Р в„–' },
-   { value: 'inactive', label: 'Р СњР ВµР В°Р С”РЎвЂљРЎС“Р В°Р В»РЎРЉР Р…Р С‘Р в„–' },
+   { value: 'active', label: 'Актуальний' },
+   { value: 'paused', label: 'Зупинений' },
+   { value: 'inactive', label: 'Неактуальний' },
 ];
 
 const ACTUALITY_STATUSES = [
-   'Р С’Р С”РЎвЂљРЎС“Р В°Р В»РЎРЉР Р…Р С‘Р в„–. Р С›Р С–Р В»РЎРЏР Р…РЎС“РЎвЂљР С‘Р в„–! Р вЂ™ РЎР‚Р С•Р В±Р С•РЎвЂљРЎвЂ“',
-   'Р С’Р С”РЎвЂљРЎС“Р В°Р В»РЎРЉР Р…Р С‘Р в„–. Р СџРЎР‚Р С•Р Т‘Р В·Р Р†РЎвЂ“Р Р…',
-   'Р С’Р С”РЎвЂљРЎС“Р В°Р В»РЎРЉР Р…Р С‘Р в„–. Р СџРЎР‚Р С•Р В±Р В»Р ВµР СР Р…Р С‘Р в„–',
-   'Р С’Р С”РЎвЂљРЎС“Р В°Р В»РЎРЉР Р…Р С‘Р в„–. Р С›Р С–Р В»РЎРЏР Р…РЎС“РЎвЂљР С‘Р в„–! Р СњР Вµ Р Р† РЎР‚Р С•Р В±Р С•РЎвЂљРЎвЂ“',
-   'Р СњР ВµР В°Р С”РЎвЂљРЎС“Р В°Р В»РЎРЉР Р…Р С‘Р в„–. Р В Р ВµР В°Р В»РЎвЂ“Р В·Р С•Р Р†Р В°Р Р…Р С‘Р в„– Р Р…Р Вµ Р СР Р…Р С•РЎР‹',
-   'Р СњР ВµР В°Р С”РЎвЂљРЎС“Р В°Р В»РЎРЉР Р…Р С‘Р в„–. Р вЂ”Р Р…РЎРЏРЎвЂљР С‘Р в„– Р В· РЎР‚Р ВµР В°Р В»РЎвЂ“Р В·Р В°РЎвЂ РЎвЂ“РЎвЂ”',
-   'Р СњР ВµР В°Р С”РЎвЂљРЎС“Р В°Р В»РЎРЉР Р…Р С‘Р в„–. Р СњР ВµР Р†РЎвЂ“Р Т‘Р С•Р СР В° Р С—РЎР‚Р С‘РЎвЂЎР С‘Р Р…Р В°',
-   'Р вЂ”РЎС“Р С—Р С‘Р Р…Р ВµР Р…Р С‘Р в„–. Р вЂ”Р В°Р Р†Р Т‘Р В°РЎвЂљР С•Р С” Р СРЎвЂ“Р в„–',
-   'Р вЂ”РЎС“Р С—Р С‘Р Р…Р ВµР Р…Р С‘Р в„–. Р вЂ”Р В°Р Р†Р Т‘Р В°РЎвЂљР С•Р С” Р Р…Р Вµ Р СРЎвЂ“Р в„–',
-   'Р вЂ”РЎС“Р С—Р С‘Р Р…Р ВµР Р…Р С‘Р в„–. Р вЂ™Р С‘РЎРЏР Р†Р В»Р ВµР Р…Р В° Р С—РЎР‚Р С‘РЎвЂЎР С‘Р Р…Р В° Р Р†Р В»Р В°РЎРѓР Р…Р С‘Р С”РЎвЂ“Р Р†',
-   'Р вЂ”РЎС“Р С—Р С‘Р Р…Р ВµР Р…Р С‘Р в„–. Р СњР ВµР Р†Р С‘РЎРЏР Р†Р В»Р ВµР Р…Р В° Р С—РЎР‚Р С‘РЎвЂЎР С‘Р Р…Р В° Р Р†Р В»Р В°РЎРѓР Р…Р С‘Р С”РЎвЂ“Р Р†',
+   'Актуальний. Оглянутий! В роботі',
+   'Актуальний. Продзвін',
+   'Актуальний. Проблемний',
+   'Актуальний. Оглянутий! Не в роботі',
+   'Неактуальний. Реалізований не мною',
+   'Неактуальний. Знятий з реалізації',
+   'Неактуальний. Невідома причина',
+   'Зупинений. Завдаток мій',
+   'Зупинений. Завдаток не мій',
+   'Зупинений. Виявлена причина власників',
+   'Зупинений. Невиявлена причина власників',
 ];
 
 const BUSINESS_SCORE_FIELDS = [
-   { key: 'finance', label: 'Р СџРЎР‚Р С‘Р В±РЎС“РЎвЂљР С”Р С•Р Р†РЎвЂ“РЎРѓРЎвЂљРЎРЉ' },
-   { key: 'liquidity', label: 'Р вЂєРЎвЂ“Р С”Р Р†РЎвЂ“Р Т‘Р Р…РЎвЂ“РЎРѓРЎвЂљРЎРЉ' },
-   { key: 'loyalty', label: 'Р вЂєР С•РЎРЏР В»РЎРЉР Р…РЎвЂ“РЎРѓРЎвЂљРЎРЉ' },
-   { key: 'motivation', label: 'Р СљР С•РЎвЂљР С‘Р Р†Р В°РЎвЂ РЎвЂ“РЎРЏ' },
-   { key: 'problemFree', label: 'Р СњР ВµР С—РЎР‚Р С•Р В±Р В»Р ВµР СР Р…РЎвЂ“РЎРѓРЎвЂљРЎРЉ' },
-   { key: 'adAttractiveness', label: 'Р В Р ВµР С”Р В»Р В°Р СР Р…Р В° Р С—РЎР‚Р С‘Р Р†Р В°Р В±Р В»Р С‘Р Р†РЎвЂ“РЎРѓРЎвЂљРЎРЉ' },
-   { key: 'adHistory', label: 'Р вЂ РЎРѓРЎвЂљР С•РЎР‚РЎвЂ“РЎРЏ РЎР‚Р ВµР С”Р В»Р В°Р СР С‘' },
-   { key: 'adStrategy', label: 'Р РЋРЎвЂљРЎР‚Р В°РЎвЂљР ВµР С–РЎвЂ“РЎРЏ РЎР‚Р ВµР С”Р В»Р В°Р СР С‘' },
+   { key: 'finance', label: 'Прибутковість' },
+   { key: 'liquidity', label: 'Ліквідність' },
+   { key: 'loyalty', label: 'Лояльність' },
+   { key: 'motivation', label: 'Мотивація' },
+   { key: 'problemFree', label: 'Непроблемність' },
+   { key: 'adAttractiveness', label: 'Рекламна привабливість' },
+   { key: 'adHistory', label: 'Історія реклами' },
+   { key: 'adStrategy', label: 'Стратегія реклами' },
 ];
 
 const fieldSx = {
@@ -276,7 +276,7 @@ function emptyRentOptions() {
    };
 }
 
-function emptyFields(type_estate = 'flat', type_deal = 'Р С—РЎР‚Р С•Р Т‘Р В°Р В¶') {
+function emptyFields(type_estate = 'flat', type_deal = 'продаж') {
    return {
       type_estate,
       type_deal,
@@ -284,7 +284,7 @@ function emptyFields(type_estate = 'flat', type_deal = 'Р С—РЎР‚Р С
 
       isPublic: false,
       actualityGroup: 'active',
-      actualityStatus: 'Р С’Р С”РЎвЂљРЎС“Р В°Р В»РЎРЉР Р…Р С‘Р в„–. Р СџРЎР‚Р С•Р Т‘Р В·Р Р†РЎвЂ“Р Р…',
+      actualityStatus: 'Актуальний. Продзвін',
       actualityNote: '',
       inactiveAt: '',
       inactiveNote: '',
@@ -358,10 +358,10 @@ function emptyFields(type_estate = 'flat', type_deal = 'Р С—РЎР‚Р С
 };
 
 function normalizeFormData(data) {
-   if (!data) return emptyFields('flat', 'Р С—РЎР‚Р С•Р Т‘Р В°Р В¶');
+   if (!data) return emptyFields('flat', 'продаж');
 
    return {
-      ...emptyFields(data.type_estate || 'flat', data.type_deal || 'Р С—РЎР‚Р С•Р Т‘Р В°Р В¶'),
+      ...emptyFields(data.type_estate || 'flat', data.type_deal || 'продаж'),
       ...data,
       location: {
          city: '',
@@ -439,7 +439,7 @@ export default function PropertyForm({
    employees = [],
    formMode = 'default',
 }) {
-   // const [fields, setFields] = useState(() => emptyFields('flat', 'Р С—РЎР‚Р С•Р Т‘Р В°Р В¶'));
+   // const [fields, setFields] = useState(() => emptyFields('flat', 'продаж'));
    const isRentFormMode = formMode === 'rent';
    const [fields, setFields] = useState(() => {
       const normalized = normalizeFormData(initialData);
@@ -447,7 +447,7 @@ export default function PropertyForm({
       if (!initialData && isRentFormMode) {
          return {
             ...normalized,
-            type_deal: 'Р С•РЎР‚Р ВµР Р…Р Т‘Р В°',
+            type_deal: 'оренда',
             statusRent: 'rentActual',
          };
       }
@@ -473,11 +473,11 @@ export default function PropertyForm({
    const showCommerce = type === 'commerce';
 
    const titleHint = useMemo(() => {
-      if (type === 'flat') return 'Р СћР С‘РЎвЂљРЎС“Р В»РЎРЉР Р…Р В° Р Р…Р В°Р В·Р Р†Р В° Р С”Р Р†Р В°РЎР‚РЎвЂљР С‘РЎР‚Р С‘...';
-      if (type === 'house') return 'Р СћР С‘РЎвЂљРЎС“Р В»РЎРЉР Р…Р В° Р Р…Р В°Р В·Р Р†Р В° Р В±РЎС“Р Т‘Р С‘Р Р…Р С”РЎС“...';
-      if (type === 'land') return 'Р СћР С‘РЎвЂљРЎС“Р В»РЎРЉР Р…Р В° Р Р…Р В°Р В·Р Р†Р В° Р Т‘РЎвЂ“Р В»РЎРЏР Р…Р С”Р С‘...';
-      if (type === 'commerce') return 'Р СћР С‘РЎвЂљРЎС“Р В»РЎРЉР Р…Р В° Р Р…Р В°Р В·Р Р†Р В° Р С”Р С•Р СР ВµРЎР‚РЎвЂ РЎвЂ“РЎвЂ”...';
-      return "Р СћР С‘РЎвЂљРЎС“Р В»РЎРЉР Р…Р В° Р Р…Р В°Р В·Р Р†Р В° Р С•Р В±'РЎвЂќР С”РЎвЂљРЎС“...";
+      if (type === 'flat') return 'Титульна назва квартири...';
+      if (type === 'house') return 'Титульна назва будинку...';
+      if (type === 'land') return 'Титульна назва ділянки...';
+      if (type === 'commerce') return 'Титульна назва комерції...';
+      return "Титульна назва об'єкту...";
    }, [type]);
 
 
@@ -521,7 +521,7 @@ export default function PropertyForm({
             type_deal: p.type_deal,
 
             statusRent:
-               p.type_deal === 'Р С•РЎР‚Р ВµР Р…Р Т‘Р В°'
+               p.type_deal === 'оренда'
                   ? (p.statusRent === 'rentNo' ? 'rentActual' : p.statusRent)
                   : p.statusRent,
 
@@ -561,7 +561,7 @@ export default function PropertyForm({
       setFields((p) => {
          const nextFields = { ...p, type_deal: next };
 
-         if (next === 'Р С•РЎР‚Р ВµР Р…Р Т‘Р В°' && p.statusRent === 'rentNo') {
+         if (next === 'оренда' && p.statusRent === 'rentNo') {
             nextFields.statusRent = 'rentActual';
          }
 
@@ -570,9 +570,9 @@ export default function PropertyForm({
    };
 
    const getPhotoStageLabel = (stage) => {
-      if (stage === 'draft') return 'Р В§Р С•РЎР‚Р Р…Р С•Р Р†РЎвЂ“';
-      if (stage === 'processed') return 'Р С›Р В±РЎР‚Р С•Р В±Р В»Р ВµР Р…РЎвЂ“';
-      if (stage === 'branded') return 'Р вЂ” Р В»Р С•Р С–Р С•';
+      if (stage === 'draft') return 'Чорнові';
+      if (stage === 'processed') return 'Оброблені';
+      if (stage === 'branded') return 'З лого';
       return stage || '';
    };
 
@@ -586,17 +586,17 @@ export default function PropertyForm({
             if (
                value === 'inactive' &&
                (
-                  !String(next.actualityStatus || '').startsWith('Р СњР ВµР В°Р С”РЎвЂљРЎС“Р В°Р В»РЎРЉР Р…Р С‘Р в„–.') ||
-                  String(next.actualityStatus || '').includes('Р В Р ВµР В°Р В»РЎвЂ“Р В·Р С•Р Р†Р В°Р Р…Р С‘Р в„– Р СР Р…Р С•РЎР‹')
+                  !String(next.actualityStatus || '').startsWith('Неактуальний.') ||
+                  String(next.actualityStatus || '').includes('Реалізований мною')
                )
             ) {
-               next.actualityStatus = 'Р СњР ВµР В°Р С”РЎвЂљРЎС“Р В°Р В»РЎРЉР Р…Р С‘Р в„–. Р В Р ВµР В°Р В»РЎвЂ“Р В·Р С•Р Р†Р В°Р Р…Р С‘Р в„– Р Р…Р Вµ Р СР Р…Р С•РЎР‹';
+               next.actualityStatus = 'Неактуальний. Реалізований не мною';
             }
-            if (value === 'active' && !String(next.actualityStatus || '').startsWith('Р С’Р С”РЎвЂљРЎС“Р В°Р В»РЎРЉР Р…Р С‘Р в„–.')) {
-               next.actualityStatus = 'Р С’Р С”РЎвЂљРЎС“Р В°Р В»РЎРЉР Р…Р С‘Р в„–. Р СџРЎР‚Р С•Р Т‘Р В·Р Р†РЎвЂ“Р Р…';
+            if (value === 'active' && !String(next.actualityStatus || '').startsWith('Актуальний.')) {
+               next.actualityStatus = 'Актуальний. Продзвін';
             }
-            if (value === 'paused' && !String(next.actualityStatus || '').startsWith('Р вЂ”РЎС“Р С—Р С‘Р Р…Р ВµР Р…Р С‘Р в„–.')) {
-               next.actualityStatus = 'Р вЂ”РЎС“Р С—Р С‘Р Р…Р ВµР Р…Р С‘Р в„–. Р СњР ВµР Р†Р С‘РЎРЏР Р†Р В»Р ВµР Р…Р В° Р С—РЎР‚Р С‘РЎвЂЎР С‘Р Р…Р В° Р Р†Р В»Р В°РЎРѓР Р…Р С‘Р С”РЎвЂ“Р Р†';
+            if (value === 'paused' && !String(next.actualityStatus || '').startsWith('Зупинений.')) {
+               next.actualityStatus = 'Зупинений. Невиявлена причина власників';
             }
             if (value !== 'inactive') {
                next.inactiveAt = '';
@@ -639,23 +639,23 @@ export default function PropertyForm({
 
    const showingOptionLabel = (item) => {
       if (!item) return '';
-      const property = item.property?.title || item.property?.location_text || 'Р С•Р В±РІР‚в„ўРЎвЂќР С”РЎвЂљ Р В±Р ВµР В· Р Р…Р В°Р В·Р Р†Р С‘';
-      const lead = item.lead?.name || 'Р В±Р ВµР В· Р С—Р С•Р С”РЎС“Р С—РЎвЂ РЎРЏ';
+      const property = item.property?.title || item.property?.location_text || 'об’єкт без назви';
+      const lead = item.lead?.name || 'без покупця';
       const responsible = employeeLabel(item.responsibleEmployee);
       const date = item.occurredAt
          ? new Intl.DateTimeFormat('uk-UA', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(item.occurredAt))
          : '';
-      return [property, date, lead, responsible].filter(Boolean).join(' Р’В· ');
+      return [property, date, lead, responsible].filter(Boolean).join(' · ');
    };
 
    const showingOptionMeta = (item) => {
       if (!item) return '';
-      const lead = item.lead?.name || 'Р В±Р ВµР В· Р С—Р С•Р С”РЎС“Р С—РЎвЂ РЎРЏ';
-      const responsible = employeeLabel(item.responsibleEmployee) || 'Р Р†РЎвЂ“Р Т‘Р С—Р С•Р Р†РЎвЂ“Р Т‘Р В°Р В»РЎРЉР Р…Р С‘Р в„– РІР‚вЂќ';
+      const lead = item.lead?.name || 'без покупця';
+      const responsible = employeeLabel(item.responsibleEmployee) || 'відповідальний —';
       const date = item.occurredAt
          ? new Intl.DateTimeFormat('uk-UA', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(item.occurredAt))
-         : 'Р Т‘Р В°РЎвЂљР В° РІР‚вЂќ';
-      return `${date} Р’В· ${lead} Р’В· ${responsible}`;
+         : 'дата —';
+      return `${date} · ${lead} · ${responsible}`;
    };
 
    useEffect(() => {
@@ -759,7 +759,7 @@ export default function PropertyForm({
       const availableSlots = MAX_FILES - existing.length;
 
       if (availableSlots <= 0) {
-         setImgWarn(`РњР°РєСЃРёРјСѓРј ${MAX_FILES} С„РѕС‚Рѕ.`);
+         setImgWarn(`Максимум ${MAX_FILES} фото.`);
          return;
       }
 
@@ -767,14 +767,14 @@ export default function PropertyForm({
       const existingUploadBytes = existing.reduce((sum, img) => sum + (img?.file?.size || 0), 0);
 
       setImgProcessing(true);
-      setImgProcessingText(`РџС–РґРіРѕС‚РѕРІРєР° С„РѕС‚Рѕ: 0 / ${filesToProcess.length}`);
+      setImgProcessingText(`Підготовка фото: 0 / ${filesToProcess.length}`);
 
       try {
          const prepared = await prepareImageUploadFiles(filesToProcess, {
             initialPayloadBytes: existingUploadBytes,
             onProgress: (index, file) => {
                setImgProcessingText(
-                  `${isHeicFile(file) ? 'РљРѕРЅРІРµСЂС‚Р°С†С–СЏ HEIC' : 'РЎС‚РёСЃРєР°РЅРЅСЏ С„РѕС‚Рѕ'}: ${index + 1} / ${filesToProcess.length}`
+                  `${isHeicFile(file) ? 'Конвертація HEIC' : 'Стискання фото'}: ${index + 1} / ${filesToProcess.length}`
                );
             },
          });
@@ -799,23 +799,23 @@ export default function PropertyForm({
 
          if (prepared.skipped.length) {
             setImgWarn(
-               `Р§Р°СЃС‚РёРЅР° С„РѕС‚Рѕ РЅРµ РґРѕРґР°РЅР°, Р±Рѕ Р±РµР·РїРµС‡РЅРёР№ Р»С–РјС–С‚ РѕРґРЅРѕРіРѕ Р·Р±РµСЂРµР¶РµРЅРЅСЏ ${formatBytes(SAFE_IMAGE_PAYLOAD_BYTES)}. Р”РѕРґР°Р№ С—С… РЅР°СЃС‚СѓРїРЅРѕСЋ РїР°СЂС‚С–С”СЋ: ${prepared.skipped.join(', ')}`
+               `Частина фото не влізла, бо перевищує ліміт завантаження ${formatBytes(SAFE_IMAGE_PAYLOAD_BYTES)}. Файли не додано: ${prepared.skipped.join(', ')}`
             );
          }
 
          if (prepared.failed.length) {
             setImgWarn((prev) =>
                prev
-                  ? `${prev} РўР°РєРѕР¶ РЅРµ РІРґР°Р»РѕСЃСЏ РѕР±СЂРѕР±РёС‚Рё С– РґРѕРґР°С‚Рё: ${prepared.failed.join(', ')}.`
-                  : `РќРµ РІРґР°Р»РѕСЃСЏ РѕР±СЂРѕР±РёС‚Рё С– РґРѕРґР°С‚Рё: ${prepared.failed.join(', ')}.`
+                  ? `${prev} Також не вдалося обробити і додати: ${prepared.failed.join(', ')}.`
+                  : `Не вдалося обробити і додати: ${prepared.failed.join(', ')}.`
             );
          }
 
          if (picked.length > filesToProcess.length) {
             setImgWarn((prev) =>
                prev
-                  ? `${prev} РўР°РєРѕР¶ С‡Р°СЃС‚РёРЅР° С„РѕС‚Рѕ РЅРµ РґРѕРґР°РЅР°, Р±Рѕ Р»С–РјС–С‚ ${MAX_FILES}.`
-                  : `Р§Р°СЃС‚РёРЅР° С„РѕС‚Рѕ РЅРµ РґРѕРґР°РЅР°, Р±Рѕ Р»С–РјС–С‚ ${MAX_FILES}.`
+                  ? `${prev} Також вибрані фото не влізли, бо максимум ${MAX_FILES}.`
+                  : `Частина фото не влізли, бо максимум ${MAX_FILES}.`
             );
          }
 
@@ -832,13 +832,13 @@ export default function PropertyForm({
 
       try {
          // const normalizedStatusRent =
-         //    fields.type_deal === 'Р С•РЎР‚Р ВµР Р…Р Т‘Р В°' && fields.statusRent === 'rentNo'
+         //    fields.type_deal === 'оренда' && fields.statusRent === 'rentNo'
          //       ? 'rentActual'
          //       : fields.statusRent;
 
          const payload = {
             ...fields,
-            type_deal: isRentFormMode ? 'Р С•РЎР‚Р ВµР Р…Р Т‘Р В°' : fields.type_deal,
+            type_deal: isRentFormMode ? 'оренда' : fields.type_deal,
             originAction: isRentFormMode ? {} : fields.originAction,
             rooms: fields.rooms ? Number(fields.rooms) : undefined,
             square_tot: fields.square_tot ? Number(fields.square_tot) : undefined,
@@ -934,24 +934,24 @@ export default function PropertyForm({
          const uploadBytes = (fields.images || []).reduce((sum, img) => sum + (img?.file?.size || 0), 0);
 
          if (stillTooBig) {
-            alert(`Є фото більше ${formatBytes(MAX_BYTES)}. Прибери або додай його окремо.`);
+            alert(`Є фото більше ${formatBytes(MAX_BYTES)}. Стисни або вибери менше.`);
             setLoading(false);
             return;
          }
 
          if (uploadBytes > SAFE_IMAGE_PAYLOAD_BYTES) {
-            alert(`Забагато фото для одного збереження (${formatBytes(uploadBytes)}). Збережи меншу партію, а решту додай через галерею.`);
+            alert(`Загальний пакет фото завеликий (${formatBytes(uploadBytes)}). Видали частину фото або додайте фотоменше.`);
             setLoading(false);
             return;
          }
          if (fields.actualityGroup === 'inactive' && !fields.inactiveAt) {
-            alert('Р вЂ™Р С”Р В°Р В¶Р С‘ Р Т‘Р В°РЎвЂљРЎС“ Р Р…Р ВµР В°Р С”РЎвЂљРЎС“Р В°Р В»РЎРЉР Р…Р С•РЎРѓРЎвЂљРЎвЂ“');
+            alert('Вкажи дату неактуальності');
             setLoading(false);
             return;
          }
 
          if (fields.actualityGroup === 'inactive' && !fields.inactiveNote?.trim()) {
-            alert('Р вЂ™Р С”Р В°Р В¶Р С‘ Р Р…Р С•РЎвЂљР В°РЎвЂљР С”РЎС“ Р Р…Р ВµР В°Р С”РЎвЂљРЎС“Р В°Р В»РЎРЉР Р…Р С•РЎРѓРЎвЂљРЎвЂ“');
+            alert('Вкажи нотатку неактуальності');
             setLoading(false);
             return;
          }
@@ -986,10 +986,10 @@ export default function PropertyForm({
          <Stack spacing={1.1}>
             <Stack spacing={0.15}>
                <Typography sx={{ color: '#fff', fontWeight: 950 }}>
-                  Р С›Р С–Р В»РЎРЏР Т‘
+                  Огляд
                </Typography>
                <Typography sx={{ color: 'rgba(255,255,255,0.62)', fontSize: 12.5 }}>
-                  Р вЂ”Р В°РЎвЂћРЎвЂ“Р С”РЎРѓРЎС“Р в„–, Р В·Р Р†РЎвЂ“Р Т‘Р С”Р С‘ Р С•Р В±РІР‚в„ўРЎвЂќР С”РЎвЂљ Р С—Р С•РЎвЂљРЎР‚Р В°Р С—Р С‘Р Р† РЎС“ РЎР‚Р С•Р В±Р С•РЎвЂљРЎС“: Р С—РЎвЂ“РЎРѓР В»РЎРЏ Р С•Р С–Р В»РЎРЏР Т‘РЎС“ Р В°Р В±Р С• РЎРЏР С” Р Р…Р В°РЎРѓР В»РЎвЂ“Р Т‘Р С•Р С” Р С—Р С•Р С”Р В°Р В·РЎС“.
+                  Зафіксуй, звідки об’єкт потрапив у роботу: після огляду або як наслідок показу.
                </Typography>
             </Stack>
 
@@ -998,7 +998,7 @@ export default function PropertyForm({
                   <TextField
                      select
                      fullWidth
-                     label="Р вЂ™Р С‘Р Т‘ Р С•Р С–Р В»РЎРЏР Т‘РЎС“"
+                     label="Вид огляду"
                      value={fields.originAction?.kind || ''}
                      onChange={(e) => setOriginAction('kind', e.target.value)}
                      sx={fieldSx}
@@ -1014,7 +1014,7 @@ export default function PropertyForm({
                   <TextField
                      fullWidth
                      type="date"
-                     label={fields.originAction?.kind === 'showing' ? 'Р вЂќР В°РЎвЂљР В° Р С—Р С•Р С”Р В°Р В·РЎС“' : 'Р вЂќР В°РЎвЂљР В° Р С•Р С–Р В»РЎРЏР Т‘РЎС“'}
+                     label={fields.originAction?.kind === 'showing' ? 'Дата показу' : 'Дата огляду'}
                      value={fields.originAction?.occurredAt || ''}
                      onChange={(e) => setOriginAction('occurredAt', e.target.value)}
                      sx={fieldSx}
@@ -1028,7 +1028,7 @@ export default function PropertyForm({
                      <TextField
                         select
                         fullWidth
-                        label="Р СџР С•Р Р†РІР‚в„ўРЎРЏР В·Р В°Р Р…Р С‘Р в„– Р С—Р С•Р С”Р В°Р В·"
+                        label="Пов’язаний показ"
                         value={fields.originAction?.sourceOperationEvent || ''}
                         onChange={(e) => setOriginAction('sourceOperationEvent', e.target.value)}
                         sx={fieldSx}
@@ -1036,26 +1036,26 @@ export default function PropertyForm({
                            MenuProps: selectMenuProps,
                            renderValue: (value) => {
                               const selected = originShowings.find((item) => item._id === value);
-                              return selected ? showingOptionLabel(selected) : 'РІР‚вЂќ';
+                              return selected ? showingOptionLabel(selected) : '—';
                            },
                         }}
                         disabled={!fields.originAction?.occurredAt || originShowingsLoading}
                         helperText={
                            !fields.originAction?.occurredAt
-                              ? 'Р РЋР С—Р С•РЎвЂЎР В°РЎвЂљР С”РЎС“ Р Р†Р С‘Р В±Р ВµРЎР‚Р С‘ Р Т‘Р В°РЎвЂљРЎС“ РІР‚вЂќ РЎвЂљР С•Р Т‘РЎвЂ“ Р С—РЎвЂ“Р Т‘РЎвЂљРЎРЏР С–Р Р…Р ВµР СР С• Р С—Р С•Р С”Р В°Р В·Р С‘ РЎвЂ РЎРЉР С•Р С–Р С• Р Т‘Р Р…РЎРЏ'
+                              ? 'Спочатку вибери дату — тоді підтягнемо покази цього дня'
                               : originShowingsLoading
-                                 ? 'Р вЂ”Р В°Р Р†Р В°Р Р…РЎвЂљР В°Р В¶РЎС“РЎР‹ Р С—Р С•Р С”Р В°Р В·Р С‘...'
+                                 ? 'Завантажую покази...'
                                  : originShowings.length
-                                    ? 'Р С›Р В±Р ВµРЎР‚Р С‘ Р С—Р С•Р С”Р В°Р В·, Р С—РЎвЂ“Р Т‘ РЎвЂЎР В°РЎРѓ РЎРЏР С”Р С•Р С–Р С• Р С•Р В±РІР‚в„ўРЎвЂќР С”РЎвЂљ Р Р†Р В·РЎРЏР В»Р С‘ Р Р† РЎР‚Р С•Р В±Р С•РЎвЂљРЎС“'
-                                    : 'Р СњР В° РЎвЂ РЎР‹ Р Т‘Р В°РЎвЂљРЎС“ Р С—Р С•Р С”Р В°Р В·РЎвЂ“Р Р† Р Р…Р Вµ Р В·Р Р…Р В°Р в„–Р Т‘Р ВµР Р…Р С•'
+                                    ? 'Обери показ, під час якого об’єкт взяли в роботу'
+                                    : 'На цю дату показів не знайдено'
                         }
                      >
-                        <MenuItem value="">РІР‚вЂќ</MenuItem>
+                        <MenuItem value="">—</MenuItem>
                         {originShowings.map((item) => (
                            <MenuItem key={item._id} value={item._id} sx={{ alignItems: 'flex-start', py: 0.9 }}>
                               <Stack spacing={0.15} sx={{ minWidth: 0, maxWidth: 640 }}>
                                  <Typography sx={{ color: '#fff', fontWeight: 950, fontSize: 15, lineHeight: 1.16 }} noWrap>
-                                    {item.property?.title || item.property?.location_text || 'Р С•Р В±РІР‚в„ўРЎвЂќР С”РЎвЂљ Р В±Р ВµР В· Р Р…Р В°Р В·Р Р†Р С‘'}
+                                    {item.property?.title || item.property?.location_text || 'об’єкт без назви'}
                                  </Typography>
                                  <Typography sx={{ color: 'rgba(255,255,255,0.68)', fontSize: 12.5, lineHeight: 1.2 }} noWrap>
                                     {showingOptionMeta(item)}
@@ -1070,8 +1070,8 @@ export default function PropertyForm({
                <Grid item xs={12} md={fields.originAction?.kind === 'showing' ? 12 : 6}>
                   <TextField
                      fullWidth
-                     label="Р С™Р С•Р СР ВµР Р…РЎвЂљР В°РЎР‚ Р Т‘Р С• Р С•Р С–Р В»РЎРЏР Т‘РЎС“"
-                     placeholder={fields.originAction?.kind === 'showing' ? 'Р СњР В°Р С—РЎР‚Р С‘Р С”Р В»Р В°Р Т‘: Р С—РЎвЂ“Р Т‘ РЎвЂЎР В°РЎРѓ Р С—Р С•Р С”Р В°Р В·РЎС“ Р С—Р С•Р В±Р В°РЎвЂЎР С‘Р В»Р С‘ РЎРѓРЎС“РЎРѓРЎвЂ“Р Т‘Р Р…РЎвЂ“Р в„– Р С•Р В±РІР‚в„ўРЎвЂќР С”РЎвЂљ РЎвЂ“ Р Т‘Р С•Р СР С•Р Р†Р С‘Р В»Р С‘РЎРѓРЎРЉ Р Р†Р В·РЎРЏРЎвЂљР С‘ Р Р† РЎР‚Р С•Р В±Р С•РЎвЂљРЎС“' : 'Р СњР В°Р С—РЎР‚Р С‘Р С”Р В»Р В°Р Т‘: Р С•Р С–Р В»РЎРЏР Т‘ Р С—РЎР‚Р С•Р Р†Р ВµР Т‘Р ВµР Р…Р С•, Р Р†Р В»Р В°РЎРѓР Р…Р С‘Р С” Р С—Р С•Р С–Р С•Р Т‘Р С‘Р Р† Р С—РЎР‚Р В°Р Р†Р С‘Р В»Р В° РЎР‚Р С•Р В±Р С•РЎвЂљР С‘'}
+                     label="Коментар до огляду"
+                     placeholder={fields.originAction?.kind === 'showing' ? 'Наприклад: під час показу побачили сусідній об’єкт і домовились взяти в роботу' : 'Наприклад: огляд проведено, власник погодив правила роботи'}
                      value={fields.originAction?.note || ''}
                      onChange={(e) => setOriginAction('note', e.target.value)}
                      sx={fieldSx}
@@ -1101,7 +1101,7 @@ export default function PropertyForm({
                      fontSize: { xs: '1.1rem', md: '1.25rem' },
                   }}
                >
-                  Р вЂќР С•Р Т‘Р В°РЎвЂљР С‘ Р С•Р В±РІР‚в„ўРЎвЂќР С”РЎвЂљ
+                  Додати об’єкт
                </Typography> */}
 
                <Button
@@ -1127,8 +1127,8 @@ export default function PropertyForm({
                   }}
                >
                   {isRentObject
-                     ? "Р Р‡Р Р†Р В»РЎРЏРЎвЂќРЎвЂљРЎРЉРЎРѓРЎРЏ Р С•Р В±'РЎвЂќР С”РЎвЂљР С•Р С Р С•РЎР‚Р ВµР Р…Р Т‘Р С‘"
-                     : "Р СњР вЂў РЎРЏР Р†Р В»РЎРЏРЎвЂќРЎвЂљРЎРЉРЎРѓРЎРЏ Р С•Р В±'РЎвЂќР С”РЎвЂљР С•Р С Р С•РЎР‚Р ВµР Р…Р Т‘Р С‘"}
+                     ? "Являється об'єктом оренди"
+                     : "НЕ являється об'єктом оренди"}
                </Button>
             </Stack>
 
@@ -1212,7 +1212,7 @@ export default function PropertyForm({
          <Grid container spacing={1.6} sx={{ mb: 2 }}>
             <Grid item xs={12}>
                <Typography sx={{ color: '#fff', fontWeight: 900, mb: 1 }}>
-                  Р ТђР В°РЎР‚Р В°Р С”РЎвЂљР ВµРЎР‚Р С‘РЎРѓРЎвЂљР С‘Р С”Р С‘ РЎР‚Р С•Р В±Р С•РЎвЂЎРЎвЂ“
+                  Характеристики робочі
                </Typography>
             </Grid>
 
@@ -1221,7 +1221,7 @@ export default function PropertyForm({
                   <Grid item xs={12} md={3}>
                      <TextField
                         select
-                        label="Р С’Р С”РЎвЂљРЎС“Р В°Р В»РЎРЉР Р…РЎвЂ“РЎРѓРЎвЂљРЎРЉ Р С—РЎР‚Р С•Р Т‘Р В°Р В¶РЎС“"
+                        label="Актуальність продажу"
                         value={fields.actualityGroup}
                         onChange={(e) => set('actualityGroup', e.target.value)}
                         fullWidth
@@ -1239,7 +1239,7 @@ export default function PropertyForm({
                   <Grid item xs={12} md={5}>
                      <TextField
                         select
-                        label="Р СџР С•РЎРЏРЎРѓР Р…Р ВµР Р…Р Р…РЎРЏ Р В°Р С”РЎвЂљРЎС“Р В°Р В»РЎРЉР Р…Р С•РЎРѓРЎвЂљРЎвЂ“"
+                        label="Пояснення актуальності"
                         value={fields.actualityStatus}
                         onChange={(e) => set('actualityStatus', e.target.value)}
                         fullWidth
@@ -1259,15 +1259,15 @@ export default function PropertyForm({
             <Grid item xs={12} md={6}>
                <TextField
                   select
-                  label="Р СџРЎС“Р В±Р В»РЎвЂ“Р С”Р В°РЎвЂ РЎвЂ“РЎРЏ Р Р…Р В° РЎРѓР В°Р в„–РЎвЂљРЎвЂ“"
+                  label="Публікація на сайті"
                   value={String(fields.isPublic)}
                   onChange={(e) => set('isPublic', e.target.value === 'true')}
                   fullWidth
                   sx={fieldSx}
                   SelectProps={{ MenuProps: selectMenuProps }}
                >
-                  <MenuItem value="true">Р СћР В°Р С”, Р С—РЎС“Р В±Р В»РЎвЂ“РЎвЂЎР Р…Р С‘Р в„–</MenuItem>
-                  <MenuItem value="false">Р СњРЎвЂ“, Р В»Р С‘РЎв‚¬Р Вµ CRM</MenuItem>
+                  <MenuItem value="true">Так, публічний</MenuItem>
+                  <MenuItem value="false">Ні, лише CRM</MenuItem>
                </TextField>
             </Grid>
 
@@ -1276,7 +1276,7 @@ export default function PropertyForm({
                   <Grid item xs={12} md={4}>
                      <TextField
                         type="date"
-                        label="Р вЂќР В°РЎвЂљР В° Р Р…Р ВµР В°Р С”РЎвЂљРЎС“Р В°Р В»РЎРЉР Р…Р С•РЎРѓРЎвЂљРЎвЂ“"
+                        label="Дата неактуальності"
                         value={fields.inactiveAt || ''}
                         onChange={(e) => set('inactiveAt', e.target.value)}
                         fullWidth
@@ -1288,8 +1288,8 @@ export default function PropertyForm({
 
                   <Grid item xs={12} md={8}>
                      <TextField
-                        label="Р СњР С•РЎвЂљР В°РЎвЂљР С”Р В° Р Р…Р ВµР В°Р С”РЎвЂљРЎС“Р В°Р В»РЎРЉР Р…Р С•РЎРѓРЎвЂљРЎвЂ“"
-                        placeholder="Р В©Р С• РЎРѓРЎвЂљР В°Р В»Р С•РЎРѓРЎРЏ: Р С—РЎР‚Р С•Р Т‘Р В°Р Р…Р С• Р Р…Р Вµ Р Р…Р В°Р СР С‘, Р В·Р Р…РЎРЏР Р† Р Р†Р В»Р В°РЎРѓР Р…Р С‘Р С”, Р С—Р ВµРЎР‚Р ВµР Т‘РЎС“Р СР В°Р В»Р С‘, РЎвЂ“Р Р…РЎв‚¬Р В° Р С—РЎР‚Р С‘РЎвЂЎР С‘Р Р…Р В°..."
+                        label="Нотатка неактуальності"
+                        placeholder="Що сталося: продано не нами, зняв власник, передумали, інша причина..."
                         value={fields.inactiveNote || ''}
                         onChange={(e) => set('inactiveNote', e.target.value)}
                         fullWidth
@@ -1305,14 +1305,14 @@ export default function PropertyForm({
             <Grid item xs={12} md={6}>
                <TextField
                   select
-                  label="Р вЂ™РЎвЂ“Р Т‘Р С—Р С•Р Р†РЎвЂ“Р Т‘Р В°Р В»РЎРЉР Р…Р С‘Р в„–"
+                  label="Відповідальний"
                   value={fields.assignee}
                   onChange={(e) => set('assignee', e.target.value)}
                   fullWidth
                   sx={fieldSx}
                   SelectProps={{ MenuProps: selectMenuProps }}
                >
-                  <MenuItem value="">Р СњР Вµ Р С—РЎР‚Р С‘Р В·Р Р…Р В°РЎвЂЎР ВµР Р…Р С•</MenuItem>
+                  <MenuItem value="">Не призначено</MenuItem>
                   {employees.map((emp) => (
                      <MenuItem key={emp._id} value={emp._id}>
                         {emp.fullName || [emp.surname, emp.name].filter(Boolean).join(' ') || emp.name}
@@ -1325,7 +1325,7 @@ export default function PropertyForm({
                <>
                   <Grid item xs={12}>
                      <Typography sx={{ color: '#fff', fontWeight: 900, mb: 1 }}>
-                        Р вЂРЎвЂ“Р В·Р Р…Р ВµРЎРѓ-Р С•РЎвЂ РЎвЂ“Р Р…Р С”Р В°
+                        Бізнес-оцінка
                      </Typography>
                   </Grid>
 
@@ -1347,10 +1347,10 @@ export default function PropertyForm({
                            fullWidth
                            sx={fieldSx}
                         >
-                           <MenuItem value="">РІР‚вЂќ</MenuItem>
+                           <MenuItem value="">—</MenuItem>
                            {[5, 4, 3, 2, 1].map((n) => (
                               <MenuItem key={n} value={n}>
-                                 {n} РІР‚вЂќ {BUSINESS_SCORE_OPTIONS[field.key].options[n]}
+                                 {n} — {BUSINESS_SCORE_OPTIONS[field.key].options[n]}
                               </MenuItem>
                            ))}
                         </TextField>
@@ -1359,7 +1359,7 @@ export default function PropertyForm({
 
                   <Grid item xs={12} md={4}>
                      <TextField
-                        label="Р вЂќР В¶Р ВµРЎР‚Р ВµР В»Р С•"
+                        label="Джерело"
                         value={fields.source || ''}
                         onChange={(e) => set('source', e.target.value)}
                         fullWidth
@@ -1370,13 +1370,13 @@ export default function PropertyForm({
                   <Grid item xs={12} md={4}>
                      <TextField
                         select
-                        label="Р ТђРЎвЂљР С• Р С—Р С•Р С–Р С•Р Т‘Р С‘Р Р† РЎРѓРЎвЂљРЎР‚Р В°РЎвЂљР ВµР С–РЎвЂ“РЎР‹"
+                        label="Хто погодив стратегію"
                         value={fields.strategyApprovedBy || ''}
                         onChange={(e) => set('strategyApprovedBy', e.target.value)}
                         fullWidth
                         sx={fieldSx}
                      >
-                        <MenuItem value="">РІР‚вЂќ</MenuItem>
+                        <MenuItem value="">—</MenuItem>
                         {employees.map((emp) => (
                            <MenuItem key={emp._id} value={emp._id}>
                               {emp.fullName || [emp.surname, emp.name].filter(Boolean).join(' ') || emp.name}
@@ -1388,7 +1388,7 @@ export default function PropertyForm({
                   <Grid item xs={12} md={4}>
                      <TextField
                         type="date"
-                        label="Р вЂќР В°РЎвЂљР В° Р С—Р С•Р С–Р С•Р Т‘Р В¶Р ВµР Р…Р Р…РЎРЏ РЎРѓРЎвЂљРЎР‚Р В°РЎвЂљР ВµР С–РЎвЂ“РЎвЂ”"
+                        label="Дата погодження стратегії"
                         value={fields.strategyApprovedAt || ''}
                         onChange={(e) => set('strategyApprovedAt', e.target.value)}
                         fullWidth
@@ -1402,8 +1402,8 @@ export default function PropertyForm({
             {showSaleOptions && (
                <Grid item xs={12}>
                   <TextField
-                     label="Р СџРЎР‚Р С‘Р СРЎвЂ“РЎвЂљР С”Р В° Р С—Р С• Р В°Р С”РЎвЂљРЎС“Р В°Р В»РЎРЉР Р…Р С•РЎРѓРЎвЂљРЎвЂ“"
-                     placeholder="Р С™Р С•Р СР ВµР Р…РЎвЂљР В°РЎР‚, Р С—РЎР‚Р С‘РЎвЂЎР С‘Р Р…Р В°, Р Т‘Р ВµРЎвЂљР В°Р В»РЎвЂ“..."
+                     label="Примітка по актуальності"
+                     placeholder="Коментар, причина, деталі..."
                      value={fields.actualityNote}
                      onChange={(e) => set('actualityNote', e.target.value)}
                      fullWidth
@@ -1426,14 +1426,14 @@ export default function PropertyForm({
          <Grid container spacing={1.6}>
             <Grid item xs={12}>
                <Typography sx={{ color: '#fff', fontWeight: 900, mb: 0.5 }}>
-                  Р ТђР В°РЎР‚Р В°Р С”РЎвЂљР ВµРЎР‚Р С‘РЎРѓРЎвЂљР С‘Р С”Р С‘ Р С•Р В±&apos;РЎвЂќР С”РЎвЂљРЎС“
+                  Характеристики об&apos;єкту
                </Typography>
             </Grid>
 
             {showSaleOptions && (
                <Grid item xs={12}>
                   <TextField
-                     label="Р СњР В°Р В·Р Р†Р В°"
+                     label="Назва"
                      placeholder={titleHint}
                      InputLabelProps={{ shrink: true }}
                      value={fields.title}
@@ -1446,8 +1446,8 @@ export default function PropertyForm({
 
             <Grid item xs={12}>
                <TextField
-                  label="Р С’Р Т‘РЎР‚Р ВµРЎРѓР В° (РЎР‚РЎРЏР Т‘Р С”Р С•Р С)"
-                  placeholder="Р С’Р Т‘РЎР‚Р ВµРЎРѓР В°..."
+                  label="Адреса (рядком)"
+                  placeholder="Адреса..."
                   value={fields.location_text}
                   onChange={(e) => set('location_text', e.target.value)}
                   fullWidth
@@ -1457,7 +1457,7 @@ export default function PropertyForm({
 
             <Grid item xs={12} md={4}>
                <TextField
-                  label="Р СљРЎвЂ“РЎРѓРЎвЂљР С•"
+                  label="Місто"
                   value={fields.location.city}
                   onChange={(e) => setLoc('city', e.target.value)}
                   fullWidth
@@ -1467,7 +1467,7 @@ export default function PropertyForm({
 
             <Grid item xs={12} md={5}>
                <TextField
-                  label="Р вЂ™РЎС“Р В»Р С‘РЎвЂ РЎРЏ"
+                  label="Вулиця"
                   value={fields.location.street}
                   onChange={(e) => setLoc('street', e.target.value)}
                   fullWidth
@@ -1477,7 +1477,7 @@ export default function PropertyForm({
 
             <Grid item xs={12} md={3}>
                <TextField
-                  label="РІвЂћвЂ“"
+                  label="№"
                   value={fields.location.number}
                   onChange={(e) => setLoc('number', e.target.value)}
                   fullWidth
@@ -1490,7 +1490,7 @@ export default function PropertyForm({
                   <Grid item xs={12} md={4}>
                      <TextField
                         select
-                        label="Р вЂ™Р С‘Р С”Р С•РЎР‚Р С‘РЎРѓРЎвЂљР В°Р Р…Р Р…РЎРЏ"
+                        label="Використання"
                         value={fields.type_using}
                         onChange={(e) => set('type_using', e.target.value)}
                         fullWidth
@@ -1508,7 +1508,7 @@ export default function PropertyForm({
                   <Grid item xs={12} md={4}>
                      <TextField
                         select
-                        label="Р СћР С‘Р С— Р В±РЎС“Р Т‘РЎвЂ“Р Р†Р В»РЎвЂ“"
+                        label="Тип будівлі"
                         value={fields.type_building}
                         onChange={(e) => set('type_building', e.target.value)}
                         fullWidth
@@ -1526,7 +1526,7 @@ export default function PropertyForm({
                   <Grid item xs={12} md={4}>
                      <TextField
                         select
-                        label="Р СџРЎвЂ“Р Т‘РЎвЂљР С‘Р С—"
+                        label="Підтип"
                         value={fields.type_commerce}
                         onChange={(e) => set('type_commerce', e.target.value)}
                         fullWidth
@@ -1547,7 +1547,7 @@ export default function PropertyForm({
                <>
                   <Grid item xs={12} md={2}>
                      <TextField
-                        label="Р С™РЎвЂ“Р СР Р…Р В°РЎвЂљ"
+                        label="Кімнат"
                         value={fields.rooms}
                         onChange={(e) => set('rooms', e.target.value)}
                         fullWidth
@@ -1557,7 +1557,7 @@ export default function PropertyForm({
 
                   <Grid item xs={12} md={2}>
                      <TextField
-                        label="Р вЂ”Р В°Р С–Р В°Р В»РЎРЉР Р…Р В°, Р СР’Р†"
+                        label="Загальна, м²"
                         value={fields.square_tot}
                         onChange={(e) => set('square_tot', e.target.value)}
                         fullWidth
@@ -1569,7 +1569,7 @@ export default function PropertyForm({
                      <>
                         <Grid item xs={12} md={2}>
                            <TextField
-                              label="Р вЂ“Р С‘РЎвЂљР В»Р С•Р Р†Р В°, Р СР’Р†"
+                              label="Житлова, м²"
                               value={fields.square_liv}
                               onChange={(e) => set('square_liv', e.target.value)}
                               fullWidth
@@ -1579,7 +1579,7 @@ export default function PropertyForm({
 
                         <Grid item xs={12} md={2}>
                            <TextField
-                              label="Р С™РЎС“РЎвЂ¦Р Р…РЎРЏ, Р СР’Р†"
+                              label="Кухня, м²"
                               value={fields.square_kit}
                               onChange={(e) => set('square_kit', e.target.value)}
                               fullWidth
@@ -1591,7 +1591,7 @@ export default function PropertyForm({
                      <>
                         <Grid item xs={12} md={2}>
                            <TextField
-                              label="Р СџР В»Р С•РЎвЂ°Р В° Р Т‘РЎвЂ“Р В»РЎРЏР Р…Р С”Р С‘"
+                              label="Площа ділянки"
                               value={fields.square_area}
                               onChange={(e) => set('square_area', e.target.value)}
                               fullWidth
@@ -1602,7 +1602,7 @@ export default function PropertyForm({
                         <Grid item xs={12} md={2}>
                            <TextField
                               select
-                              label="Р С›Р Т‘Р С‘Р Р…Р С‘РЎвЂ РЎРЏ"
+                              label="Одиниця"
                               value={fields.area_unit}
                               onChange={(e) => set('area_unit', e.target.value)}
                               fullWidth
@@ -1625,7 +1625,7 @@ export default function PropertyForm({
                <>
                   <Grid item xs={12} md={2}>
                      <TextField
-                        label="Р СџР С•Р Р†Р ВµРЎР‚РЎвЂ¦"
+                        label="Поверх"
                         value={fields.floor}
                         onChange={(e) => set('floor', e.target.value)}
                         fullWidth
@@ -1635,7 +1635,7 @@ export default function PropertyForm({
 
                   <Grid item xs={12} md={2}>
                      <TextField
-                        label="Р СџР С•Р Р†Р ВµРЎР‚РЎвЂ¦РЎвЂ“Р Р†"
+                        label="Поверхів"
                         value={fields.floors}
                         onChange={(e) => set('floors', e.target.value)}
                         fullWidth
@@ -1649,7 +1649,7 @@ export default function PropertyForm({
                <>
                   <Grid item xs={12} md={2}>
                      <TextField
-                        label="Р СџР В»Р С•РЎвЂ°Р В° Р Т‘РЎвЂ“Р В»РЎРЏР Р…Р С”Р С‘"
+                        label="Площа ділянки"
                         value={fields.square_area}
                         onChange={(e) => set('square_area', e.target.value)}
                         fullWidth
@@ -1660,7 +1660,7 @@ export default function PropertyForm({
                   <Grid item xs={12} md={2}>
                      <TextField
                         select
-                        label="Р С›Р Т‘Р С‘Р Р…Р С‘РЎвЂ РЎРЏ"
+                        label="Одиниця"
                         value={fields.area_unit}
                         onChange={(e) => set('area_unit', e.target.value)}
                         fullWidth
@@ -1682,7 +1682,7 @@ export default function PropertyForm({
                   <Grid item xs={12} md={4}>
                      <TextField
                         select
-                        label="Р СћР С‘Р С— Р В±РЎС“Р Т‘РЎвЂ“Р Р†Р В»РЎвЂ“"
+                        label="Тип будівлі"
                         value={fields.type_building}
                         onChange={(e) => set('type_building', e.target.value)}
                         fullWidth
@@ -1700,7 +1700,7 @@ export default function PropertyForm({
                   <Grid item xs={12} md={2}>
                      <TextField
                         select
-                        label="Р РЋРЎвЂљРЎвЂ“Р Р…Р С‘"
+                        label="Стіни"
                         value={fields.type_walls}
                         onChange={(e) => set('type_walls', e.target.value)}
                         fullWidth
@@ -1717,7 +1717,7 @@ export default function PropertyForm({
 
                   <Grid item xs={12} md={2}>
                      <TextField
-                        label="Р вЂР В°Р В»Р С”Р С•Р Р…РЎвЂ“Р Р†"
+                        label="Балконів"
                         value={fields.balconies}
                         onChange={(e) => set('balconies', e.target.value)}
                         fullWidth
@@ -1732,7 +1732,7 @@ export default function PropertyForm({
                   <Grid item xs={12} md={4}>
                      <TextField
                         select
-                        label="Р СћР С‘Р С— Р В±РЎС“Р Т‘Р С‘Р Р…Р С”РЎС“"
+                        label="Тип будинку"
                         value={fields.type_house}
                         onChange={(e) => set('type_house', e.target.value)}
                         fullWidth
@@ -1749,7 +1749,7 @@ export default function PropertyForm({
 
                   <Grid item xs={12} md={2}>
                      <TextField
-                        label="Р СџР С•Р Р†Р ВµРЎР‚РЎвЂ¦РЎвЂ“Р Р†"
+                        label="Поверхів"
                         value={fields.floors}
                         onChange={(e) => set('floors', e.target.value)}
                         fullWidth
@@ -1760,7 +1760,7 @@ export default function PropertyForm({
                   <Grid item xs={12} md={2}>
                      <TextField
                         select
-                        label="Р РЋРЎвЂљРЎвЂ“Р Р…Р С‘"
+                        label="Стіни"
                         value={fields.type_walls}
                         onChange={(e) => set('type_walls', e.target.value)}
                         fullWidth
@@ -1781,19 +1781,19 @@ export default function PropertyForm({
                <>
                   <Grid item xs={12} md={2}>
                      <TextField
-                        label="Р вЂ™Р С‘РЎРѓР С•РЎвЂљР В° РЎРѓРЎвЂљРЎвЂ“Р Р…"
+                        label="Висота стін"
                         value={fields.height_wall}
                         onChange={(e) => set('height_wall', e.target.value)}
                         fullWidth
                         sx={fieldSx}
-                        helperText="Р СњР В°Р С—РЎР‚. 320"
+                        helperText="Напр. 320"
                      />
                   </Grid>
 
                   <Grid item xs={12} md={2}>
                      <TextField
                         select
-                        label="Р РЋРЎвЂљРЎвЂ“Р Р…Р С‘"
+                        label="Стіни"
                         value={fields.type_walls}
                         onChange={(e) => set('type_walls', e.target.value)}
                         fullWidth
@@ -1810,7 +1810,7 @@ export default function PropertyForm({
 
                   <Grid item xs={12} md={2}>
                      <TextField
-                        label="Р С™Р С•РЎР‚Р С‘РЎРѓР Р…Р В°, Р СР’Р†"
+                        label="Корисна, м²"
                         value={fields.square_use}
                         onChange={(e) => set('square_use', e.target.value)}
                         fullWidth
@@ -1825,7 +1825,7 @@ export default function PropertyForm({
                   <Grid item xs={12} md={4}>
                      <TextField
                         select
-                        label="Р СџРЎР‚Р С‘Р В·Р Р…Р В°РЎвЂЎР ВµР Р…Р Р…РЎРЏ"
+                        label="Призначення"
                         value={fields.purpose_area}
                         onChange={(e) => set('purpose_area', e.target.value)}
                         fullWidth
@@ -1842,7 +1842,7 @@ export default function PropertyForm({
 
                   <Grid item xs={12} md={2}>
                      <TextField
-                        label="Р СџР В»Р С•РЎвЂ°Р В°"
+                        label="Площа"
                         value={fields.square_area}
                         onChange={(e) => set('square_area', e.target.value)}
                         fullWidth
@@ -1853,7 +1853,7 @@ export default function PropertyForm({
                   <Grid item xs={12} md={2}>
                      <TextField
                         select
-                        label="Р С›Р Т‘Р С‘Р Р…Р С‘РЎвЂ РЎРЏ"
+                        label="Одиниця"
                         value={fields.area_unit}
                         onChange={(e) => set('area_unit', e.target.value)}
                         fullWidth
@@ -1874,7 +1874,7 @@ export default function PropertyForm({
                <>
                   <Grid item xs={12} md={2}>
                      <TextField
-                        label="Р вЂ™Р В°РЎР‚РЎвЂљРЎвЂ“РЎРѓРЎвЂљРЎРЉ"
+                        label="Вартість"
                         value={fields.cost}
                         onChange={(e) => set('cost', e.target.value)}
                         fullWidth
@@ -1885,7 +1885,7 @@ export default function PropertyForm({
                   <Grid item xs={12} md={2}>
                      <TextField
                         select
-                        label="Р вЂ™Р В°Р В»РЎР‹РЎвЂљР В°"
+                        label="Валюта"
                         value={fields.currency}
                         onChange={(e) => set('currency', e.target.value)}
                         fullWidth
@@ -1904,8 +1904,8 @@ export default function PropertyForm({
 
             <Grid item xs={12}>
                <TextField
-                  label="Р С›Р С—Р С‘РЎРѓ"
-                  placeholder="Р С›Р С—Р С‘РЎРѓ Р С•Р В±'РЎвЂќР С”РЎвЂљРЎС“ Р Р…Р ВµРЎР‚РЎС“РЎвЂ¦Р С•Р СР С•РЎРѓРЎвЂљРЎвЂ“..."
+                  label="Опис"
+                  placeholder="Опис об'єкту нерухомості..."
                   value={fields.description}
                   onChange={(e) => set('description', e.target.value)}
                   fullWidth
@@ -1918,7 +1918,7 @@ export default function PropertyForm({
             {/* IMAGES */}
             <Grid item xs={12}>
                <Typography sx={{ color: '#fff', fontWeight: 900, mb: 1 }}>
-                  Р В¤Р С•РЎвЂљР С• Р С•Р В±&apos;РЎвЂќР С”РЎвЂљРЎС“
+                  Фото об&apos;єкту
                </Typography>
 
                <Stack
@@ -1933,7 +1933,7 @@ export default function PropertyForm({
                      bgcolor: 'rgba(255,255,255,0.02)',
                   }}
                >
-                  {/* Р С™Р СњР С›Р СџР С™Р С’ */}
+                  {/* КНОПКА */}
                   <Button
                      component="label"
                      disabled={imgProcessing || loading}
@@ -1954,15 +1954,15 @@ export default function PropertyForm({
                         },
                      }}
                   >
-                     Р вЂ”Р В°Р Р†Р В°Р Р…РЎвЂљР В°Р В¶Р С‘РЎвЂљР С‘<br />РЎвЂћР С•РЎвЂљР С•
+                     Завантажити<br />фото
                      <input hidden type="file" accept="image/*,.heic,.heif" multiple onChange={handleImages} />
                   </Button>
 
-                  {/* SELECT Р вЂњР В Р Р€Р СџР В */}
+                  {/* SELECT ГРУПИ */}
                   <TextField
                      select
                      size="small"
-                     label="Р вЂњРЎР‚РЎС“Р С—Р В° РЎвЂћР С•РЎвЂљР С•"
+                     label="Група фото"
                      value={fields.photoStage}
                      onChange={(e) => set('photoStage', e.target.value)}
                      sx={{
@@ -1982,7 +1982,7 @@ export default function PropertyForm({
                      ))}
                   </TextField>
 
-                  {/* Р вЂ Р СњР В¤Р С› */}
+                  {/* ІНФО */}
                   <Typography
                      sx={{
                         color: 'rgba(255,255,255,0.70)',
@@ -1990,10 +1990,10 @@ export default function PropertyForm({
                         whiteSpace: 'nowrap',
                      }}
                   >
-                     Р С›Р В±РЎР‚Р В°Р Р…Р С•: <b style={{ color: '#fff' }}>{fields.images.length}</b> / {MAX_FILES}
+                     Обрано: <b style={{ color: '#fff' }}>{fields.images.length}</b> / {MAX_FILES}
                   </Typography>
 
-                  {/* Р В Р С›Р вЂ”Р СћР Р‡Р вЂњР Р€Р вЂ™Р С’Р В§ */}
+                  {/* РОЗТЯГУВАЧ */}
                   <Box sx={{ flexGrow: 1 }} />
 
                   {/* META CHIP */}
@@ -2001,7 +2001,7 @@ export default function PropertyForm({
                      {imgMeta.slice(0, 3).map((m, idx) => (
                         <Chip
                            key={idx}
-                           label={`${m.name} РІР‚Сћ ${formatBytes(m.after)}`}
+                           label={`${m.name} • ${formatBytes(m.after)}`}
                            size="small"
                            sx={{
                               bgcolor: m.ok ? 'rgba(255,255,255,0.04)' : 'rgba(255, 82, 82, 0.10)',
@@ -2045,7 +2045,7 @@ export default function PropertyForm({
                         },
                      }}
                   >
-                     {imgProcessingText || 'Р С™Р С•Р Р…Р Р†Р ВµРЎР‚РЎвЂљР В°РЎвЂ РЎвЂ“РЎРЏ РЎвЂљР В° РЎРѓРЎвЂљР С‘РЎРѓР С”Р В°Р Р…Р Р…РЎРЏ РЎвЂћР С•РЎвЂљР С•...'}
+                     {imgProcessingText || 'Конвертація та стискання фото...'}
                   </Alert>
                )}
 
@@ -2110,7 +2110,7 @@ export default function PropertyForm({
                                     noWrap
                                     title={img.file?.name || ''}
                                  >
-                                    {img.file?.name || `Р В¤Р С•РЎвЂљР С• ${idx + 1}`}
+                                    {img.file?.name || `Фото ${idx + 1}`}
                                  </Typography>
 
                                  <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap>
@@ -2126,7 +2126,7 @@ export default function PropertyForm({
 
                                     {img.isMain && (
                                        <Chip
-                                          label="Р вЂњР С•Р В»Р С•Р Р†Р Р…Р Вµ"
+                                          label="Головне"
                                           size="small"
                                           sx={{
                                              bgcolor: 'rgba(139,92,246,0.20)',
@@ -2154,7 +2154,7 @@ export default function PropertyForm({
                                           borderRadius: 2,
                                        }}
                                     >
-                                       {img.isMain ? 'Р вЂњР С•Р В»Р С•Р Р†Р Р…Р Вµ' : 'Р вЂ”РЎР‚Р С•Р В±Р С‘РЎвЂљР С‘ Р С–Р С•Р В»Р С•Р Р†Р Р…Р С‘Р С'}
+                                       {img.isMain ? 'Головне' : 'Зробити головним'}
                                     </Button>
 
                                     <Button
@@ -2169,7 +2169,7 @@ export default function PropertyForm({
                                           borderRadius: 2,
                                        }}
                                     >
-                                       Р вЂ™Р С‘Р Т‘Р В°Р В»Р С‘РЎвЂљР С‘
+                                       Видалити
                                     </Button>
                                  </Stack>
                               </Stack>
@@ -2186,21 +2186,21 @@ export default function PropertyForm({
                <Grid container spacing={1.5}>
                   <Grid item xs={12} md={6}>
                      <DynamicListField
-                        title="Р СџР ВµРЎР‚Р ВµР Р†Р В°Р С–Р С‘"
+                        title="Переваги"
                         value={fields.advantages}
                         onChange={(val) => set('advantages', val)}
                         fieldSx={fieldSx}
-                        placeholder="РЎвЂ Р ВµР Р…РЎвЂљРЎР‚, Р Р…Р С•Р Р†Р С‘Р в„– РЎР‚Р ВµР СР С•Р Р…РЎвЂљ, Р Р†Р С‘Р С–Р В»РЎРЏР Т‘..."
+                        placeholder="центр, новий ремонт, вигляд..."
                      />
                   </Grid>
 
                   <Grid item xs={12} md={6}>
                      <DynamicListField
-                        title="Р СњР ВµР Т‘Р С•Р В»РЎвЂ“Р С”Р С‘"
+                        title="Недоліки"
                         value={fields.disadvantages}
                         onChange={(val) => set('disadvantages', val)}
                         fieldSx={fieldSx}
-                        placeholder="РЎв‚¬РЎС“Р СР Р…Р В° Р Р†РЎС“Р В»Р С‘РЎвЂ РЎРЏ, Р В±Р ВµР В· Р В»РЎвЂ“РЎвЂћРЎвЂљР В°..."
+                        placeholder="шумна вулиця, без ліфта..."
                      />
                   </Grid>
                </Grid>
@@ -2218,7 +2218,7 @@ export default function PropertyForm({
 
             {/* <Grid item xs={12}>
                <Typography sx={{ color: '#fff', fontWeight: 900, mb: 1 }}>
-                  Р С™Р С•Р Р…РЎвЂљР В°Р С”РЎвЂљР С‘
+                  Контакти
                </Typography>
             </Grid> */}
 
@@ -2262,7 +2262,7 @@ export default function PropertyForm({
                         border: '1px solid rgba(255,255,255,0.12)',
                      }}
                   >
-                     Р РЋР С”Р В°РЎРѓРЎС“Р Р†Р В°РЎвЂљР С‘
+                     Скасувати
                   </Button>
 
                   <Button
@@ -2280,10 +2280,10 @@ export default function PropertyForm({
                      }}
                   >
                      {imgProcessing
-                        ? 'Р С›Р В±РЎР‚Р С•Р В±Р С”Р В° РЎвЂћР С•РЎвЂљР С•...'
+                        ? 'Обробка фото...'
                         : loading
-                           ? 'Р вЂ”Р В±Р ВµРЎР‚Р ВµР В¶Р ВµР Р…Р Р…РЎРЏ...'
-                           : 'Р вЂ”Р В±Р ВµРЎР‚Р ВµР С–РЎвЂљР С‘ Р С•Р В±РІР‚в„ўРЎвЂќР С”РЎвЂљ'}
+                           ? 'Збереження...'
+                           : 'Зберегти об’єкт'}
                   </Button>
                </Stack>
             </Grid>
