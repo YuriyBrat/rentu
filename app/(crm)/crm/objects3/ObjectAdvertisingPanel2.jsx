@@ -88,7 +88,6 @@ function formatDateTime(value) {
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      second: '2-digit',
    });
 }
 
@@ -274,7 +273,7 @@ function AdsBadgeSection({ title, sourceType, links, mode, theme, onOpenGroup })
    );
 }
 
-function AdvertisingLinkRow({ link, mode, theme, canManage, onStatusClick }) {
+function AdvertisingLinkRow({ link, mode, theme, canManage, onStatusClick, onDelete }) {
    const colors = getSourceColors(link.sourceType || 'ours', mode, theme);
    const isInactive = !!link.closedAt;
    const statusColor = isInactive
@@ -393,19 +392,36 @@ function AdvertisingLinkRow({ link, mode, theme, canManage, onStatusClick }) {
              )}
           </Stack>
 
-         <Tooltip title="Скопіювати посилання">
-            <IconButton
-               size="small"
-               onClick={() => copyLink(link.url)}
-               sx={{
-                  color: theme.text,
-                  border: `1px solid ${theme.border}`,
-                  bgcolor: mode === 'light' ? 'rgba(124,58,237,0.045)' : 'rgba(255,255,255,0.035)',
-               }}
-            >
-               <ContentCopyRoundedIcon fontSize="small" />
-            </IconButton>
-         </Tooltip>
+         <Stack direction="row" spacing={0.45} justifyContent="flex-end">
+            <Tooltip title="Скопіювати посилання">
+               <IconButton
+                  size="small"
+                  onClick={() => copyLink(link.url)}
+                  sx={{
+                     color: theme.text,
+                     border: `1px solid ${theme.border}`,
+                     bgcolor: mode === 'light' ? 'rgba(124,58,237,0.045)' : 'rgba(255,255,255,0.035)',
+                  }}
+               >
+                  <ContentCopyRoundedIcon fontSize="small" />
+               </IconButton>
+            </Tooltip>
+            {canManage && (
+               <Tooltip title="Видалити посилання">
+                  <IconButton
+                     size="small"
+                     onClick={() => onDelete?.(link)}
+                     sx={{
+                        color: '#fb7185',
+                        border: '1px solid rgba(248,113,113,0.35)',
+                        bgcolor: mode === 'light' ? 'rgba(248,113,113,0.06)' : 'rgba(248,113,113,0.08)',
+                     }}
+                  >
+                     <DeleteOutlineRoundedIcon fontSize="small" />
+                  </IconButton>
+               </Tooltip>
+            )}
+         </Stack>
       </Box>
    );
 }
@@ -518,6 +534,7 @@ export default function ObjectAdvertisingPanel({
    onEditText,
    onDeleteText,
    onEditLink,
+   onDeleteLink,
    onEditSettings,
    employees = [],
    canManage = false,
@@ -898,9 +915,10 @@ export default function ObjectAdvertisingPanel({
                                  link={link}
                                  theme={theme}
                                  mode={mode}
-                                 canManage={canManage}
-                                 onStatusClick={onEditLink}
-                              />
+                                  canManage={canManage}
+                                  onStatusClick={onEditLink}
+                                  onDelete={onDeleteLink}
+                               />
                            ))}
 
                            {!allLinks.length && (

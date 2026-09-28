@@ -123,3 +123,27 @@ export async function prepareImageUploadFiles(files, options = {}) {
 
    return { accepted, meta, failed, skipped, totalBytes };
 }
+
+export function buildImageUploadBatches(files, options = {}) {
+   const sourceFiles = Array.from(files || []);
+   const maxPayloadBytes = options.maxPayloadBytes || SAFE_IMAGE_PAYLOAD_BYTES;
+   const batches = [];
+   let currentBatch = [];
+   let currentBytes = 0;
+
+   sourceFiles.forEach((file) => {
+      const size = file?.size || 0;
+
+      if (currentBatch.length && currentBytes + size > maxPayloadBytes) {
+         batches.push(currentBatch);
+         currentBatch = [];
+         currentBytes = 0;
+      }
+
+      currentBatch.push(file);
+      currentBytes += size;
+   });
+
+   if (currentBatch.length) batches.push(currentBatch);
+   return batches;
+}

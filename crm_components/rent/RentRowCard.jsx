@@ -34,6 +34,8 @@ import PublishedWithChangesRoundedIcon from '@mui/icons-material/PublishedWithCh
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded';
 import PauseCircleRoundedIcon from '@mui/icons-material/PauseCircleRounded';
+import CampaignRoundedIcon from '@mui/icons-material/CampaignRounded';
+import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 
 const RENT_STATUS_OPTIONS = [
    { value: 'rentActual', label: 'Актуальна для здачі' },
@@ -48,6 +50,56 @@ const RENTED_BY_OPTIONS = [
    { value: 'employee', label: 'Ми' },
    { value: 'other', label: 'Інше' },
 ];
+
+const AD_STATUS_OPTIONS = [
+   { value: 'active', label: 'Активно' },
+   { value: 'paused', label: 'Пауза' },
+   { value: 'lead_pull', label: 'Дотягуємо ліди' },
+   { value: 'done', label: 'Готово' },
+   { value: 'archive', label: 'Архів реклами' },
+   { value: 'none', label: 'Без реклами' },
+];
+
+const AD_PRIORITY_OPTIONS = [
+   { value: 1, label: '1 - Найнижчий' },
+   { value: 2, label: '2 - Низький' },
+   { value: 3, label: '3 - Нормальний' },
+   { value: 4, label: '4 - Високий' },
+   { value: 5, label: '5 - Терміново' },
+];
+
+const AD_CURRENCY_OPTIONS = ['USD', 'UAH', 'EUR'];
+
+function getAdvertisingStatusLabel(status) {
+   if (status === 'paused') return 'Пауза';
+   if (status === 'lead_pull') return 'Дотягуємо ліди';
+   if (status === 'done') return 'Готово';
+   if (status === 'archive') return 'Архів реклами';
+   if (status === 'none') return 'Без реклами';
+   return 'Активно';
+}
+
+function getAdvertisingStatusSx(status) {
+   if (status === 'paused') return { color: '#fde68a', bgcolor: 'rgba(245,158,11,0.14)', border: '1px solid rgba(245,158,11,0.26)' };
+   if (status === 'lead_pull') return { color: '#bfdbfe', bgcolor: 'rgba(59,130,246,0.14)', border: '1px solid rgba(59,130,246,0.28)' };
+   if (status === 'done') return { color: '#bbf7d0', bgcolor: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.24)' };
+   if (status === 'archive' || status === 'none') return { color: '#cbd5e1', bgcolor: 'rgba(148,163,184,0.12)', border: '1px solid rgba(148,163,184,0.22)' };
+   return { color: '#bbf7d0', bgcolor: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.24)' };
+}
+
+function emptyAdvertisingSettingsForm(item = {}) {
+   const settings = item?.advertisingSettings || {};
+   return {
+      property: item?._id || '',
+      assignedEmployee: settings.assignedEmployee?._id || settings.assignedEmployee || '',
+      status: settings.status || 'active',
+      priority: settings.priority || 3,
+      price: settings.price ?? item?.rentOptions?.price ?? '',
+      currency: settings.currency || item?.rentOptions?.currency || 'USD',
+      draftText: settings.draftText || item?.rentOptions?.adText || '',
+      note: settings.note || '',
+   };
+}
 
 function formatDate(value) {
    if (!value) return '—';
@@ -174,8 +226,12 @@ function MetaPill({ icon, label, value }) {
    );
 }
 
-export default function RentRowCard({ item, employees = [], onEdit, onRentStatusChange, onRentHistoryAdd }) {
+export default function RentRowCard({ item, employees = [], onRefresh, onEdit, onRentStatusChange, onRentHistoryAdd }) {
    const [open, setOpen] = useState(false);
+   const [advertisingOpen, setAdvertisingOpen] = useState(false);
+   const [advertisingForm, setAdvertisingForm] = useState(() => emptyAdvertisingSettingsForm(item));
+   const [advertisingSaving, setAdvertisingSaving] = useState(false);
+   const [advertisingError, setAdvertisingError] = useState('');
    const [statusOpen, setStatusOpen] = useState(false);
    const [statusDraft, setStatusDraft] = useState(() => ({
       statusRent: item?.statusRent || 'rentActual',
@@ -228,6 +284,14 @@ export default function RentRowCard({ item, employees = [], onEdit, onRentStatus
    const rentTitle = item?.rentOptions?.rentTitle || item?.displayTitle || item?.title || 'Без назви';
    const assigneeName = getEmployeeName(item?.assignee);
    const createdByName = getEmployeeName(item?.createdByEmployee);
+   const advertisingSettings = item?.advertisingSettings || {};
+   const advertisingEmployeeName = getEmployeeName(advertisingSettings?.assignedEmployee);
+   const hasAdvertisingTask = Boolean(
+      advertisingSettings?.assignedEmployee ||
+      advertisingSettings?.note ||
+      advertisingSettings?.draftText ||
+      (advertisingSettings?.status && advertisingSettings.status !== 'none')
+   );
    const rentStory = item?.rentOptions?.rentStory || {};
    const rentHistory = Array.isArray(item?.rentOptions?.rentHistory) ? item.rentOptions.rentHistory : [];
    const employeeById = useMemo(
@@ -311,6 +375,44 @@ export default function RentRowCard({ item, employees = [], onEdit, onRentStatus
          setStatusError(error?.message || 'Не вдалося оновити статус здачі');
       } finally {
          setStatusSaving(false);
+      }
+   };
+
+   const openAdvertisingDialog = () => {
+      setAdvertisingForm(emptyAdvertisingSettingsForm(item));
+      setAdvertisingError('');
+      setAdvertisingOpen(true);
+   };
+
+   const setAdvertisingValue = (key, value) => {
+      setAdvertisingForm((prev) => ({ ...prev, [key]: value }));
+   };
+
+   const handleSaveAdvertising = async () => {
+      setAdvertisingSaving(true);
+      setAdvertisingError('');
+
+      try {
+         const res = await fetch('/api/crm/advertising/properties', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+               ...advertisingForm,
+               property: item?._id,
+            }),
+         });
+
+         if (!res.ok) {
+            const body = await res.json().catch(async () => ({ error: await res.text() }));
+            throw new Error(body.error || 'Не вдалося зберегти рекламне завдання');
+         }
+
+         setAdvertisingOpen(false);
+         await onRefresh?.();
+      } catch (error) {
+         setAdvertisingError(error?.message || 'Не вдалося зберегти рекламне завдання');
+      } finally {
+         setAdvertisingSaving(false);
       }
    };
 
@@ -517,17 +619,27 @@ export default function RentRowCard({ item, employees = [], onEdit, onRentStatus
                                  border: '1px solid rgba(255,255,255,0.08)',
                               }}
                            />
-                           {item?.isPublic && (
-                              <Chip
-                                 label="На сайті"
+                            {item?.isPublic && (
+                               <Chip
+                                  label="На сайті"
                                  sx={{
                                     color: '#bfdbfe',
                                     bgcolor: 'rgba(59,130,246,0.14)',
                                     border: '1px solid rgba(59,130,246,0.24)',
                                  }}
-                              />
-                           )}
-                        </Stack>
+                               />
+                            )}
+                            {hasAdvertisingTask && (
+                               <Chip
+                                  icon={<CampaignRoundedIcon sx={{ fontSize: '15px !important' }} />}
+                                  label={`Реклама: ${getAdvertisingStatusLabel(advertisingSettings.status)}`}
+                                  sx={{
+                                     fontWeight: 900,
+                                     ...getAdvertisingStatusSx(advertisingSettings.status),
+                                  }}
+                               />
+                            )}
+                         </Stack>
 
                         <Typography
                            sx={{
@@ -648,6 +760,20 @@ export default function RentRowCard({ item, employees = [], onEdit, onRentStatus
                         }}
                      >
                         <PublishedWithChangesRoundedIcon fontSize="small" />
+                     </IconButton>
+                  </Tooltip>
+
+                  <Tooltip title="Рекламне завдання" arrow>
+                     <IconButton
+                        onClick={openAdvertisingDialog}
+                        sx={{
+                           ...iconButtonSx,
+                           color: '#fb923c',
+                           bgcolor: hasAdvertisingTask ? 'rgba(251,146,60,0.14)' : iconButtonSx.bgcolor,
+                           border: hasAdvertisingTask ? '1px solid rgba(251,146,60,0.35)' : iconButtonSx.border,
+                        }}
+                     >
+                        <CampaignRoundedIcon fontSize="small" />
                      </IconButton>
                   </Tooltip>
 
@@ -1053,6 +1179,183 @@ export default function RentRowCard({ item, employees = [], onEdit, onRentStatus
                </Grid>
             </Box>
          </Collapse>
+
+         <Dialog
+            open={advertisingOpen}
+            onClose={() => {
+               if (!advertisingSaving) setAdvertisingOpen(false);
+            }}
+            fullWidth
+            maxWidth="sm"
+            PaperProps={{
+               sx: {
+                  borderRadius: 4,
+                  overflow: 'hidden',
+                  border: '1px solid rgba(251,146,60,0.24)',
+                  background:
+                     'radial-gradient(circle at 18% 18%, rgba(251,146,60,0.14), transparent 45%), rgba(15,15,23,0.98)',
+                  boxShadow: '0 30px 80px rgba(0,0,0,0.70)',
+               },
+            }}
+         >
+            <DialogTitle sx={{ color: '#fff', fontWeight: 950, display: 'flex', alignItems: 'center', gap: 1 }}>
+               <CampaignRoundedIcon sx={{ color: '#fb923c' }} />
+               Рекламне завдання
+            </DialogTitle>
+            <DialogContent>
+               {!!advertisingError && (
+                  <Alert severity="error" sx={{ mb: 1.2 }}>
+                     {advertisingError}
+                  </Alert>
+               )}
+
+               <Stack spacing={1.2} sx={{ mt: 0.5 }}>
+                  <TextField
+                     select
+                     label="Рекламщик"
+                     value={advertisingForm.assignedEmployee}
+                     onChange={(e) => setAdvertisingValue('assignedEmployee', e.target.value)}
+                     fullWidth
+                     sx={statusFieldSx}
+                     SelectProps={{ MenuProps: statusMenuProps }}
+                  >
+                     <MenuItem value="">Не призначено</MenuItem>
+                     {employees.map((employee) => (
+                        <MenuItem key={employee._id} value={employee._id}>
+                           {getEmployeeName(employee)}
+                        </MenuItem>
+                     ))}
+                  </TextField>
+
+                  <Grid container spacing={1.2}>
+                     <Grid item xs={12} md={6}>
+                        <TextField
+                           select
+                           label="Статус реклами"
+                           value={advertisingForm.status}
+                           onChange={(e) => setAdvertisingValue('status', e.target.value)}
+                           fullWidth
+                           sx={statusFieldSx}
+                           SelectProps={{ MenuProps: statusMenuProps }}
+                        >
+                           {AD_STATUS_OPTIONS.map((option) => (
+                              <MenuItem key={option.value} value={option.value}>
+                                 {option.label}
+                              </MenuItem>
+                           ))}
+                        </TextField>
+                     </Grid>
+
+                     <Grid item xs={12} md={6}>
+                        <TextField
+                           select
+                           label="Пріоритет"
+                           value={advertisingForm.priority}
+                           onChange={(e) => setAdvertisingValue('priority', e.target.value)}
+                           fullWidth
+                           sx={statusFieldSx}
+                           SelectProps={{ MenuProps: statusMenuProps }}
+                        >
+                           {AD_PRIORITY_OPTIONS.map((option) => (
+                              <MenuItem key={option.value} value={option.value}>
+                                 {option.label}
+                              </MenuItem>
+                           ))}
+                        </TextField>
+                     </Grid>
+
+                     <Grid item xs={12} md={7}>
+                        <TextField
+                           label="Рекламна ціна"
+                           type="number"
+                           value={advertisingForm.price}
+                           onChange={(e) => setAdvertisingValue('price', e.target.value)}
+                           fullWidth
+                           sx={statusFieldSx}
+                        />
+                     </Grid>
+
+                     <Grid item xs={12} md={5}>
+                        <TextField
+                           select
+                           label="Валюта"
+                           value={advertisingForm.currency}
+                           onChange={(e) => setAdvertisingValue('currency', e.target.value)}
+                           fullWidth
+                           sx={statusFieldSx}
+                           SelectProps={{ MenuProps: statusMenuProps }}
+                        >
+                           {AD_CURRENCY_OPTIONS.map((currency) => (
+                              <MenuItem key={currency} value={currency}>
+                                 {currency}
+                              </MenuItem>
+                           ))}
+                        </TextField>
+                     </Grid>
+                  </Grid>
+
+                  <TextField
+                     label="Чорновий текст"
+                     multiline
+                     minRows={3}
+                     value={advertisingForm.draftText}
+                     onChange={(e) => setAdvertisingValue('draftText', e.target.value)}
+                     fullWidth
+                     sx={statusFieldSx}
+                  />
+
+                  <TextField
+                     label="Завдання"
+                     multiline
+                     minRows={3}
+                     value={advertisingForm.note}
+                     onChange={(e) => setAdvertisingValue('note', e.target.value)}
+                     fullWidth
+                     sx={statusFieldSx}
+                     placeholder="Що рекламщику робити з цим об’єктом: які сайти, чи дотягувати ліди після здачі, які акценти..."
+                  />
+
+                  {hasAdvertisingTask && (
+                     <Stack direction="row" spacing={0.7} flexWrap="wrap" useFlexGap>
+                        <Chip
+                           size="small"
+                           label={getAdvertisingStatusLabel(advertisingSettings.status)}
+                           sx={{ fontWeight: 900, ...getAdvertisingStatusSx(advertisingSettings.status) }}
+                        />
+                        <Chip
+                           size="small"
+                           label={`Рекламщик: ${advertisingEmployeeName}`}
+                           sx={{ color: '#fff', bgcolor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.10)', fontWeight: 850 }}
+                        />
+                     </Stack>
+                  )}
+               </Stack>
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 2.5 }}>
+               <Button
+                  onClick={() => setAdvertisingOpen(false)}
+                  disabled={advertisingSaving}
+                  sx={{ color: 'rgba(255,255,255,0.66)', fontWeight: 900 }}
+               >
+                  Скасувати
+               </Button>
+               <Button
+                  onClick={handleSaveAdvertising}
+                  disabled={advertisingSaving || !item?._id}
+                  variant="contained"
+                  startIcon={<TuneRoundedIcon />}
+                  sx={{
+                     borderRadius: 999,
+                     fontWeight: 950,
+                     color: '#0b0b12',
+                     bgcolor: '#fb923c',
+                     '&:hover': { bgcolor: '#f97316' },
+                  }}
+               >
+                  {advertisingSaving ? 'Зберігаю...' : 'Зберегти'}
+               </Button>
+            </DialogActions>
+         </Dialog>
 
          <Dialog
             open={statusOpen}

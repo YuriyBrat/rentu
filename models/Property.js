@@ -226,7 +226,7 @@ const AdvertisingLinkSchema = new Schema(
   {
     platform: {
       type: String,
-      enum: ['olx', 'dimria', 'rieltor', 'lun', 'flatfy', 'real-estate', 'facebook', 'instagram', 'tiktok', 'telegram', 'site', 'other'],
+      enum: ['olx', 'dimria', 'rieltor', 'lun', 'flatfy', 'real-estate', 'facebook', 'instagram', 'tiktok', 'telegram', 'site', 'youtube', 'drive', 'other'],
       default: 'other',
     },
     title: { type: String, trim: true, default: '' },
@@ -272,7 +272,7 @@ const PropertyAdvertisingSettingsSchema = new Schema(
     },
     status: {
       type: String,
-      enum: ['active', 'paused', 'done', 'none'],
+      enum: ['active', 'paused', 'lead_pull', 'done', 'archive', 'none'],
       default: 'active',
       index: true,
     },

@@ -33,7 +33,13 @@ function normalizeCurrency(value) {
    return ["USD", "UAH", "EUR"].includes(value) ? value : "USD";
 }
 
+function normalizeAdvertisingStatus(value) {
+   return ["active", "paused", "lead_pull", "done", "archive", "none"].includes(value) ? value : "active";
+}
+
 function propertyLabel(property) {
+   const isRent = property?.type_deal === "оренда" || (Boolean(property?.statusRent) && property.statusRent !== "rentNo");
+   if (isRent && property?.rentOptions?.rentTitle) return property.rentOptions.rentTitle;
    return property?.title || property?.rentOptions?.rentTitle || property?.location_text || "Об’єкт";
 }
 
@@ -53,6 +59,7 @@ function serializeProperty(property, summary = {}) {
          links: (property.advertisingLinks || []).length,
          activeLinks: activeLinks.length,
          texts: (property.advertisingTexts || []).length,
+         videos: (property.propertyVideos || []).length,
       },
    };
 }
@@ -73,7 +80,14 @@ export const GET = async (req) => {
       const onlyAssigned = sp.get("onlyAssigned") === "true";
 
       const filter = {
-         actualityGroup: { $ne: "inactive" },
+         $and: [
+            {
+               $or: [
+                  { actualityGroup: { $ne: "inactive" } },
+                  { "advertisingSettings.status": { $in: ["active", "paused", "lead_pull", "done"] } },
+               ],
+            },
+         ],
          $or: [
             { crmStage: { $in: ["rs", "ds", "zs"] } },
             { crmStage: { $exists: false } },
@@ -88,7 +102,8 @@ export const GET = async (req) => {
       if (q) {
          const safeQ = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
          filter.$and = [
-            { $or: filter.$or },
+            ...(filter.$and || []),
+            ...(filter.$or ? [{ $or: filter.$or }] : []),
             {
                $or: [
                   { title: { $regex: safeQ, $options: "i" } },
@@ -106,7 +121,7 @@ export const GET = async (req) => {
       const scopedFilter = combineMongoFilters(filter, accessFilter);
 
       const rows = await Property.find(scopedFilter)
-         .select("title rentOptions.rentTitle location_text type_deal type_estate cost currency images assignee advertisingSettings advertisingTexts advertisingLinks updatedAt")
+         .select("title rentOptions.rentTitle rentOptions.price rentOptions.currency rentOptions.rentStory.note location_text location type_deal type_estate statusRent cost currency rooms square_tot square_area square_liv square_kit area_unit floor floors type_building type_walls type_house purpose_area height_wall balconies heating type_heating actualityGroup actualityStatus actualityNote images assignee advertisingSettings advertisingTexts advertisingLinks propertyVideos updatedAt")
          .populate("assignee", "name fullName surname avatarUrl color")
          .populate("advertisingSettings.assignedEmployee", "name fullName surname avatarUrl color role")
          .sort({ "advertisingSettings.priority": -1, updatedAt: -1 })
@@ -114,9 +129,22 @@ export const GET = async (req) => {
          .lean();
 
       const propertyIds = rows.map((item) => item._id).filter(Boolean);
+      const isMarketingUser = !sessionUser?.isFallbackAdmin && (sessionUser?.role || sessionUser?.user?.role || "") === "marketing";
+      const actorEmployeeId = objectIdOrNull(sessionUser?.employeeId);
+      const eventSummaryMatch = {
+         property: { $in: propertyIds },
+         ...(isMarketingUser && actorEmployeeId
+            ? {
+               $or: [
+                  { responsibleEmployee: actorEmployeeId },
+                  { createdByEmployee: actorEmployeeId },
+               ],
+            }
+            : {}),
+      };
       const summaryRows = propertyIds.length
          ? await MarketingEvent.aggregate([
-             { $match: { property: { $in: propertyIds } } },
+             { $match: eventSummaryMatch },
             {
                $group: {
                   _id: "$property",
@@ -162,7 +190,7 @@ export const PATCH = async (req) => {
       property.advertisingSettings = {
          ...(property.advertisingSettings?.toObject?.() || property.advertisingSettings || {}),
          assignedEmployee: objectIdOrNull(body.assignedEmployee),
-         status: ["active", "paused", "done", "none"].includes(body.status) ? body.status : "active",
+          status: normalizeAdvertisingStatus(body.status),
          price: parseNumber(body.price),
          currency: normalizeCurrency(body.currency),
          draftText: cleanString(body.draftText),
@@ -174,7 +202,7 @@ export const PATCH = async (req) => {
       await property.save();
 
       const populated = await Property.findById(property._id)
-         .select("title rentOptions.rentTitle location_text type_deal type_estate cost currency images assignee advertisingSettings advertisingTexts advertisingLinks updatedAt")
+         .select("title rentOptions.rentTitle rentOptions.price rentOptions.currency rentOptions.rentStory.note location_text location type_deal type_estate statusRent cost currency rooms square_tot square_area square_liv square_kit area_unit floor floors type_building type_walls type_house purpose_area height_wall balconies heating type_heating actualityGroup actualityStatus actualityNote images assignee advertisingSettings advertisingTexts advertisingLinks propertyVideos updatedAt")
          .populate("assignee", "name fullName surname avatarUrl color")
          .populate("advertisingSettings.assignedEmployee", "name fullName surname avatarUrl color role")
          .lean();

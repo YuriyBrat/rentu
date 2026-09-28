@@ -19,6 +19,43 @@ const { Document, Packer, Paragraph, Tab, TextRun, SequentialIdentifier,
    BorderStyle, UnderlineType, HeightRule,
    FrameAnchorType, HorizontalPositionAlign, VerticalPositionAlign } = docx;
 
+async function saveDocumentGenerationLog({ fieldsData, kind, nameFile, propertyId, leadId }) {
+   const [{ default: connectDB }, { default: DocumentGeneration }, { getSessionUser }, { Types }] = await Promise.all([
+      import('@/config/database'),
+      import('@/models/DocumentGeneration'),
+      import('@/utils/getSessionUser'),
+      import('mongoose'),
+   ]);
+
+   const objectIdOrNull = (value) => {
+      const id = String(value || '').trim();
+      return Types.ObjectId.isValid(id) ? new Types.ObjectId(id) : null;
+   };
+
+   await connectDB();
+
+   const sessionUser = await getSessionUser().catch(() => null);
+   const employeeId = objectIdOrNull(sessionUser?.employeeId);
+   const documentType = kind === 'rp' ? 'sale_buyer_service' : 'sale_deposit';
+
+   await DocumentGeneration.create({
+      documentDomain: 'sale',
+      documentType,
+      generatedAt: new Date(),
+      generatedByEmployee: employeeId,
+      generatedByName: sessionUser?.user?.name || '',
+      generatedByRole: sessionUser?.role || '',
+      property: objectIdOrNull(propertyId),
+      lead: objectIdOrNull(leadId),
+      fileName: nameFile || '',
+      fopName: fieldsData?.nameFOP || '',
+      contractNumber: fieldsData?.numberZS || '',
+      contractDateText: fieldsData?.dateZS || '',
+      source: 'crm_gen_sale',
+      fieldsSnapshot: fieldsData || {},
+   });
+}
+
 
 function sectionListTitle() {
 
@@ -3097,7 +3134,7 @@ export const POST = async (req) => {
 
    try {
       // const { date, kind, checkedObject } = req.body;
-      const { fieldsData, kind, nameFile } = reqData;
+      const { fieldsData, kind, nameFile, propertyId, leadId, saveLog = true } = reqData;
       let file_name = '';
       console.log('data req');
 
@@ -3124,6 +3161,15 @@ export const POST = async (req) => {
             .then(buffer => res(buffer))
             .catch(err => rej(err))
       })
+
+      if (saveLog !== false) {
+         try {
+            await saveDocumentGenerationLog({ fieldsData, kind, nameFile, propertyId, leadId });
+         } catch (logError) {
+            console.log('err saving document generation log');
+            console.log(logError);
+         }
+      }
 
       // Packer.toBuffer(doc)
       //    .then(buffer => {

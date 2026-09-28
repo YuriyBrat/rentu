@@ -6,7 +6,7 @@ import MarketingEvent, {
 import Property from "@/models/Property";
 import Employee from "@/models/Employee";
 import { getSessionUser } from "@/utils/getSessionUser";
-import { buildPropertyAccessFilter, canEnterAdvertisingCabinet, canManageProperty } from "@/utils/crm/accessControl";
+import { buildPropertyAccessFilter, canEnterAdvertisingCabinet, canManageProperty, combineMongoFilters } from "@/utils/crm/accessControl";
 import { Types } from "mongoose";
 
 void Employee;
@@ -24,6 +24,8 @@ const PLATFORM_TITLES = {
    tiktok: "TikTok",
    telegram: "Telegram",
    site: "Сайт",
+   youtube: "YouTube",
+   drive: "Drive",
    other: "Інше",
 };
 
@@ -86,6 +88,24 @@ function isCreateAction(actionType) {
    return String(actionType || "").startsWith("created");
 }
 
+function isLinkSourceAction(actionType) {
+   return ["competitor_link", "owner_link"].includes(actionType);
+}
+
+function isStandaloneWorkAction(actionType) {
+   return ["photo_processing", "video_processing"].includes(actionType);
+}
+
+function requiresExistingLink(actionType) {
+   return !isCreateAction(actionType) && !isLinkSourceAction(actionType) && !isStandaloneWorkAction(actionType);
+}
+
+function sourceTypeForAction(actionType, fallback = "ours") {
+   if (actionType === "competitor_link") return "competitor";
+   if (actionType === "owner_link") return "owner";
+   return normalizeSourceType(fallback);
+}
+
 
 function marketingActionLabel(actionType) {
    const labels = {
@@ -94,8 +114,12 @@ function marketingActionLabel(actionType) {
       created_without_changes: "створено без змін",
       updated_improved: "оновлено з покращенням",
       updated_without_changes: "оновлено без змін",
-      edited_photo: "редаговано фото",
+      edited_photo: "оновлено фото",
+      photo_processing: "обробка фото",
+      video_processing: "обробка відео",
       price_changed: "змінено ціну",
+      competitor_link: "ссилка конкурента",
+      owner_link: "ссилка власника",
       scanner: "сканер",
       financial_promotion: "фінансове просування",
       deactivated: "деактивовано",
@@ -106,6 +130,7 @@ function marketingActionLabel(actionType) {
 function normalizeEventBody(body = {}, sessionUser = {}) {
    const actionType = normalizeAction(body.actionType);
    const occurredAt = parseDate(body.occurredAt, new Date());
+   const linkCreatedAt = parseDate(body.linkCreatedAt, occurredAt);
    const metrics = body.metrics || {};
 
    return {
@@ -116,9 +141,10 @@ function normalizeEventBody(body = {}, sessionUser = {}) {
       occurredAt,
       responsibleEmployee: objectIdOrNull(body.responsibleEmployee) || objectIdOrNull(sessionUser.employeeId),
       createdByEmployee: objectIdOrNull(sessionUser.employeeId),
-      sourceType: normalizeSourceType(body.sourceType),
+      sourceType: sourceTypeForAction(actionType, body.sourceType),
       linkTitle: cleanString(body.linkTitle || body.title),
       linkUrl: cleanString(body.linkUrl || body.url),
+      linkCreatedAt,
       note: cleanString(body.note),
       costUah: parseNumber(body.costUah),
       metrics: {
@@ -151,13 +177,14 @@ function serializeEvent(event) {
       advertisingLinkId: source.advertisingLinkId?.toString?.() || source.advertisingLinkId || null,
       actionLabel: marketingActionLabel(source.actionType),
       advertisingLinkLabel: linkLabel,
+      linkCreatedAt: link?.createdAt || null,
    };
 }
 
 async function attachOrSyncPropertyLink(property, data) {
    let link = data.advertisingLinkId ? property.advertisingLinks.id(data.advertisingLinkId) : null;
 
-   if (!link && (data.linkUrl || isCreateAction(data.actionType))) {
+   if (!link && (isCreateAction(data.actionType) || isLinkSourceAction(data.actionType))) {
       const platform = normalizePlatform(data.platform);
       const workTitle = data.linkTitle || nextAdvertisingWorkTitle(property, platform);
       property.advertisingLinks.unshift({
@@ -169,7 +196,7 @@ async function attachOrSyncPropertyLink(property, data) {
          status: data.actionType === "deactivated" ? "archived" : "active",
          note: data.note,
          createdByEmployee: data.createdByEmployee,
-         createdAt: data.occurredAt,
+         createdAt: data.linkCreatedAt || data.occurredAt,
          closedAt: data.actionType === "deactivated" ? data.occurredAt : null,
          closedNote: data.actionType === "deactivated" ? data.note : "",
          lastCheckedAt: data.actionType === "scanner" ? data.occurredAt : null,
@@ -187,6 +214,14 @@ async function attachOrSyncPropertyLink(property, data) {
 
       if (data.actionType === "scanner") {
          link.lastCheckedAt = data.occurredAt;
+      }
+
+      if (isCreateAction(data.actionType) || isLinkSourceAction(data.actionType)) {
+         link.title = data.linkTitle || "";
+         link.workTitle = data.linkTitle || link.workTitle || nextAdvertisingWorkTitle(property, normalizePlatform(data.platform));
+         link.url = data.linkUrl || "";
+         link.note = data.note || "";
+         link.createdAt = data.linkCreatedAt || data.occurredAt || link.createdAt;
       }
 
       if (data.actionType === "deactivated") {
@@ -265,8 +300,20 @@ export const GET = async (req) => {
             : { $in: scopedPropertyIds };
       }
 
+      const isMarketingUser = !sessionUser?.isFallbackAdmin && (sessionUser?.role || sessionUser?.user?.role || "") === "marketing";
+      const actorEmployeeId = objectIdOrNull(sessionUser?.employeeId);
+      const ownMarketingEventsFilter = isMarketingUser && actorEmployeeId
+         ? {
+            $or: [
+               { responsibleEmployee: actorEmployeeId },
+               { createdByEmployee: actorEmployeeId },
+            ],
+         }
+         : {};
+      const finalFilter = combineMongoFilters(filter, ownMarketingEventsFilter);
+
       const [items, total, summaryRows] = await Promise.all([
-         MarketingEvent.find(filter)
+         MarketingEvent.find(finalFilter)
             .populate("property", "title rentOptions.rentTitle location_text type_deal type_estate cost currency assignee advertisingLinks")
             .populate("responsibleEmployee", "name fullName surname avatarUrl color role")
             .populate("createdByEmployee", "name fullName surname avatarUrl color role")
@@ -274,9 +321,9 @@ export const GET = async (req) => {
             .skip(skip)
             .limit(pageSize)
             .lean(),
-         MarketingEvent.countDocuments(filter),
+         MarketingEvent.countDocuments(finalFilter),
          MarketingEvent.aggregate([
-            { $match: filter },
+            { $match: finalFilter },
             {
                $group: {
                   _id: null,
@@ -343,10 +390,10 @@ export const POST = async (req) => {
          return Response.json({ error: "Немає доступу до рекламних дій цього об’єкта" }, { status: 403 });
       }
 
-      if (!isCreateAction(data.actionType) && !data.advertisingLinkId) {
+      if (requiresExistingLink(data.actionType) && !data.advertisingLinkId) {
          return Response.json({ error: "Оберіть конкретну рекламу для цієї дії" }, { status: 400 });
       }
-      if (!isCreateAction(data.actionType) && !property.advertisingLinks.id(data.advertisingLinkId)) {
+      if (requiresExistingLink(data.actionType) && !property.advertisingLinks.id(data.advertisingLinkId)) {
          return Response.json({ error: "Рекламу не знайдено в цьому об’єкті" }, { status: 400 });
       }
 

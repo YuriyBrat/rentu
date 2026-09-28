@@ -58,11 +58,21 @@ function findImageIndex(property, imageId) {
    const id = String(imageId || '');
    if (!id) return -1;
    return (property.images || []).findIndex((image) => (
+      String(image || '') === id ||
       String(image._id || '') === id ||
       String(image.public_id || '') === id ||
       String(image.url || '') === id ||
+      String(image.secure_url || '') === id ||
+      String(image.src || '') === id ||
+      String(image.preview || '') === id ||
+      String(image.card || '') === id ||
+      String(image.full || '') === id ||
       String(image.processedUrl || '') === id ||
-      String(image.brandedUrl || '') === id
+      String(image.brandedUrl || '') === id ||
+      String(image.variants?.full || '') === id ||
+      String(image.variants?.card || '') === id ||
+      String(image.variants?.preview || '') === id ||
+      String(image.variants?.branded || '') === id
    ));
 }
 

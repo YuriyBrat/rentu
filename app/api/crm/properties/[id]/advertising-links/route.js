@@ -255,3 +255,54 @@ export const PATCH = async (req, { params }) => {
       return new Response('Smth wrong', { status: 500 });
    }
 };
+
+export const DELETE = async (req, { params }) => {
+   try {
+      await connectDB();
+
+      const body = await req.json().catch(() => ({}));
+      const sessionUser = await getSessionUser();
+      const linkId = String(body.linkId || body._id || '').trim();
+
+      const property = await Property.findById(params.id);
+      if (!property) return new Response('Property Not Found', { status: 404 });
+
+      const deniedResponse = await requireEditableProperty(sessionUser, property);
+      if (deniedResponse) return deniedResponse;
+
+      const link = property.advertisingLinks.id(linkId);
+      if (!link) return new Response('Advertising link not found', { status: 404 });
+
+      const before = normalizeLink(link);
+      property.advertisingLinks.pull({ _id: linkId });
+      await property.save();
+
+      const deletedEvents = await MarketingEvent.deleteMany({
+         property: property._id,
+         advertisingLinkId: linkId,
+      });
+
+      await logActivity({
+         entityType: 'property',
+         entityId: property._id,
+         action: 'deleted',
+         source: 'manual',
+         title: propertyTitle(property),
+         message: 'Видалено рекламне посилання',
+         before,
+         meta: {
+            pageName: 'Об’єкти',
+            pagePath: '/crm/objects3',
+            targetEntityType: 'property',
+            advertisingLinkId: linkId,
+            deletedMarketingEvents: deletedEvents?.deletedCount || 0,
+         },
+         sessionUser,
+      });
+
+      return Response.json({ ok: true, deletedEvents: deletedEvents?.deletedCount || 0 });
+   } catch (error) {
+      console.log(error);
+      return new Response('Smth wrong', { status: 500 });
+   }
+};

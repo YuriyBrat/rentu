@@ -457,14 +457,15 @@ export default function RentPage() {
             {!loading && !error && (
                <Stack spacing={1.2}>
                   {filtered.map((item) => (
-                     <RentRowCard
-                        key={item._id}
-                        item={item}
-                        employees={employees}
-                        onEdit={(row) => setEditingItem(row)}
-                        onRentStatusChange={handleRentStatusChange}
-                        onRentHistoryAdd={handleRentHistoryAdd}
-                     />
+                      <RentRowCard
+                         key={item._id}
+                         item={item}
+                         employees={employees}
+                         onRefresh={loadItems}
+                         onEdit={(row) => setEditingItem(row)}
+                         onRentStatusChange={handleRentStatusChange}
+                         onRentHistoryAdd={handleRentHistoryAdd}
+                      />
                   ))}
                </Stack>
             )}

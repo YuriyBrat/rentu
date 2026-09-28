@@ -26,7 +26,6 @@ import DynamicListField from './DynamicListField';
 import { BUSINESS_SCORE_OPTIONS } from '../utils/crm/BusinessScore';
 import {
    SAFE_IMAGE_FILE_BYTES,
-   SAFE_IMAGE_PAYLOAD_BYTES,
    formatImageBytes,
    isHeicFile,
    prepareImageUploadFiles,
@@ -764,14 +763,13 @@ export default function PropertyForm({
       }
 
       const filesToProcess = picked.slice(0, availableSlots);
-      const existingUploadBytes = existing.reduce((sum, img) => sum + (img?.file?.size || 0), 0);
 
       setImgProcessing(true);
       setImgProcessingText(`Підготовка фото: 0 / ${filesToProcess.length}`);
 
       try {
          const prepared = await prepareImageUploadFiles(filesToProcess, {
-            initialPayloadBytes: existingUploadBytes,
+            maxPayloadBytes: Number.POSITIVE_INFINITY,
             onProgress: (index, file) => {
                setImgProcessingText(
                   `${isHeicFile(file) ? 'Конвертація HEIC' : 'Стискання фото'}: ${index + 1} / ${filesToProcess.length}`
@@ -796,12 +794,6 @@ export default function PropertyForm({
          }
 
          setImgMeta(prepared.meta);
-
-         if (prepared.skipped.length) {
-            setImgWarn(
-               `Частина фото не влізла, бо перевищує ліміт завантаження ${formatBytes(SAFE_IMAGE_PAYLOAD_BYTES)}. Файли не додано: ${prepared.skipped.join(', ')}`
-            );
-         }
 
          if (prepared.failed.length) {
             setImgWarn((prev) =>
@@ -931,16 +923,8 @@ export default function PropertyForm({
          console.log('CREATE PROPERTY payload:', payload);
 
          const stillTooBig = (fields.images || []).some((img) => img?.file?.size > MAX_BYTES);
-         const uploadBytes = (fields.images || []).reduce((sum, img) => sum + (img?.file?.size || 0), 0);
-
          if (stillTooBig) {
             alert(`Є фото більше ${formatBytes(MAX_BYTES)}. Стисни або вибери менше.`);
-            setLoading(false);
-            return;
-         }
-
-         if (uploadBytes > SAFE_IMAGE_PAYLOAD_BYTES) {
-            alert(`Загальний пакет фото завеликий (${formatBytes(uploadBytes)}). Видали частину фото або додайте фотоменше.`);
             setLoading(false);
             return;
          }

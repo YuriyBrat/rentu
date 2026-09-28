@@ -75,7 +75,7 @@ import ObjectWorkHistoryPanel from './ObjectWorkHistoryPanel';
 
 import ImageLightbox from '@/crm_components/ImageLightbox';
 import {
-   formatImageBytes,
+   buildImageUploadBatches,
    prepareImageUploadFiles,
    SAFE_IMAGE_PAYLOAD_BYTES,
 } from '@/utils/crm/clientImageTools';
@@ -1056,7 +1056,6 @@ function formatDateTime(value) {
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      second: '2-digit',
    });
 }
 
@@ -1708,6 +1707,8 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
    const [selectedShareLink, setSelectedShareLink] = useState(null);
    const [shareActionLoading, setShareActionLoading] = useState(false);
+   const [advertisingLinkDeleteTarget, setAdvertisingLinkDeleteTarget] = useState(null);
+   const [advertisingLinkDeleting, setAdvertisingLinkDeleting] = useState(false);
 
 
    const galleryImages = (item?.images || [])
@@ -1886,30 +1887,35 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
 
       setPhotoUploading(true);
       try {
-         const prepared = await prepareImageUploadFiles(files);
+         const prepared = await prepareImageUploadFiles(files, {
+            maxPayloadBytes: Number.POSITIVE_INFINITY,
+         });
          if (!prepared.accepted.length) {
-            const reason = prepared.failed[0] || prepared.skipped[0] || 'фото не вдалося підготувати';
+            const reason = prepared.failed[0] || 'фото не вдалося підготувати';
             throw new Error(reason);
          }
 
-         const formData = new FormData();
-         prepared.accepted.forEach((file) => formData.append('images', file));
-         formData.append('stage', photoUploadStage);
-
-         const res = await fetch(`/api/crm/properties/${item._id}/images`, {
-            method: 'POST',
-            body: formData,
+         const batches = buildImageUploadBatches(prepared.accepted, {
+            maxPayloadBytes: SAFE_IMAGE_PAYLOAD_BYTES,
          });
 
-         if (!res.ok) {
-            const body = await res.json().catch(async () => ({ error: await res.text() }));
-            throw new Error(body.error || 'Не вдалося додати фото');
+         for (const batch of batches) {
+            const formData = new FormData();
+            batch.forEach((file) => formData.append('images', file));
+            formData.append('stage', photoUploadStage);
+
+            const res = await fetch(`/api/crm/properties/${item._id}/images`, {
+               method: 'POST',
+               body: formData,
+            });
+
+            if (!res.ok) {
+               const body = await res.json().catch(async () => ({ error: await res.text() }));
+               throw new Error(body.error || 'Не вдалося додати фото');
+            }
          }
 
          await onRefresh?.();
-         if (prepared.skipped.length) {
-            alert(`Частина фото не додана, бо безпечний ліміт одного завантаження ${formatImageBytes(SAFE_IMAGE_PAYLOAD_BYTES)}. Додай їх наступною партією: ${prepared.skipped.join(', ')}`);
-         }
          if (prepared.failed.length) {
             alert(`Не вдалося обробити частину фото: ${prepared.failed.join(', ')}`);
          }
@@ -1985,6 +1991,37 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
       setAdCreatedAt(getNowLocal());
 
       await onRefresh?.();
+   };
+
+   const handleDeleteAdvertisingLink = async (link) => {
+      if (!item?._id || !link?._id) return;
+      setAdvertisingLinkDeleteTarget(link);
+   };
+
+   const confirmDeleteAdvertisingLink = async () => {
+      if (!item?._id || !advertisingLinkDeleteTarget?._id) return;
+      setAdvertisingLinkDeleting(true);
+
+      try {
+         const res = await fetch(`/api/crm/properties/${item._id}/advertising-links`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ linkId: advertisingLinkDeleteTarget._id }),
+         });
+
+         if (!res.ok) {
+            alert('Не вдалося видалити посилання');
+            return;
+         }
+
+         await onRefresh?.();
+         setAdvertisingLinkDeleteTarget(null);
+      } catch (error) {
+         console.error('Advertising link delete failed', error);
+         alert('Не вдалося видалити посилання');
+      } finally {
+         setAdvertisingLinkDeleting(false);
+      }
    };
 
    const closeAdvertisingLinkDialog = () => {
@@ -2926,9 +2963,10 @@ ${url}`;
                }}
                 onAddText={openCreateAdText}
                 onEditText={openEditAdText}
-                onDeleteText={openDeleteAdTextDialog}
-                onEditLink={openEditAdvertisingLink}
-                 onEditSettings={openAdvertisingSettingsDialog}
+                 onDeleteText={openDeleteAdTextDialog}
+                 onEditLink={openEditAdvertisingLink}
+                 onDeleteLink={handleDeleteAdvertisingLink}
+                  onEditSettings={openAdvertisingSettingsDialog}
                  employees={employees}
                  canManage={canManage}
               />
@@ -3173,12 +3211,14 @@ ${url}`;
                    </TextField>
 
                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.1}>
-                      <TextField select label="Статус" value={advertisingSettingsForm.status} onChange={(e) => setAdvertisingSettingsForm((prev) => ({ ...prev, status: e.target.value }))} sx={{ ...fieldSx, flex: 1 }}>
-                         <MenuItem value="active">Активно</MenuItem>
-                         <MenuItem value="paused">Пауза</MenuItem>
-                         <MenuItem value="done">Готово</MenuItem>
-                         <MenuItem value="none">Без реклами</MenuItem>
-                      </TextField>
+                      <TextField select label="Статус реклами" value={advertisingSettingsForm.status} onChange={(e) => setAdvertisingSettingsForm((prev) => ({ ...prev, status: e.target.value }))} sx={{ ...fieldSx, flex: 1 }}>
+                          <MenuItem value="active">Активно</MenuItem>
+                          <MenuItem value="paused">Пауза</MenuItem>
+                          <MenuItem value="lead_pull">Дотягуємо ліди</MenuItem>
+                          <MenuItem value="done">Готово</MenuItem>
+                          <MenuItem value="archive">Архів реклами</MenuItem>
+                          <MenuItem value="none">Без реклами</MenuItem>
+                       </TextField>
                       <TextField select label="Пріоритет" value={advertisingSettingsForm.priority} onChange={(e) => setAdvertisingSettingsForm((prev) => ({ ...prev, priority: e.target.value }))} sx={{ ...fieldSx, flex: 1 }}>
                          {AD_PRIORITY_OPTIONS.map(([value, label]) => (
                             <MenuItem key={value} value={value}>{label}</MenuItem>
@@ -4351,6 +4391,84 @@ ${url}`;
                <Button
                   disabled={shareActionLoading}
                   onClick={handleDeleteShare}
+                  startIcon={<DeleteRoundedIcon />}
+                  sx={{
+                     borderRadius: 999,
+                     px: 2.4,
+                     fontWeight: 950,
+                     color: '#fff',
+                     bgcolor: '#ef4444',
+                     '&:hover': {
+                        bgcolor: '#dc2626',
+                     },
+                  }}
+               >
+                  Видалити
+               </Button>
+            </DialogActions>
+          </Dialog>
+
+
+         <Dialog
+            open={!!advertisingLinkDeleteTarget}
+            onClose={() => {
+               if (!advertisingLinkDeleting) setAdvertisingLinkDeleteTarget(null);
+            }}
+            fullWidth
+            maxWidth="xs"
+            PaperProps={{
+               sx: {
+                  borderRadius: 4,
+                  bgcolor: theme.bgPanel,
+                  color: theme.text,
+                  border: '1px solid rgba(248,113,113,0.28)',
+               },
+            }}
+         >
+            <DialogTitle sx={{ fontWeight: 950, display: 'flex', alignItems: 'center', gap: 1 }}>
+               <WarningAmberRoundedIcon sx={{ color: '#f87171' }} />
+               Видалити рекламне посилання?
+            </DialogTitle>
+
+            <DialogContent>
+               <Typography sx={{ color: theme.textSoft, fontSize: 14, lineHeight: 1.7 }}>
+                  Посилання зникне з картки об’єкта. Пов’язані рекламні дії по ньому теж будуть видалені.
+               </Typography>
+
+               {!!advertisingLinkDeleteTarget && (
+                  <Box
+                     sx={{
+                        mt: 2,
+                        p: 1.4,
+                        borderRadius: 3,
+                        bgcolor: 'rgba(248,113,113,0.08)',
+                        border: '1px solid rgba(248,113,113,0.18)',
+                     }}
+                  >
+                     <Typography sx={{ fontWeight: 950 }}>
+                        {advertisingLinkDeleteTarget.title || advertisingLinkDeleteTarget.workTitle || advertisingLinkDeleteTarget.url || 'Рекламне посилання'}
+                     </Typography>
+                     {!!advertisingLinkDeleteTarget.note && (
+                        <Typography sx={{ color: theme.textSoft, fontSize: 12, mt: 0.4 }}>
+                           {advertisingLinkDeleteTarget.note}
+                        </Typography>
+                     )}
+                  </Box>
+               )}
+            </DialogContent>
+
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+               <Button
+                  disabled={advertisingLinkDeleting}
+                  onClick={() => setAdvertisingLinkDeleteTarget(null)}
+                  sx={{ color: theme.textSoft }}
+               >
+                  Скасувати
+               </Button>
+
+               <Button
+                  disabled={advertisingLinkDeleting}
+                  onClick={confirmDeleteAdvertisingLink}
                   startIcon={<DeleteRoundedIcon />}
                   sx={{
                      borderRadius: 999,

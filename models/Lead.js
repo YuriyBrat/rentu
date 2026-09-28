@@ -104,11 +104,33 @@ const LeadSchema = new Schema(
       },
 
       requestSummary: { type: String, trim: true, default: '' },
+      leadKind: {
+         type: String,
+         enum: ['sale', 'rent'],
+         default: 'sale',
+         index: true,
+      },
       budgetMax: { type: Number, default: undefined },
+      budgetCurrency: {
+         type: String,
+         enum: ['USD', 'EUR', 'UAH'],
+         default: 'USD',
+      },
 
       sourceChannel: { type: String, trim: true, default: '' }, // соцмережі, сайти, рекомендація
       sourceObject: { type: String, trim: true, default: '' }, // об’єкт, що примагнітив
       sourceNote: { type: String, trim: true, default: '' },
+      attractedProperty: { type: Schema.Types.ObjectId, ref: 'Property', required: false, index: true },
+      advertisingLinkId: { type: Schema.Types.ObjectId, required: false, index: true },
+      advertisingPlatform: { type: String, trim: true, default: '' },
+      advertisingLinkTitle: { type: String, trim: true, default: '' },
+      advertisingLinkUrl: { type: String, trim: true, default: '' },
+      createdFrom: {
+         type: String,
+         enum: ['manual', 'advertising', 'import', 'system'],
+         default: 'manual',
+         index: true,
+      },
 
       actualityStatus: {
          type: String,

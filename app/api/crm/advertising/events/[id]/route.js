@@ -24,6 +24,8 @@ const PLATFORM_TITLES = {
    tiktok: "TikTok",
    telegram: "Telegram",
    site: "Сайт",
+   youtube: "YouTube",
+   drive: "Drive",
    other: "Інше",
 };
 function cleanString(value) {
@@ -85,6 +87,24 @@ function isCreateAction(actionType) {
    return String(actionType || "").startsWith("created");
 }
 
+function isLinkSourceAction(actionType) {
+   return ["competitor_link", "owner_link"].includes(actionType);
+}
+
+function isStandaloneWorkAction(actionType) {
+   return ["photo_processing", "video_processing"].includes(actionType);
+}
+
+function requiresExistingLink(actionType) {
+   return !isCreateAction(actionType) && !isLinkSourceAction(actionType) && !isStandaloneWorkAction(actionType);
+}
+
+function sourceTypeForAction(actionType, fallback = "ours") {
+   if (actionType === "competitor_link") return "competitor";
+   if (actionType === "owner_link") return "owner";
+   return normalizeSourceType(fallback);
+}
+
 
 function marketingActionLabel(actionType) {
    const labels = {
@@ -93,8 +113,12 @@ function marketingActionLabel(actionType) {
       created_without_changes: "створено без змін",
       updated_improved: "оновлено з покращенням",
       updated_without_changes: "оновлено без змін",
-      edited_photo: "редаговано фото",
+      edited_photo: "оновлено фото",
+      photo_processing: "обробка фото",
+      video_processing: "обробка відео",
       price_changed: "змінено ціну",
+      competitor_link: "ссилка конкурента",
+      owner_link: "ссилка власника",
       scanner: "сканер",
       financial_promotion: "фінансове просування",
       deactivated: "деактивовано",
@@ -117,11 +141,14 @@ function serializeEvent(event) {
       advertisingLinkId: source.advertisingLinkId?.toString?.() || source.advertisingLinkId || null,
       actionLabel: marketingActionLabel(source.actionType),
       advertisingLinkLabel: linkLabel,
+      linkCreatedAt: link?.createdAt || null,
    };
 }
 
 function normalizeEventBody(body = {}, fallback = {}) {
    const actionType = normalizeAction(body.actionType, fallback.actionType || "scanner");
+   const occurredAt = parseDate(body.occurredAt, fallback.occurredAt || new Date());
+   const linkCreatedAt = parseDate(body.linkCreatedAt, fallback.linkCreatedAt || occurredAt);
    const metrics = body.metrics || {};
 
    return {
@@ -129,11 +156,12 @@ function normalizeEventBody(body = {}, fallback = {}) {
       advertisingLinkId: objectIdOrNull(body.advertisingLinkId),
       actionType,
       platform: normalizePlatform(body.platform, fallback.platform || "other"),
-      occurredAt: parseDate(body.occurredAt, fallback.occurredAt || new Date()),
+      occurredAt,
       responsibleEmployee: objectIdOrNull(body.responsibleEmployee) || objectIdOrNull(fallback.responsibleEmployee),
-      sourceType: normalizeSourceType(body.sourceType, fallback.sourceType || "ours"),
+      sourceType: sourceTypeForAction(actionType, body.sourceType || fallback.sourceType || "ours"),
       linkTitle: cleanString(body.linkTitle || body.title),
       linkUrl: cleanString(body.linkUrl || body.url),
+      linkCreatedAt,
       note: cleanString(body.note),
       costUah: parseNumber(body.costUah),
       metrics: {
@@ -152,7 +180,7 @@ function normalizeEventBody(body = {}, fallback = {}) {
 async function syncPropertyLink(property, data) {
    let link = data.advertisingLinkId ? property.advertisingLinks.id(data.advertisingLinkId) : null;
 
-   if (!link && (data.linkUrl || isCreateAction(data.actionType))) {
+   if (!link && (isCreateAction(data.actionType) || isLinkSourceAction(data.actionType))) {
       const platform = normalizePlatform(data.platform);
       const workTitle = data.linkTitle || nextAdvertisingWorkTitle(property, platform);
       property.advertisingLinks.unshift({
@@ -163,7 +191,7 @@ async function syncPropertyLink(property, data) {
          url: data.linkUrl,
          status: data.actionType === "deactivated" ? "archived" : "active",
          note: data.note,
-         createdAt: data.occurredAt,
+         createdAt: data.linkCreatedAt || data.occurredAt,
          closedAt: data.actionType === "deactivated" ? data.occurredAt : null,
          closedNote: data.actionType === "deactivated" ? data.note : "",
          lastCheckedAt: data.actionType === "scanner" ? data.occurredAt : null,
@@ -180,6 +208,13 @@ async function syncPropertyLink(property, data) {
       data.linkUrl = data.linkUrl || link.url || "";
 
       if (data.actionType === "scanner") link.lastCheckedAt = data.occurredAt;
+      if (isCreateAction(data.actionType) || isLinkSourceAction(data.actionType)) {
+         link.title = data.linkTitle || "";
+         link.workTitle = data.linkTitle || link.workTitle || nextAdvertisingWorkTitle(property, normalizePlatform(data.platform));
+         link.url = data.linkUrl || "";
+         link.note = data.note || "";
+         link.createdAt = data.linkCreatedAt || data.occurredAt || link.createdAt;
+      }
       if (data.actionType === "deactivated") {
          link.status = "archived";
          link.closedAt = data.occurredAt;
@@ -234,10 +269,10 @@ export const PATCH = async (req, { params }) => {
          }
       }
 
-      if (!isCreateAction(data.actionType) && !data.advertisingLinkId) {
+      if (requiresExistingLink(data.actionType) && !data.advertisingLinkId) {
          return Response.json({ error: "Оберіть конкретну рекламу для цієї дії" }, { status: 400 });
       }
-      if (!isCreateAction(data.actionType) && !targetProperty.advertisingLinks.id(data.advertisingLinkId)) {
+      if (requiresExistingLink(data.actionType) && !targetProperty.advertisingLinks.id(data.advertisingLinkId)) {
          return Response.json({ error: "Рекламу не знайдено в цьому об’єкті" }, { status: 400 });
       }
 
@@ -280,6 +315,19 @@ export const DELETE = async (req, { params }) => {
 
       const { event, property, response } = await getEditableEvent(params.id, sessionUser);
       if (response) return response;
+
+      if (event.advertisingLinkId && (isCreateAction(event.actionType) || isLinkSourceAction(event.actionType))) {
+         const relatedEventsCount = await MarketingEvent.countDocuments({
+            _id: { $ne: event._id },
+            property: event.property,
+            advertisingLinkId: event.advertisingLinkId,
+         });
+
+         if (!relatedEventsCount) {
+            property.advertisingLinks.pull({ _id: event.advertisingLinkId });
+            await property.save();
+         }
+      }
 
       await MarketingEvent.deleteOne({ _id: event._id });
 

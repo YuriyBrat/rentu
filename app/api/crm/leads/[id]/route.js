@@ -21,6 +21,7 @@ async function populateLead(id) {
    return Lead.findById(id)
       .populate('assignee', 'name role color avatarUrl')
       .populate('createdByEmployee', 'name role')
+      .populate('attractedProperty', 'title rentOptions.rentTitle location_text type_deal cost currency')
       .lean();
 }
 
@@ -57,16 +58,23 @@ export const PATCH = async (request, { params }) => {
          lead.stage = VALID_STAGES.includes(body?.stage) ? body.stage : lead.stage;
          lead.status = body?.status === 'client' ? 'client' : 'lead';
          lead.requestSummary = String(body?.requestSummary || '').trim();
+         lead.leadKind = body?.leadKind === 'rent' ? 'rent' : 'sale';
          lead.budgetMax = parseNumber(body?.budgetMax);
+         lead.budgetCurrency = ['USD', 'EUR', 'UAH'].includes(body?.budgetCurrency) ? body.budgetCurrency : 'USD';
          lead.sourceChannel = String(body?.sourceChannel || '').trim();
          lead.sourceObject = String(body?.sourceObject || '').trim();
          lead.sourceNote = String(body?.sourceNote || '').trim();
+         lead.attractedProperty = body?.attractedProperty || undefined;
+         lead.advertisingLinkId = body?.advertisingLinkId || undefined;
+         lead.advertisingPlatform = String(body?.advertisingPlatform || '').trim();
+         lead.advertisingLinkTitle = String(body?.advertisingLinkTitle || '').trim();
+         lead.advertisingLinkUrl = String(body?.advertisingLinkUrl || '').trim();
          if (body?.actualityStatus) lead.actualityStatus = body.actualityStatus;
          lead.lastActualizedAt = parseDate(body?.lastActualizedAt) || lead.lastActualizedAt;
          lead.lastContactAt = parseDate(body?.lastContactAt) || undefined;
          lead.leadAppearedAt = parseDate(body?.leadAppearedAt) || lead.leadAppearedAt;
          lead.assignee = body?.assignee || undefined;
-         lead.createdByEmployee = body?.createdByEmployee || undefined;
+          if (body?.createdByEmployee !== undefined) lead.createdByEmployee = body.createdByEmployee || undefined;
 
          await lead.save();
 

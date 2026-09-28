@@ -302,6 +302,7 @@ export const GET = async (req) => {
       const q = (sp.get('q') || '').trim();
 
       const assignee = sp.get('assignee');
+      const crmGeneratorOwner = sp.get('crmGeneratorOwner');
       const actualityGroup = sp.get('actualityGroup');
       const crmStage = sp.get('crmStage');
       const type_estate = sp.get('type_estate');
@@ -316,6 +317,21 @@ export const GET = async (req) => {
             .filter((id) => Types.ObjectId.isValid(id));
          if (assigneeIds.length) {
             filter.assignee = assigneeIds.length > 1 ? { $in: assigneeIds } : assigneeIds[0];
+         }
+      }
+
+      if (crmGeneratorOwner && Types.ObjectId.isValid(crmGeneratorOwner)) {
+         const ownerFilter = {
+            $or: [
+               { assignee: crmGeneratorOwner },
+               { createdByEmployee: crmGeneratorOwner },
+            ],
+         };
+
+         if (Array.isArray(filter.$and)) {
+            filter.$and.push(ownerFilter);
+         } else {
+            filter.$and = [ownerFilter];
          }
       }
 
@@ -513,6 +529,7 @@ export const GET = async (req) => {
          .populate('rentOptions.rentStory.rentedByEmployee', 'name fullName surname phone email avatar')
          .populate('rentOptions.rentHistory.rentedByEmployee', 'name fullName surname phone email avatar')
          .populate('strategyApprovedBy', 'name fullName surname phone email avatar')
+         .populate('advertisingSettings.assignedEmployee', 'name fullName surname phone email avatar role')
          .populate('shareLinks.createdByEmployee', 'name fullName surname')
          .sort({ updatedAt: -1 })
          .skip(skip)

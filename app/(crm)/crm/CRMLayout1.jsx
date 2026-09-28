@@ -52,6 +52,8 @@ import BedRoundedIcon from '@mui/icons-material/BedRounded';
 import TimelineRoundedIcon from '@mui/icons-material/TimelineRounded';
 import AutoGraphRoundedIcon from '@mui/icons-material/AutoGraphRounded';
 import CampaignRoundedIcon from '@mui/icons-material/CampaignRounded';
+import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
+import ArticleRoundedIcon from '@mui/icons-material/ArticleRounded';
 
 // для наводок варіанти
 import TipsAndUpdatesIcon from '@mui/icons-material/TipsAndUpdates';
@@ -119,6 +121,7 @@ export default function CRMLayout({ children }) {
 
    const [open, setOpen] = useState(false);
    const [anchorEl, setAnchorEl] = useState(null);
+   const [generationAnchorEl, setGenerationAnchorEl] = useState(null);
    const [profileGalleryOpen, setProfileGalleryOpen] = useState(false);
    const [profileGalleryIndex, setProfileGalleryIndex] = useState(0);
 
@@ -136,8 +139,14 @@ export default function CRMLayout({ children }) {
    const activeProfilePhoto = userGalleryPhotos[profileGalleryIndex] || userGalleryPhotos[0] || null;
 
    const openMenu = Boolean(anchorEl);
+   const openGenerationMenu = Boolean(generationAnchorEl);
    const handleMenuOpen = (e) => setAnchorEl(e.currentTarget);
-   const handleMenuClose = () => setAnchorEl(null);
+   const handleMenuClose = () => {
+      setAnchorEl(null);
+      setGenerationAnchorEl(null);
+   };
+   const handleGenerationMenuOpen = (e) => setGenerationAnchorEl(e.currentTarget);
+   const handleGenerationMenuClose = () => setGenerationAnchorEl(null);
 
    const handleLogout = async () => {
       handleMenuClose();
@@ -450,6 +459,7 @@ export default function CRMLayout({ children }) {
                      anchorEl={anchorEl}
                      open={openMenu}
                      onClose={handleMenuClose}
+                     disableScrollLock
                      PaperProps={{
                         sx: {
                            bgcolor: BG_PANEL,
@@ -528,6 +538,47 @@ export default function CRMLayout({ children }) {
                         </MenuItem>
                      )}
 
+                     <MenuItem
+                        onMouseEnter={handleGenerationMenuOpen}
+                        onClick={handleGenerationMenuOpen}
+                        sx={{ justifyContent: 'space-between', gap: 2 }}
+                     >
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                           <DescriptionRoundedIcon sx={{ mr: 1, color: ACCENT }} /> Генерації
+                        </Box>
+                        <ArrowForwardIosRoundedIcon sx={{ fontSize: 14, color: 'rgba(255,255,255,0.55)' }} />
+                     </MenuItem>
+
+                      <Menu
+                         anchorEl={generationAnchorEl}
+                         open={openGenerationMenu}
+                         onClose={handleGenerationMenuClose}
+                         disableScrollLock
+                         anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                        transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                        MenuListProps={{
+                           onMouseLeave: handleGenerationMenuClose,
+                        }}
+                        PaperProps={{
+                           sx: {
+                              bgcolor: BG_PANEL,
+                              color: TEXT,
+                              border: `1px solid ${BORDER}`,
+                              ml: 0.75,
+                              borderRadius: 3,
+                              boxShadow: '0 20px 45px rgba(0,0,0,0.55)',
+                              minWidth: 220,
+                           },
+                        }}
+                     >
+                        <MenuItem component={Link} href="/crm/gen" onClick={handleMenuClose}>
+                           <ArticleRoundedIcon sx={{ mr: 1, color: ACCENT }} /> Договори продажу
+                        </MenuItem>
+                        <MenuItem component={Link} href="/crm/gen-rent" onClick={handleMenuClose}>
+                           <BedRoundedIcon sx={{ mr: 1, color: ACCENT }} /> Договори оренди
+                        </MenuItem>
+                     </Menu>
+
                      <MenuItem component={Link} href="/crm/roles" onClick={handleMenuClose}>
                         <ManageAccountsRoundedIcon sx={{ mr: 1, color: ACCENT }} /> Логіка ролей
                      </MenuItem>
@@ -561,11 +612,12 @@ export default function CRMLayout({ children }) {
             </Box>
          </Box>
 
-         <Dialog
-            fullScreen
-            open={profileGalleryOpen}
-            onClose={() => setProfileGalleryOpen(false)}
-            PaperProps={{
+          <Dialog
+             fullScreen
+             open={profileGalleryOpen}
+             onClose={() => setProfileGalleryOpen(false)}
+             disableScrollLock
+             PaperProps={{
                sx: {
                   bgcolor: '#05050a',
                   color: '#fff',

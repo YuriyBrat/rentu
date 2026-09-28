@@ -1,6 +1,7 @@
 import connectDB from '@/config/database';
 import Lead from '@/models/Lead';
 import Employee from '@/models/Employee';
+import Property from '@/models/Property';
 import { getSessionUser } from '@/utils/getSessionUser';
 import { Types } from 'mongoose';
 
@@ -8,6 +9,16 @@ const STAGE_ORDER = ['lead', 'hot', 'ps', 'rs', 'ds', 'pzs', 'zs', 'pers'];
 
 function escapeRegex(value) {
    return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function digitsOnly(value) {
+   return String(value || '').replace(/\D/g, '');
+}
+
+function phoneRegexFromDigits(value) {
+   const digits = digitsOnly(value);
+   if (digits.length < 2) return '';
+   return digits.split('').map(escapeRegex).join('\\D*');
 }
 
 function parseDate(value) {
@@ -22,6 +33,21 @@ function parseNumber(value) {
    return Number.isNaN(n) ? undefined : n;
 }
 
+function cleanString(value) {
+   return String(value || '').trim();
+}
+
+function objectIdOrUndefined(value) {
+   const id = cleanString(value);
+   return Types.ObjectId.isValid(id) ? new Types.ObjectId(id) : undefined;
+}
+
+function propertyLabel(property) {
+   const isRent = property?.type_deal === 'оренда' || (Boolean(property?.statusRent) && property.statusRent !== 'rentNo');
+   if (isRent && property?.rentOptions?.rentTitle) return property.rentOptions.rentTitle;
+   return property?.title || property?.rentOptions?.rentTitle || property?.location_text || '';
+}
+
 export const GET = async (req) => {
    try {
       await connectDB();
@@ -34,6 +60,13 @@ export const GET = async (req) => {
       const actuality = (sp.get('actuality') || '').trim();
       const searchFields = (sp.get('searchFields') || '').trim();
       const status = (sp.get('status') || '').trim();
+      const leadKind = (sp.get('leadKind') || '').trim();
+      const assignee = objectIdOrUndefined(sp.get('assignee'));
+      const crmGeneratorOwner = objectIdOrUndefined(sp.get('crmGeneratorOwner'));
+      const createdFrom = (sp.get('createdFrom') || '').trim();
+      const createdByEmployee = objectIdOrUndefined(sp.get('createdByEmployee'));
+      const attractedProperty = objectIdOrUndefined(sp.get('attractedProperty') || sp.get('property'));
+      const advertisingLinkId = objectIdOrUndefined(sp.get('advertisingLinkId'));
 
       const page = Math.max(parseInt(sp.get('page') || '1', 10), 1);
       const pageSize = Math.min(Math.max(parseInt(sp.get('pageSize') || '20', 10), 1), 100);
@@ -51,17 +84,60 @@ export const GET = async (req) => {
          filter.status = status;
       }
 
+      if (leadKind && leadKind !== 'all') {
+         filter.leadKind = leadKind;
+      }
+
+      if (assignee) {
+         filter.assignee = assignee;
+      }
+
+      if (crmGeneratorOwner) {
+         filter.$and = [
+            ...(Array.isArray(filter.$and) ? filter.$and : []),
+            {
+               $or: [
+                  { assignee: crmGeneratorOwner },
+                  { createdByEmployee: crmGeneratorOwner },
+               ],
+            },
+         ];
+      }
+
+      if (createdFrom && createdFrom !== 'all') {
+         filter.createdFrom = createdFrom;
+      }
+
+      if (createdByEmployee) {
+         filter.createdByEmployee = createdByEmployee;
+      }
+
+      if (attractedProperty) {
+         filter.attractedProperty = attractedProperty;
+      }
+
+      if (advertisingLinkId) {
+         filter.advertisingLinkId = advertisingLinkId;
+      }
+
       if (actuality === 'active') {
          filter.actualityStatus = { $regex: '^Актуальний\\.', $options: 'i' };
       }
 
       if (q) {
          const safeQ = escapeRegex(q);
+         const phoneRegex = phoneRegexFromDigits(q);
          const identitySearch = [
             { name: { $regex: safeQ, $options: 'i' } },
             { phones: { $elemMatch: { $regex: safeQ, $options: 'i' } } },
+            { 'phones.number': { $regex: safeQ, $options: 'i' } },
             { emails: { $elemMatch: { $regex: safeQ, $options: 'i' } } },
          ];
+
+         if (phoneRegex) {
+            identitySearch.push({ phones: { $elemMatch: { $regex: phoneRegex, $options: 'i' } } });
+            identitySearch.push({ 'phones.number': { $regex: phoneRegex, $options: 'i' } });
+         }
 
          if (Types.ObjectId.isValid(q)) {
             identitySearch.push({ _id: q });
@@ -85,6 +161,7 @@ export const GET = async (req) => {
       const items = await Lead.find(filter)
          .populate('assignee', 'name role')
          .populate('createdByEmployee', 'name role')
+         .populate('attractedProperty', 'title rentOptions.rentTitle location_text type_deal cost currency')
          // .sort({ updatedAt: -1 })
          .sort({ lastActualizedAt: -1, createdAt: -1 })
          .skip(skip)
@@ -104,6 +181,7 @@ export const POST = async (request) => {
 
       const sessionUser = await getSessionUser().catch(() => null);
       const body = await request.json();
+      const actorEmployeeId = objectIdOrUndefined(body?.createdByEmployee || sessionUser?.employeeId);
 
       const phones = Array.isArray(body?.phones)
          ? body.phones.map((x) => String(x || '').trim()).filter(Boolean)
@@ -114,9 +192,23 @@ export const POST = async (request) => {
          : [];
 
       let createdByEmployeeName = '';
-      if (body?.createdByEmployee) {
-         const emp = await Employee.findById(body.createdByEmployee).select('name').lean();
+      if (actorEmployeeId) {
+         const emp = await Employee.findById(actorEmployeeId).select('name').lean();
          createdByEmployeeName = emp?.name || '';
+      }
+
+      const attractedPropertyId = objectIdOrUndefined(body?.attractedProperty || body?.property);
+      const requestedAdvertisingLinkId = objectIdOrUndefined(body?.advertisingLinkId);
+      let attractedProperty = null;
+      let advertisingLink = null;
+
+      if (attractedPropertyId) {
+         attractedProperty = await Property.findById(attractedPropertyId)
+            .select('title rentOptions.rentTitle location_text type_deal cost currency advertisingLinks assignee')
+            .lean();
+         if (requestedAdvertisingLinkId) {
+            advertisingLink = (attractedProperty?.advertisingLinks || []).find((link) => String(link?._id || '') === String(requestedAdvertisingLinkId));
+         }
       }
 
       const notes = Array.isArray(body?.notes)
@@ -126,7 +218,7 @@ export const POST = async (request) => {
                type: ['positive', 'negative', 'info', 'important'].includes(note?.type)
                   ? note.type
                   : 'info',
-               createdByEmployee: body?.createdByEmployee || undefined,
+               createdByEmployee: actorEmployeeId || undefined,
                createdByName: createdByEmployeeName,
                createdAt: parseDate(note?.createdAt) || new Date(),
             }))
@@ -159,18 +251,26 @@ export const POST = async (request) => {
          stage: body?.stage || 'lead',
 
          requestSummary: String(body?.requestSummary || '').trim(),
+         leadKind: body?.leadKind === 'rent' ? 'rent' : 'sale',
          budgetMax: parseNumber(body?.budgetMax),
+         budgetCurrency: ['USD', 'EUR', 'UAH'].includes(body?.budgetCurrency) ? body.budgetCurrency : 'USD',
 
-         sourceChannel: String(body?.sourceChannel || '').trim(),
-         sourceObject: String(body?.sourceObject || '').trim(),
-         sourceNote: String(body?.sourceNote || '').trim(),
+          sourceChannel: cleanString(body?.sourceChannel || advertisingLink?.platform || body?.advertisingPlatform),
+          sourceObject: cleanString(body?.sourceObject || propertyLabel(attractedProperty)),
+          sourceNote: String(body?.sourceNote || '').trim(),
+          attractedProperty: attractedProperty?._id || undefined,
+          advertisingLinkId: advertisingLink?._id || requestedAdvertisingLinkId || undefined,
+          advertisingPlatform: cleanString(body?.advertisingPlatform || advertisingLink?.platform),
+          advertisingLinkTitle: cleanString(body?.advertisingLinkTitle || advertisingLink?.title),
+          advertisingLinkUrl: cleanString(body?.advertisingLinkUrl || advertisingLink?.url),
+          createdFrom: ['manual', 'advertising', 'import', 'system'].includes(body?.createdFrom) ? body.createdFrom : 'manual',
 
          actualityStatus: body?.actualityStatus || 'Актуальний. Продзвін',
          // lastActualizedAt: parseDate(body?.lastActualizedAt),
          lastContactAt: parseDate(body?.lastContactAt),
 
-         assignee: body?.assignee || undefined,
-         createdByEmployee: body?.createdByEmployee || undefined,
+          assignee: body?.assignee || attractedProperty?.assignee || undefined,
+          createdByEmployee: actorEmployeeId || undefined,
          // createdByName:
          //    String(body?.createdByName || sessionUser?.name || '').trim(),
 
@@ -192,6 +292,7 @@ export const POST = async (request) => {
       const item = await Lead.findById(created._id)
          .populate('assignee', 'name role')
          .populate('createdByEmployee', 'name role')
+         .populate('attractedProperty', 'title rentOptions.rentTitle location_text type_deal cost currency')
          .lean();
 
       return Response.json(

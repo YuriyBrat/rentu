@@ -7,7 +7,11 @@ export const MARKETING_EVENT_ACTIONS = [
    "updated_improved",
    "updated_without_changes",
    "edited_photo",
+   "photo_processing",
+   "video_processing",
    "price_changed",
+   "competitor_link",
+   "owner_link",
    "scanner",
    "financial_promotion",
    "deactivated",
@@ -25,6 +29,8 @@ export const MARKETING_EVENT_PLATFORMS = [
    "tiktok",
    "telegram",
    "site",
+   "youtube",
+   "drive",
    "other",
 ];
 
