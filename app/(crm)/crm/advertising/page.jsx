@@ -151,6 +151,7 @@ const LEAD_STAGE_OPTIONS = [
 const LEAD_ACTUALITY_OPTIONS = [
    'Актуальний. Зустріч! В роботі',
    'Актуальний. Продзвін',
+   'Актуальний. Переписка',
    'Актуальний. Проблемний',
    'Актуальний. Зустріч! Не в роботі',
    'Неактуальний. Купив зі мною',
@@ -966,7 +967,7 @@ export default function AdvertisingCabinetPage() {
          budgetCurrency: propertyIsRent ? (property?.rentOptions?.currency || 'USD') : 'USD',
          sourceChannel: platformLabel,
          sourceObject: property ? propertyLabel(property) : '',
-         assignee: property?.assignee?._id || property?.assignee || '',
+         assignee: '',
          attractedProperty: property?._id || '',
          advertisingLinkId: link?._id || '',
          advertisingPlatform: link?.platform || '',
@@ -1029,7 +1030,7 @@ export default function AdvertisingCabinetPage() {
          budgetCurrency: propertyIsRent ? (property?.rentOptions?.currency || prev.budgetCurrency || 'USD') : 'USD',
          attractedProperty: property?._id || '',
          sourceObject: property ? propertyLabel(property) : '',
-         assignee: property?.assignee?._id || property?.assignee || prev.assignee,
+         assignee: prev.assignee,
          advertisingLinkId: '',
          advertisingPlatform: '',
          advertisingLinkTitle: '',
@@ -1150,71 +1151,163 @@ export default function AdvertisingCabinetPage() {
       link.remove();
       URL.revokeObjectURL(url);
    };
-   const openAdvertisingActionsPdfReport = () => {
+   const openAdvertisingActionsPdfReport = async () => {
+      setError('');
+      try {
       const actionRows = visibleEvents;
       const totals = actionRows.reduce((acc, event) => {
          acc.count += 1;
-         acc.views += Number(event.metrics?.views || 0);
-         acc.calls += Number(event.metrics?.calls || 0);
-         acc.messages += Number(event.metrics?.messages || 0);
-         acc.phoneOpens += Number(event.metrics?.phoneOpens || 0);
-         acc.cost += Number(event.costUah || 0);
          const label = event.actionLabel || actionMap[event.actionType] || event.actionType || 'Дія';
          acc.actions[label] = (acc.actions[label] || 0) + 1;
          return acc;
-      }, { count: 0, views: 0, calls: 0, messages: 0, phoneOpens: 0, cost: 0, actions: {} });
+      }, { count: 0, actions: {} });
       const actionSummary = Object.entries(totals.actions)
-         .map(([label, count]) => `<span class="pill">${escapeHtml(label)}: <b>${count}</b></span>`)
-         .join('');
-      const rows = actionRows.map((event, index) => `
-         <tr>
-            <td>${index + 1}</td>
-            <td>${escapeHtml(formatDateTime(event.occurredAt))}</td>
-            <td>${escapeHtml(event.actionLabel || actionMap[event.actionType] || event.actionType || '')}</td>
-            <td>${escapeHtml(platformMap[event.platform] || event.platform || '')}</td>
-            <td>${escapeHtml(propertyLabel(event.property))}</td>
-            <td>${escapeHtml(employeeName(event.responsibleEmployee))}</td>
-            <td>${Number(event.metrics?.views || 0)}</td>
-            <td>${Number(event.metrics?.phoneOpens || 0)}</td>
-            <td>${Number(event.metrics?.messages || 0)}</td>
-            <td>${Number(event.metrics?.calls || 0)}</td>
-            <td>${event.costUah ? Number(event.costUah).toLocaleString('uk-UA') : ''}</td>
-            <td>${escapeHtml(event.note || event.linkTitle || '')}</td>
-         </tr>
-      `).join('');
-      const html = `<!doctype html><html><head><meta charset="utf-8" /><title>PDF звіт рекламних дій</title><style>
-         @page{size:A4 landscape;margin:12mm}
-         body{font-family:"Times New Roman",serif;color:#111;margin:0}
-         h1{font-size:22pt;margin:0 0 4px}
-         .meta{font-size:11pt;margin-bottom:10px;color:#333}
-         .cards{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin:10px 0}
-         .card{border:1px solid #222;padding:6px;background:#f5f7fb}
-         .card b{display:block;font-size:16pt}
-         .pill{display:inline-block;border:1px solid #777;border-radius:999px;padding:3px 8px;margin:2px;font-size:10pt}
-         table{width:100%;border-collapse:collapse;font-size:9.5pt}
-         th{background:#111827;color:white;font-weight:bold;border:1px solid #111;padding:5px}
-         td{border:1px solid #333;padding:4px;vertical-align:top}
-      </style></head><body>
-         <h1>Karamax CRM · PDF звіт рекламних дій</h1>
-         <div class="meta">Сформовано: ${escapeHtml(formatDateTime(new Date()))}. Дій у звіті: ${totals.count}</div>
-         <div class="cards">
-            <div class="card">Дій<b>${totals.count}</b></div>
-            <div class="card">Перегляди<b>${totals.views}</b></div>
-            <div class="card">Відкриття телефону<b>${totals.phoneOpens}</b></div>
-            <div class="card">Повідомлення<b>${totals.messages}</b></div>
-            <div class="card">Дзвінки<b>${totals.calls}</b></div>
-            <div class="card">Витрати, грн<b>${totals.cost.toLocaleString('uk-UA')}</b></div>
-         </div>
-         <div>${actionSummary}</div>
-         <table><thead><tr><th>№</th><th>Дата</th><th>Дія</th><th>Сайт</th><th>Об’єкт</th><th>Рекламщик</th><th>Перегляди</th><th>Телефон</th><th>Повід.</th><th>Дзвінки</th><th>Витрати</th><th>Примітка</th></tr></thead><tbody>${rows}</tbody></table>
-         <script>window.onload=()=>setTimeout(()=>window.print(),250)</script>
-      </body></html>`;
-      const reportWindow = window.open('', '_blank');
-      if (!reportWindow) return;
-      reportWindow.document.open();
-      reportWindow.document.write(html);
-      reportWindow.document.close();
+         .filter(([, count]) => count > 0)
+         .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'uk'));
+      const selectedProperty = selectedAdvertisingPropertyId
+         ? advertisingProperties.find((item) => String(item._id) === String(selectedAdvertisingPropertyId))
+         : null;
+      const selectedEmployee = filters.employee === 'all'
+         ? 'Усі рекламщики'
+         : employeeName(employees.find((item) => String(item._id) === String(filters.employee))) || 'Рекламщик';
+      const selectedPlatform = filters.platform === 'all'
+         ? 'Усі сайти'
+         : platformMap[filters.platform] || filters.platform || 'Сайт';
+      const selectedAction = filters.actionType === 'all'
+         ? 'Усі дії'
+         : actionMap[filters.actionType] || filters.actionType || 'Дія';
+      const periodLabel = PERIOD_OPTIONS.find(([value]) => value === filters.period)?.[1] || 'Весь період';
+      const reportPeriodLabel = filters.period === 'all'
+         ? 'Весь період'
+         : filters.period === 'day'
+            ? formatDateOnly(filters.day)
+            : filters.period === 'range'
+               ? `${formatDateOnly(filters.day)} - ${formatDateOnly(filters.dateTo)}`
+               : periodLabel;
+      const activeFilterLines = [`Період: ${reportPeriodLabel}`];
+      if (filters.platform !== 'all') activeFilterLines.push(`Сайт: ${selectedPlatform}`);
+      if (filters.actionType !== 'all') activeFilterLines.push(`Дія: ${selectedAction}`);
+      if (selectedProperty) activeFilterLines.push(`Об’єкт: ${propertyLabel(selectedProperty)}`);
+      if (filters.employee !== 'all') activeFilterLines.push(`Рекламщик: ${selectedEmployee}`);
+      if (filters.q.trim()) activeFilterLines.push(`Пошук: ${filters.q.trim()}`);
+
+      const width = 1240;
+      const height = Math.max(1754, 560 + Math.max(actionSummary.length, 1) * 58);
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = '#182033';
+      ctx.font = 'bold 44px "Times New Roman", serif';
+      ctx.fillText(`Звіт рекламних дій - ${reportPeriodLabel}`, 70, 95);
+      ctx.font = '24px "Times New Roman", serif';
+      ctx.fillStyle = '#374151';
+      ctx.fillText(`Сформовано: ${formatDateTime(new Date())}`, 70, 140);
+      ctx.fillText(`Дій у звіті: ${totals.count.toLocaleString('uk-UA')}`, 70, 175);
+
+      ctx.font = '22px "Times New Roman", serif';
+      activeFilterLines.forEach((line, index) => ctx.fillText(line, 70, 235 + index * 32));
+
+      const tableTop = 430;
+      const tableLeft = 70;
+      const tableWidth = width - 140;
+      const nameWidth = tableWidth - 210;
+      const countWidth = 210;
+      const rowHeight = 58;
+
+      ctx.fillStyle = '#fef3c7';
+      ctx.fillRect(tableLeft, tableTop, tableWidth, rowHeight);
+      ctx.fillStyle = '#fb923c';
+      ctx.fillRect(tableLeft, tableTop, 8, rowHeight);
+      ctx.strokeStyle = '#f59e0b';
+      ctx.strokeRect(tableLeft, tableTop, tableWidth, rowHeight);
+      ctx.fillStyle = '#182033';
+      ctx.font = 'bold 25px "Times New Roman", serif';
+      ctx.fillText('Рекламна дія', tableLeft + 22, tableTop + 38);
+      ctx.textAlign = 'right';
+      ctx.fillText('Кількість', tableLeft + tableWidth - 22, tableTop + 38);
+      ctx.textAlign = 'left';
+
+      const rows = actionSummary.length ? actionSummary : [['Дій за поточними фільтрами немає', 0]];
+      rows.forEach(([label, count], index) => {
+         const y = tableTop + rowHeight * (index + 1);
+         ctx.fillStyle = index % 2 ? '#ffffff' : '#f8fafc';
+         ctx.fillRect(tableLeft, y, tableWidth, rowHeight);
+         ctx.strokeStyle = '#cbd5e1';
+         ctx.strokeRect(tableLeft, y, tableWidth, rowHeight);
+         ctx.beginPath();
+         ctx.moveTo(tableLeft + nameWidth, y);
+         ctx.lineTo(tableLeft + nameWidth, y + rowHeight);
+         ctx.stroke();
+         ctx.fillStyle = '#111827';
+         ctx.font = '24px "Times New Roman", serif';
+         ctx.fillText(String(label), tableLeft + 22, y + 37, nameWidth - 44);
+         ctx.fillStyle = '#ecfeff';
+         ctx.fillRect(tableLeft + nameWidth + 20, y + 10, countWidth - 40, rowHeight - 20);
+         ctx.strokeStyle = '#38bdf8';
+         ctx.strokeRect(tableLeft + nameWidth + 20, y + 10, countWidth - 40, rowHeight - 20);
+         ctx.fillStyle = '#0f172a';
+         ctx.textAlign = 'right';
+         ctx.font = 'bold 25px "Times New Roman", serif';
+         ctx.fillText(Number(count).toLocaleString('uk-UA'), tableLeft + nameWidth + countWidth - 22, y + 37);
+         ctx.textAlign = 'left';
+      });
+
+      const jpeg = canvas.toDataURL('image/jpeg', 0.92);
+      const binary = atob(jpeg.split(',')[1]);
+      const imageBytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) imageBytes[i] = binary.charCodeAt(i);
+
+      const pageWidth = 595.28;
+      const pageHeight = pageWidth * (height / width);
+      const encoder = new TextEncoder();
+      const chunks = [];
+      const offsets = [0];
+      const pushText = (text) => chunks.push(encoder.encode(text));
+      const pushBytes = (bytes) => chunks.push(bytes);
+      const currentOffset = () => chunks.reduce((sum, part) => sum + part.length, 0);
+      const addObject = (id, body, stream) => {
+         offsets[id] = currentOffset();
+         pushText(`${id} 0 obj\n${body}`);
+         if (stream) {
+            pushText('\nstream\n');
+            pushBytes(stream);
+            pushText('\nendstream');
+         }
+         pushText('\nendobj\n');
+      };
+
+      pushText('%PDF-1.4\n%Karamax\n');
+      addObject(1, '<< /Type /Catalog /Pages 2 0 R >>');
+      addObject(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
+      addObject(3, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth.toFixed(2)} ${pageHeight.toFixed(2)}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>`);
+      addObject(4, `<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${imageBytes.length} >>`, imageBytes);
+      const content = encoder.encode(`q\n${pageWidth.toFixed(2)} 0 0 ${pageHeight.toFixed(2)} 0 0 cm\n/Im0 Do\nQ\n`);
+      addObject(5, `<< /Length ${content.length} >>`, content);
+      const xrefOffset = currentOffset();
+      pushText('xref\n0 6\n0000000000 65535 f \n');
+      for (let i = 1; i <= 5; i += 1) pushText(`${String(offsets[i]).padStart(10, '0')} 00000 n \n`);
+      pushText(`trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`);
+
+      const blob = new Blob(chunks, { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'Звіт рекламних дій.pdf';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
       setReportsAnchor(null);
+      } catch (err) {
+         console.error('Advertising PDF report failed', err);
+         setError(err?.message || 'Не вдалося сформувати PDF звіт');
+         setReportsAnchor(null);
+      }
    };
 
    const openMediaStrip = (property, stage = 'draft') => {
@@ -2137,17 +2230,62 @@ export default function AdvertisingCabinetPage() {
                         />
                         {advertisingPropertiesLoading && <CircularProgress size={16} sx={{ color: theme.textSoft }} />}
                      </Stack>
-                     <TextField
-                        size="small"
-                        label="Пошук об’єкта"
-                        value={propertyWorkSearch}
-                        onChange={(e) => setPropertyWorkSearch(e.target.value)}
-                        sx={{ ...fieldSx, minWidth: { xs: '100%', md: 280 } }}
-                     />
-                     <Button
-                        onClick={() => setShowAllWorkObjects((prev) => !prev)}
-                        startIcon={<QueryStatsRoundedIcon />}
-                        sx={{
+                      <TextField
+                         size="small"
+                         label="Пошук об’єкта"
+                         value={propertyWorkSearch}
+                         onChange={(e) => setPropertyWorkSearch(e.target.value)}
+                         sx={{ ...fieldSx, minWidth: { xs: '100%', md: 280 } }}
+                      />
+                      <Tooltip title="Звіти">
+                         <IconButton
+                            onMouseEnter={(e) => setReportsAnchor(e.currentTarget)}
+                            onClick={(e) => {
+                               e.stopPropagation();
+                               openAdvertisingActionsPdfReport();
+                            }}
+                            sx={{
+                               width: 48,
+                               height: 48,
+                               borderRadius: 2,
+                               color: '#fde68a',
+                               bgcolor: 'rgba(250,204,21,0.1)',
+                               border: '1px solid rgba(250,204,21,0.35)',
+                               '&:hover': { bgcolor: 'rgba(250,204,21,0.18)' },
+                            }}
+                         >
+                            <PictureAsPdfRoundedIcon />
+                         </IconButton>
+                      </Tooltip>
+                      <Menu
+                         anchorEl={reportsAnchor}
+                         open={Boolean(reportsAnchor)}
+                         onClose={() => setReportsAnchor(null)}
+                         PaperProps={{
+                            onMouseLeave: () => setReportsAnchor(null),
+                            sx: {
+                               mt: 1,
+                               borderRadius: 2,
+                               bgcolor: theme.bgPanel,
+                               color: theme.text,
+                               border: `1px solid ${theme.border}`,
+                            },
+                         }}
+                      >
+                         <MenuItem
+                            onClick={() => {
+                               setReportsAnchor(null);
+                               openAdvertisingActionsPdfReport();
+                             }}
+                          >
+                             <PictureAsPdfRoundedIcon sx={{ mr: 1, color: '#fde68a' }} fontSize="small" />
+                             Звіт рекламних дій .pdf
+                          </MenuItem>
+                      </Menu>
+                      <Button
+                         onClick={() => setShowAllWorkObjects((prev) => !prev)}
+                         startIcon={<QueryStatsRoundedIcon />}
+                         sx={{
                            borderRadius: 2,
                            px: 1.35,
                            color: showAllWorkObjects ? '#140a02' : theme.text,
@@ -3475,43 +3613,6 @@ export default function AdvertisingCabinetPage() {
                                  <PersonAddAlt1RoundedIcon />
                               </IconButton>
                             </Tooltip>
-                            <Tooltip title="Звіти">
-                               <IconButton
-                                  onMouseEnter={(e) => setReportsAnchor(e.currentTarget)}
-                                  onClick={(e) => setReportsAnchor(e.currentTarget)}
-                                  sx={{
-                                     width: 44,
-                                     height: 44,
-                                     borderRadius: 1.8,
-                                     color: '#fde68a',
-                                     bgcolor: 'rgba(250,204,21,0.1)',
-                                     border: '1px solid rgba(250,204,21,0.35)',
-                                     '&:hover': { bgcolor: 'rgba(250,204,21,0.18)' },
-                                  }}
-                               >
-                                  <PictureAsPdfRoundedIcon />
-                               </IconButton>
-                            </Tooltip>
-                            <Menu
-                               anchorEl={reportsAnchor}
-                               open={Boolean(reportsAnchor)}
-                               onClose={() => setReportsAnchor(null)}
-                               PaperProps={{
-                                  onMouseLeave: () => setReportsAnchor(null),
-                                  sx: {
-                                     mt: 1,
-                                     borderRadius: 2,
-                                     bgcolor: theme.bgPanel,
-                                     color: theme.text,
-                                     border: `1px solid ${theme.border}`,
-                                  },
-                               }}
-                            >
-                               <MenuItem onClick={openAdvertisingActionsPdfReport} disabled={!visibleEvents.length}>
-                                  <PictureAsPdfRoundedIcon sx={{ mr: 1, color: '#fde68a' }} fontSize="small" />
-                                  PDF звіт рекламних дій
-                               </MenuItem>
-                            </Menu>
                             <Tooltip title="Додати дію">
                                <span>
                                  <IconButton
@@ -4216,7 +4317,7 @@ export default function AdvertisingCabinetPage() {
                         <TextField label="Заявка / деталі пошуку" multiline minRows={4} value={leadForm.requestSummary} onChange={(e) => handleLeadFormChange('requestSummary', e.target.value)} sx={{ ...fieldSx, flex: 1.4 }} />
                         <Stack spacing={1.2} sx={{ flex: 1 }}>
                            <TextField select label="Актуальність" value={leadForm.actualityStatus} onChange={(e) => handleLeadFormChange('actualityStatus', e.target.value)} sx={fieldSx}>
-                              {LEAD_ACTUALITY_OPTIONS.map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}
+                              {[...new Set([...LEAD_ACTUALITY_OPTIONS.slice(0, 2), 'Актуальний. Переписка', ...LEAD_ACTUALITY_OPTIONS.slice(2)])].map((value) => <MenuItem key={value} value={value}>{value}</MenuItem>)}
                            </TextField>
                            <TextField select label="Відповідальний" value={leadForm.assignee} onChange={(e) => handleLeadFormChange('assignee', e.target.value)} sx={fieldSx}>
                               <MenuItem value="">Не вибрано</MenuItem>

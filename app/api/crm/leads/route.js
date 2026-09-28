@@ -269,7 +269,7 @@ export const POST = async (request) => {
          // lastActualizedAt: parseDate(body?.lastActualizedAt),
          lastContactAt: parseDate(body?.lastContactAt),
 
-          assignee: body?.assignee || attractedProperty?.assignee || undefined,
+           assignee: body?.assignee || undefined,
           createdByEmployee: actorEmployeeId || undefined,
          // createdByName:
          //    String(body?.createdByName || sessionUser?.name || '').trim(),

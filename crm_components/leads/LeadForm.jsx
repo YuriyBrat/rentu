@@ -33,6 +33,7 @@ const STAGES = [
 const ACTUALITY_STATUSES = [
    'Актуальний. Зустріч! В роботі',
    'Актуальний. Продзвін',
+   'Актуальний. Переписка',
    'Актуальний. Проблемний',
    'Актуальний. Зустріч! Не в роботі',
    'Неактуальний. Купив зі мною',
@@ -441,7 +442,7 @@ export default function LeadForm({ employees = [], item = null, onCancel, onCrea
                      sx={fieldSx}
                      SelectProps={{ MenuProps: selectMenuProps }}
                   >
-                     {ACTUALITY_STATUSES.map((x) => (
+                     {[...new Set([...ACTUALITY_STATUSES.slice(0, 2), 'Актуальний. Переписка', ...ACTUALITY_STATUSES.slice(2)])].map((x) => (
                         <MenuItem key={x} value={x}>
                            {x}
                         </MenuItem>
