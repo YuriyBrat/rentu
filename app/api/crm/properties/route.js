@@ -524,6 +524,7 @@ export const GET = async (req) => {
       ]);
 
       const rawItems = await Property.find(scopedFilter)
+         .select('-workHistory')
          .populate('assignee', 'name fullName surname phone email avatar')
          .populate('createdByEmployee', 'name fullName surname')
          .populate('rentOptions.rentStory.rentedByEmployee', 'name fullName surname phone email avatar')

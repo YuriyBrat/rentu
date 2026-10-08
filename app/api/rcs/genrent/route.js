@@ -17,11 +17,12 @@ const {
 } = docx;
 
 async function saveDocumentGenerationLog({ fieldsData, nameFile, propertyId, leadId }) {
-   const [{ default: connectDB }, { default: DocumentGeneration }, { getSessionUser }, { Types }] = await Promise.all([
+   const [{ default: connectDB }, { default: DocumentGeneration }, { getSessionUser }, { Types }, { logDocumentGenerationActivity }] = await Promise.all([
       import('@/config/database'),
       import('@/models/DocumentGeneration'),
       import('@/utils/getSessionUser'),
       import('mongoose'),
+      import('@/utils/crm/documentGenerationActivity'),
    ]);
 
    const objectIdOrNull = (value) => {
@@ -33,7 +34,7 @@ async function saveDocumentGenerationLog({ fieldsData, nameFile, propertyId, lea
 
    const sessionUser = await getSessionUser().catch(() => null);
 
-   await DocumentGeneration.create({
+   const created = await DocumentGeneration.create({
       documentDomain: 'rent',
       documentType: 'rent_contract',
       generatedAt: new Date(),
@@ -48,6 +49,15 @@ async function saveDocumentGenerationLog({ fieldsData, nameFile, propertyId, lea
       contractDateText: fieldsData?.contractDate || '',
       source: 'crm_gen_rent',
       fieldsSnapshot: fieldsData || {},
+   });
+
+   await logDocumentGenerationActivity({
+      sessionUser,
+      item: created.toObject ? created.toObject() : created,
+      action: 'generated',
+      source: 'api',
+      message: 'Згенеровано договір оренди',
+      extraMeta: { eventKind: 'docx_generated' },
    });
 }
 

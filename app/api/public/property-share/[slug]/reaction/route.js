@@ -53,6 +53,7 @@ export const POST = async (req, { params }) => {
          like: '❤️ Подобається',
          think: '🤔 Подумаю',
          reject: '🙅 Не моє',
+         call: '📞 Передзвоніть',
       };
 
       if (!reactionsMap[body.type]) {

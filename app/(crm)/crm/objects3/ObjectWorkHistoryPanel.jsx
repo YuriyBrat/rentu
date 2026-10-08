@@ -1,17 +1,22 @@
 'use client';
 
-import { Box, Stack, Typography, IconButton, Tooltip, Chip } from '@mui/material';
+import { Box, Stack, Typography, IconButton, Tooltip, Chip, CircularProgress } from '@mui/material';
 import AddRoundedIcon from '@mui/icons-material/AddRounded';
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 
 const TYPE_LABELS = {
    note: 'Нотатка',
    call: 'Дзвінок',
    message: 'Переписка',
    meeting: 'Зустріч',
-   review: 'Огляд',
    showing: 'Показ',
+   inspection: 'Огляд',
+   review: 'Огляд',
+   other: 'Операційка',
+   pzs: 'ПЗС',
+   loss: 'Втрата',
 };
 
 const TONE_LABELS = {
@@ -37,6 +42,22 @@ function formatDateTime(value) {
 }
 
 function getToneSx(tone, mode) {
+   if (tone === 'operationNeutral') {
+      return {
+         color: mode === 'light' ? '#334155' : '#dbeafe',
+         bgcolor: mode === 'light' ? 'rgba(71,85,105,0.08)' : 'rgba(30,41,59,0.72)',
+         border: mode === 'light' ? '1px solid rgba(14,165,233,0.20)' : '1px solid rgba(125,211,252,0.22)',
+      };
+   }
+
+   if (tone === 'pzs') {
+      return {
+         color: mode === 'light' ? '#9d174d' : '#fbcfe8',
+         bgcolor: mode === 'light' ? 'rgba(219,39,119,0.09)' : 'rgba(131,24,67,0.34)',
+         border: '1px solid rgba(236,72,153,0.34)',
+      };
+   }
+
    if (tone === 'positive') {
       return {
          color: mode === 'light' ? '#166534' : '#bbf7d0',
@@ -68,6 +89,49 @@ function getToneSx(tone, mode) {
    };
 }
 
+function getChipSx(kind, mode) {
+   const base = {
+      height: 21,
+      fontSize: 11,
+      fontWeight: 950,
+      color: 'inherit',
+   };
+
+   if (kind === 'pzs') {
+      return {
+         ...base,
+         bgcolor: mode === 'light' ? 'rgba(219,39,119,0.10) !important' : 'rgba(236,72,153,0.18) !important',
+         border: '1px solid rgba(236,72,153,0.38) !important',
+      };
+   }
+
+   if (kind === 'zs') {
+      return {
+         ...base,
+         bgcolor: mode === 'light' ? 'rgba(22,163,74,0.10) !important' : 'rgba(34,197,94,0.18) !important',
+         border: '1px solid rgba(34,197,94,0.36) !important',
+      };
+   }
+
+   if (['showing', 'review', 'inspection'].includes(kind)) {
+      return {
+         ...base,
+         bgcolor: mode === 'light' ? 'rgba(71,85,105,0.08) !important' : 'rgba(96,165,250,0.14) !important',
+         border: mode === 'light'
+            ? '1px solid rgba(14,165,233,0.22) !important'
+            : '1px solid rgba(125,211,252,0.26) !important',
+      };
+   }
+
+   return {
+      ...base,
+      bgcolor: mode === 'light' ? 'rgba(22,101,52,0.08) !important' : 'rgba(34,197,94,0.12) !important',
+      border: mode === 'light'
+         ? '1px solid rgba(22,101,52,0.18) !important'
+         : '1px solid rgba(34,197,94,0.22) !important',
+   };
+}
+
 export default function ObjectWorkHistoryPanel({
    item,
    theme,
@@ -76,18 +140,26 @@ export default function ObjectWorkHistoryPanel({
    onAdd,
    onEdit,
    onDelete,
+   onClose,
+   items,
+   loading = false,
+   error = '',
+   onRetry,
+   inDrawer = false,
 }) {
-   const history = item?.workHistory || [];
+   const history = Array.isArray(items) ? items : item?.workHistory || [];
 
    return (
       <Box
          sx={{
-            p: 1,
-            borderRadius: 3,
-            border: `1px solid ${theme.border}`,
-            bgcolor: mode === 'light'
-               ? 'rgba(124,58,237,0.025)'
-               : 'rgba(255,255,255,0.018)',
+            p: inDrawer ? 0 : 1,
+            borderRadius: inDrawer ? 0 : 3,
+            border: inDrawer ? 'none' : `1px solid ${theme.border}`,
+            bgcolor: inDrawer
+               ? 'transparent'
+               : mode === 'light'
+                  ? 'rgba(124,58,237,0.025)'
+                  : 'rgba(255,255,255,0.018)',
          }}
       >
          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.8 }}>
@@ -96,20 +168,30 @@ export default function ObjectWorkHistoryPanel({
                   Історія роботи
                </Typography>
                <Typography sx={{ color: theme.textSoft, fontSize: 12 }}>
-                  Останні записи по об’єкту
+                  Нотатки, дзвінки та операційні події
                </Typography>
             </Box>
 
-            <Tooltip title="Додати запис">
-               <IconButton onClick={onAdd} sx={actionIconSx}>
-                  <AddRoundedIcon />
-               </IconButton>
-            </Tooltip>
+            <Stack direction="row" spacing={0.7} alignItems="center">
+               <Tooltip title="Додати запис">
+                  <IconButton onClick={onAdd} sx={actionIconSx}>
+                     <AddRoundedIcon />
+                  </IconButton>
+               </Tooltip>
+
+               {inDrawer && (
+                  <Tooltip title="Закрити">
+                     <IconButton onClick={onClose} sx={actionIconSx}>
+                        <CloseRoundedIcon />
+                     </IconButton>
+                  </Tooltip>
+               )}
+            </Stack>
          </Stack>
 
          <Box
             sx={{
-               maxHeight: 360,
+               maxHeight: inDrawer ? 'calc(100vh - 154px)' : 360,
                overflowY: 'auto',
                pr: 0.4,
                '&::-webkit-scrollbar': { width: 6 },
@@ -122,8 +204,42 @@ export default function ObjectWorkHistoryPanel({
             }}
          >
             <Stack spacing={0.75}>
+               {loading && (
+                  <Stack direction="row" spacing={1} alignItems="center" sx={{ color: theme.textSoft, py: 1 }}>
+                     <CircularProgress size={18} sx={{ color: theme.accentLight }} />
+                     <Typography sx={{ fontSize: 13, fontWeight: 800 }}>
+                        Завантажуємо історію...
+                     </Typography>
+                  </Stack>
+               )}
+
+               {!!error && !loading && (
+                  <Box
+                     onClick={onRetry}
+                     sx={{
+                        p: 1,
+                        borderRadius: 2.4,
+                        color: mode === 'light' ? '#991b1b' : '#fecaca',
+                        bgcolor: mode === 'light' ? 'rgba(239,68,68,0.08)' : 'rgba(239,68,68,0.13)',
+                        border: '1px solid rgba(239,68,68,0.24)',
+                        cursor: onRetry ? 'pointer' : 'default',
+                     }}
+                  >
+                     <Typography sx={{ fontSize: 13, fontWeight: 900 }}>
+                        {error}
+                     </Typography>
+                     {onRetry && (
+                        <Typography sx={{ fontSize: 12, opacity: 0.78 }}>
+                           Натисніть, щоб спробувати ще раз
+                        </Typography>
+                     )}
+                  </Box>
+               )}
+
                {history.slice(0, 30).map((n) => {
                   const tone = n.tone || 'info';
+                  const editable = n.editable !== false && n.source !== 'operation';
+                  const chipKind = n.operationKind || n.type;
 
                   return (
                      <Box
@@ -136,42 +252,41 @@ export default function ObjectWorkHistoryPanel({
                      >
                         <Stack direction="row" spacing={0.6} alignItems="center" flexWrap="wrap" useFlexGap>
                            <Chip
-                              label={TYPE_LABELS[n.type] || 'Запис'}
+                              label={n.label || TYPE_LABELS[n.type] || 'Запис'}
                               size="small"
-                              sx={{
-                                 height: 21,
-                                 fontSize: 11,
-                                 fontWeight: 950,
-                                 color: 'inherit',
-                                 // bgcolor: 'rgba(255,255,255,0.28) ',
-                                 bgcolor: mode === 'light' ? 'rgba(22,101,52,0.08) !important' : 'rgba(34,197,94,0.12) !important',
-                                 border: mode === 'light'
-                                    ? '1px solid rgba(22,101,52,0.18) !important'
-                                    : '1px solid rgba(34,197,94,0.22) !important',
-                              }}
+                              sx={getChipSx(chipKind, mode)}
                            />
 
-                           <Chip
-                              label={TONE_LABELS[tone] || 'Інформуюча'}
-                              size="small"
-                              sx={{
-                                 height: 21,
-                                 fontSize: 11,
-                                 fontWeight: 950,
-                                 color: 'inherit',
-                                 // bgcolor: 'rgba(255,255,255,0.18)',
-                                 bgcolor: mode === 'light' ? 'rgba(22,101,52,0.08) !important' : 'rgba(34,197,94,0.12) !important',
-                                 border: mode === 'light'
-                                    ? '1px solid rgba(22,101,52,0.18) !important'
-                                    : '1px solid rgba(34,197,94,0.22) !important',
-                              }}
-                           />
+                            {n.source === 'operation' ? (
+                               <Chip
+                                  label={n.meta || 'Операційка'}
+                                  size="small"
+                                  sx={getChipSx(chipKind, mode)}
+                               />
+                            ) : (
+                               <Chip
+                                  label={TONE_LABELS[tone] || 'Інформуюча'}
+                                  size="small"
+                                  sx={{
+                                     height: 21,
+                                     fontSize: 11,
+                                     fontWeight: 950,
+                                     color: 'inherit',
+                                     // bgcolor: 'rgba(255,255,255,0.18)',
+                                     bgcolor: mode === 'light' ? 'rgba(22,101,52,0.08) !important' : 'rgba(34,197,94,0.12) !important',
+                                     border: mode === 'light'
+                                        ? '1px solid rgba(22,101,52,0.18) !important'
+                                        : '1px solid rgba(34,197,94,0.22) !important',
+                                  }}
+                               />
+                            )}
 
                             <Typography sx={{ ml: 'auto', fontSize: 11, opacity: 0.78 }}>
                                {formatDateTime(n.createdAt)}
                             </Typography>
 
-                            <Stack direction="row" spacing={0.35}>
+                             {editable && (
+                             <Stack direction="row" spacing={0.35}>
                                <Tooltip title="Редагувати">
                                   <IconButton
                                      size="small"
@@ -205,7 +320,8 @@ export default function ObjectWorkHistoryPanel({
                                      <DeleteOutlineRoundedIcon sx={{ fontSize: 15 }} />
                                   </IconButton>
                                </Tooltip>
-                            </Stack>
+                             </Stack>
+                             )}
                          </Stack>
 
                         <Typography
@@ -223,7 +339,7 @@ export default function ObjectWorkHistoryPanel({
                   );
                })}
 
-               {!history.length && (
+                {!loading && !error && !history.length && (
                   <Typography sx={{ color: theme.textSoft, fontSize: 13 }}>
                      Записів ще немає
                   </Typography>

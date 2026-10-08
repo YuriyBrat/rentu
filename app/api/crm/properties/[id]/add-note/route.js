@@ -4,7 +4,7 @@ import { getSessionUser } from '@/utils/getSessionUser';
 import { buildActivityDiff, logActivity } from '@/utils/crm/activityLog';
 // POST /api/crm/properties/:id/add-note
 
-const VALID_TYPES = ['note', 'call', 'message', 'meeting', 'review', 'showing'];
+const VALID_TYPES = ['note', 'call', 'message', 'meeting'];
 const VALID_TONES = ['positive', 'negative', 'info', 'important'];
 const WORK_HISTORY_FIELDS = ['type', 'tone', 'text', 'createdAt'];
 

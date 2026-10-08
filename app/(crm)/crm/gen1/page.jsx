@@ -58,12 +58,6 @@ const getLeadLabel = (lead) => {
    return [lead.name, phone, stage].filter(Boolean).join(' | ');
 };
 
-const mapCurrencyToContract = (currency) => {
-   if (currency === 'EUR') return 'євро';
-   if (currency === 'UAH') return 'гривня';
-   return 'долар США';
-};
-
 const documentTypeLabel = {
    sale_deposit: 'Договір завдатку продажу',
    sale_buyer_service: 'Договір послуг з покупцем',
@@ -333,16 +327,6 @@ const genWord = () => {
       setSelectedProperty(property);
       skipNextPropertySearchRef.current = true;
       setPropertySearch(property ? getPropertyLabel(property) : '');
-
-      if (!property) return;
-
-      setFieldsData((prev) => ({
-         ...prev,
-         estateName: property.type_estate || prev.estateName,
-         estateAdress: property.location_text || prev.estateAdress,
-         estateCost: property.cost ? String(property.cost) : prev.estateCost,
-         zsCurrency: property.currency ? mapCurrencyToContract(property.currency) : prev.zsCurrency,
-      }));
    };
 
    const handleLeadSelect = (lead) => {

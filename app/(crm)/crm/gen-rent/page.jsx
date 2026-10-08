@@ -363,21 +363,6 @@ export default function RentContractGenerator() {
       setSelectedProperty(property);
       skipNextPropertySearchRef.current = true;
       setPropertySearch(property ? getPropertyLabel(property) : '');
-
-      if (!property) return;
-
-      const location = property.location_text || [property.location?.city, property.location?.street, property.location?.number].filter(Boolean).join(', ');
-      const rentPrice = property.rentOptions?.price || property.cost || '';
-      const currency = property.rentOptions?.currency || property.currency || '';
-      const priceEquivalent = rentPrice ? `${rentPrice} ${mapCurrency(currency)}` : '';
-
-      setFieldsData((prev) => ({
-         ...prev,
-         objectName: property.rentOptions?.rentTitle || property.type_estate || property.title || prev.objectName,
-         objectAddress: location || prev.objectAddress,
-         rentEquivalent: priceEquivalent || prev.rentEquivalent,
-      }));
-      markFieldsDirty(['objectName', 'objectAddress', 'rentEquivalent']);
    };
 
    const handleLeadSelect = (lead) => {

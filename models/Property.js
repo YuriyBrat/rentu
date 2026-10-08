@@ -346,6 +346,32 @@ const ShareLinkSchema = new Schema(
       default: null,
     },
 
+    lead: {
+      type: Schema.Types.ObjectId,
+      ref: 'Lead',
+      default: null,
+      index: true,
+    },
+
+    leadNameSnapshot: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+
+    leadPhoneSnapshot: {
+      type: String,
+      trim: true,
+      default: '',
+    },
+
+    offerStatus: {
+      type: String,
+      enum: ['created', 'sent', 'interested', 'thinking', 'rejected', 'wants_showing', 'no_response'],
+      default: 'created',
+      index: true,
+    },
+
     createdAt: {
       type: Date,
       default: Date.now,
@@ -362,7 +388,7 @@ const ShareLinkSchema = new Schema(
       {
         type: {
           type: String,
-          enum: ['view', 'like', 'think', 'reject'],
+          enum: ['view', 'like', 'think', 'reject', 'call'],
         },
         label: String,
         clientId: String,

@@ -1071,7 +1071,6 @@ export default function ObjectsPage() {
                   item={p}
                   onDelete={handleDelete}
                   onEdit={(item) => setEditingItem(item)}
-                  onView={(item) => console.log('view', item)}
                   // onRefresh={() => load()}
                    onRefresh={() => load(q, filters)}
                    showAdvertisingRows={showAdvertisingRows}

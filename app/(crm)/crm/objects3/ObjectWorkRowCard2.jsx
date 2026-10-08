@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
    Box,
    Typography,
@@ -19,6 +19,8 @@ import {
    DialogTitle,
    DialogContent,
    DialogActions,
+   Drawer,
+   Autocomplete,
 } from '@mui/material';
 
 import { useCRMTheme } from '@/app/(crm)/crm/context/CRMThemeContext';
@@ -53,8 +55,6 @@ import Badge from '@mui/material/Badge';
 import Popover from '@mui/material/Popover';
 import LinkRoundedIcon from '@mui/icons-material/LinkRounded';
 import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
-
-import ShareRoundedIcon from '@mui/icons-material/ShareRounded';
 
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded';
 import ImageRoundedIcon from '@mui/icons-material/ImageRounded';
@@ -187,6 +187,37 @@ function getImageStageUrl(image = {}) {
 
 function getImageActionId(image = {}) {
    return image._id || image.public_id || image.url || image.processedUrl || image.brandedUrl || '';
+}
+
+const WORK_HISTORY_TYPES = ['note', 'call', 'message', 'meeting'];
+
+const SHARE_REACTION_META = {
+   view: { icon: '👀', label: 'Хочу оглянути' },
+   like: { icon: '❤️', label: 'Подобається' },
+   think: { icon: '🤔', label: 'Подумаю' },
+   call: { icon: '📞', label: 'Передзвоніть' },
+   reject: { icon: '🙅', label: 'Не моє' },
+};
+
+function getShareReactionGroups(reactions = []) {
+   const groups = [];
+   const byType = new Map();
+
+   reactions.forEach((reaction) => {
+      const type = reaction?.type || 'like';
+      if (!byType.has(type)) {
+         const meta = SHARE_REACTION_META[type] || { icon: '💬', label: reaction?.label || 'Реакція' };
+         const group = { type, ...meta, count: 0, items: [] };
+         byType.set(type, group);
+         groups.push(group);
+      }
+
+      const group = byType.get(type);
+      group.count += 1;
+      group.items.push(reaction);
+   });
+
+   return groups;
 }
 
 function getEmployeeName(employee) {
@@ -1618,7 +1649,7 @@ function OperationCounters({ summary = {}, theme, mode }) {
 
 
 
-export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRefresh, showAdvertisingRows = true, canManage = false, employees = [] }) {
+export default function ObjectWorkRowCard({ item, onEdit, onDelete, onRefresh, showAdvertisingRows = true, canManage = false, employees = [] }) {
    const [open, setOpen] = useState(false);
 
    const [adTitle, setAdTitle] = useState('');
@@ -1672,6 +1703,11 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
    const [adCreatedAt, setAdCreatedAt] = useState(getNowLocal());
 
    const [openWorkNote, setOpenWorkNote] = useState(false);
+   const [historyDrawerOpen, setHistoryDrawerOpen] = useState(false);
+   const [timelineItems, setTimelineItems] = useState([]);
+   const [timelineLoading, setTimelineLoading] = useState(false);
+   const [timelineLoaded, setTimelineLoaded] = useState(false);
+   const [timelineError, setTimelineError] = useState('');
    const [noteText, setNoteText] = useState('');
    const [noteType, setNoteType] = useState('note');
    const [noteTone, setNoteTone] = useState('info');
@@ -1683,6 +1719,10 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
 
    const [openShare, setOpenShare] = useState(false);
    const [shareLoading, setShareLoading] = useState(false);
+   const [shareLead, setShareLead] = useState(null);
+   const [shareLeadQuery, setShareLeadQuery] = useState('');
+   const [shareLeadOptions, setShareLeadOptions] = useState([]);
+   const [shareLeadLoading, setShareLeadLoading] = useState(false);
 
    const [aiStyle, setAiStyle] = useState('telegram');
    const [aiLoading, setAiLoading] = useState(false);
@@ -1727,6 +1767,72 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
 
    const { theme, mode } = useCRMTheme();
    const fieldSx = getFieldSx(theme, mode);
+
+   const loadTimeline = async (force = false) => {
+      if (!item?._id) return;
+      if (timelineLoading) return;
+      if (timelineLoaded && !force) return;
+
+      setTimelineLoading(true);
+      setTimelineError('');
+
+      try {
+         const res = await fetch(`/api/crm/properties/${item._id}/timeline`, { cache: 'no-store' });
+         if (!res.ok) throw new Error('timeline failed');
+         const data = await res.json();
+         setTimelineItems(Array.isArray(data?.items) ? data.items : []);
+         setTimelineLoaded(true);
+      } catch (error) {
+         console.error('Failed to load property timeline', error);
+         setTimelineError('Не вдалося завантажити історію');
+      } finally {
+         setTimelineLoading(false);
+      }
+   };
+
+   useEffect(() => {
+      setTimelineItems([]);
+      setTimelineLoaded(false);
+      setTimelineError('');
+   }, [item?._id]);
+
+   useEffect(() => {
+      if (historyDrawerOpen) loadTimeline();
+   }, [historyDrawerOpen]);
+
+   useEffect(() => {
+      if (!openShare || shareLeadQuery.trim().length < 2) {
+         setShareLeadOptions([]);
+         setShareLeadLoading(false);
+         return undefined;
+      }
+
+      let cancelled = false;
+      const timeout = setTimeout(async () => {
+         setShareLeadLoading(true);
+         try {
+            const params = new URLSearchParams({
+               q: shareLeadQuery.trim(),
+               searchFields: 'identity',
+               pageSize: '8',
+               actuality: 'active',
+            });
+            const res = await fetch(`/api/crm/leads?${params.toString()}`, { cache: 'no-store' });
+            const data = await res.json();
+            if (!cancelled) setShareLeadOptions(Array.isArray(data?.items) ? data.items : []);
+         } catch (error) {
+            console.error('Failed to load leads for share link', error);
+            if (!cancelled) setShareLeadOptions([]);
+         } finally {
+            if (!cancelled) setShareLeadLoading(false);
+         }
+      }, 280);
+
+      return () => {
+         cancelled = true;
+         clearTimeout(timeout);
+      };
+   }, [openShare, shareLeadQuery]);
 
    const isLight = mode === 'light';
 
@@ -2085,7 +2191,7 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
       setEditingWorkNote(null);
       setOpenWorkNote(false);
 
-      await onRefresh?.();
+      await loadTimeline(true);
    };
 
    const openCreateWorkNote = () => {
@@ -2100,7 +2206,7 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
    const openEditWorkNote = (note) => {
       setEditingWorkNote(note || null);
       setNoteText(note?.text || '');
-      setNoteType(note?.type || 'note');
+      setNoteType(WORK_HISTORY_TYPES.includes(note?.type) ? note.type : 'note');
       setNoteTone(note?.tone || 'info');
       setNoteCreatedAt(toLocalInputValue(note?.createdAt));
       setOpenWorkNote(true);
@@ -2136,7 +2242,7 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
 
       setSelectedWorkNote(null);
       setWorkNoteDeleteOpen(false);
-      await onRefresh?.();
+      await loadTimeline(true);
    };
 
    const handleAddAdText = async () => {
@@ -2375,6 +2481,7 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
                type,
                presentationType,
                title: shareTitleDraft.trim(),
+               leadId: shareLead?._id || '',
             }),
          });
 
@@ -2388,6 +2495,8 @@ export default function ObjectWorkRowCard({ item, onEdit, onView, onDelete, onRe
          if (json?.link) {
             item.shareLinks = [json.link, ...(item.shareLinks || [])];
             setShareTitleDraft('');
+            setShareLead(null);
+            setShareLeadQuery('');
          }
       } finally {
          setShareLoading(false);
@@ -2596,6 +2705,22 @@ ${url}`;
    const financeProduct = getFinanceProduct(item);
    const propertyVideos = Array.isArray(item?.propertyVideos) ? item.propertyVideos : [];
    const mainVideo = getMainVideo(item);
+   const operationTimelineEstimate = item?.operationSummary
+      ? (
+         (item.operationSummary.showingsCount || 0) +
+         (item.operationSummary.pzsCount || 0) +
+         (item.operationSummary.lossCount || 0)
+      )
+      : 0;
+   const timelineBadgeCount = timelineLoaded
+      ? timelineItems.length
+      : operationTimelineEstimate;
+   const shareLinks = Array.isArray(item?.shareLinks) ? item.shareLinks : [];
+   const shareLinksCount = shareLinks.length;
+   const shareLeadId = shareLead?._id ? String(shareLead._id) : '';
+   const repeatedLeadLinks = shareLeadId
+      ? shareLinks.filter((link) => String(link?.lead?._id || link?.lead || '') === shareLeadId)
+      : [];
 
    const actionIconSx = {
       color: theme.text,
@@ -2642,6 +2767,7 @@ ${url}`;
    const getShareKindLabel = (link) => {
       const isLanding = link.presentationType === 'landing';
       const isPartner = link.type === 'partner';
+      const leadLabel = [link.leadNameSnapshot, link.leadPhoneSnapshot].filter(Boolean).join(' · ');
 
       const icon = isLanding
          ? '✨' // '🚀'
@@ -2652,10 +2778,49 @@ ${url}`;
       const defaultTitle = isLanding
          ? 'Лендінг-презентація' // 'WOW-лендінг'
          : isPartner
-            ? 'Партнерська презентація'
-            : 'Клієнтська презентація';
+             ? 'Партнерська презентація'
+             : 'Клієнтська презентація';
+
+      if (!link.title && leadLabel) return `${icon} Клієнт: ${leadLabel}`;
 
       return `${icon} ${link.title || defaultTitle}`;
+   };
+
+   const getShareRepeatKey = (link) => {
+      if (!link || link.type === 'partner') return '';
+
+      const leadId = String(link.lead?._id || link.lead || '').trim();
+      if (leadId) return `lead:${leadId}`;
+
+      const snapshot = [link.leadNameSnapshot, link.leadPhoneSnapshot]
+         .filter(Boolean)
+         .join('|')
+         .trim()
+         .toLowerCase();
+
+      return snapshot ? `snapshot:${snapshot}` : '';
+   };
+
+   const getShareCreatedTime = (link) => {
+      const time = new Date(link?.createdAt || 0).getTime();
+      return Number.isNaN(time) ? 0 : time;
+   };
+
+   const isRepeatedShareLink = (link, index, links = []) => {
+      const key = getShareRepeatKey(link);
+      if (!key) return false;
+
+      const currentTime = getShareCreatedTime(link);
+
+      return links.some((other, otherIndex) => {
+         if (otherIndex === index) return false;
+         if (getShareRepeatKey(other) !== key) return false;
+
+         const otherTime = getShareCreatedTime(other);
+         if (currentTime && otherTime) return currentTime > otherTime;
+
+         return otherIndex > index;
+      });
    };
 
 
@@ -2920,9 +3085,26 @@ ${url}`;
                   />
 
                   <Stack direction="row" spacing={0.7}>
-                     <Tooltip title="Переглянути">
-                        <IconButton onClick={() => onView?.(item)} sx={actionIconSx}>
-                           <VisibilityRoundedIcon />
+                     <Tooltip title="Посилання">
+                        <IconButton onClick={() => setOpenShare(true)} sx={actionIconSx}>
+                           <Badge
+                              badgeContent={shareLinksCount}
+                              max={99}
+                              sx={{
+                                 '& .MuiBadge-badge': {
+                                    minWidth: 16,
+                                    height: 16,
+                                    px: 0.45,
+                                    fontSize: 10,
+                                    fontWeight: 950,
+                                    color: '#0b0b12',
+                                    bgcolor: '#fff',
+                                    border: '1px solid rgba(11,11,18,0.18)',
+                                 },
+                              }}
+                           >
+                              <LinkRoundedIcon />
+                           </Badge>
                         </IconButton>
                      </Tooltip>
 
@@ -2934,15 +3116,43 @@ ${url}`;
                         </Tooltip>
                      )}
 
-                     <Tooltip title="Поділитися">
-                        <IconButton onClick={() => setOpenShare(true)} sx={actionIconSx}>
-                           <ShareRoundedIcon />
-                        </IconButton>
-                     </Tooltip>
-
                      <Tooltip title={open ? 'Згорнути' : 'Детальніше'}>
                         <IconButton onClick={() => setOpen((p) => !p)} sx={actionIconSx}>
                            {open ? <ExpandLessRoundedIcon /> : <ExpandMoreRoundedIcon />}
+                        </IconButton>
+                     </Tooltip>
+
+                     <Tooltip title="Історія комунікацій">
+                        <IconButton
+                           onClick={() => setHistoryDrawerOpen(true)}
+                           sx={{
+                              ...actionIconSx,
+                              color: '#0b0b12',
+                              background: `linear-gradient(135deg, ${theme.accent}, ${theme.accentLight})`,
+                              borderColor: 'transparent',
+                              '&:hover': {
+                                 background: `linear-gradient(135deg, ${theme.accentLight}, ${theme.accent})`,
+                              },
+                           }}
+                        >
+                           <Badge
+                              badgeContent={timelineBadgeCount}
+                              max={99}
+                              sx={{
+                                 '& .MuiBadge-badge': {
+                                    minWidth: 16,
+                                    height: 16,
+                                    px: 0.45,
+                                    fontSize: 10,
+                                    fontWeight: 950,
+                                    color: '#0b0b12',
+                                    bgcolor: '#fff',
+                                    border: '1px solid rgba(11,11,18,0.18)',
+                                 },
+                              }}
+                           >
+                              <VisibilityRoundedIcon />
+                           </Badge>
                         </IconButton>
                      </Tooltip>
                   </Stack>
@@ -3087,19 +3297,6 @@ ${url}`;
                  </Grid>
               </Box>
 
-
-            <Grid item xs={12} lg={6}>
-               <ObjectWorkHistoryPanel
-                  item={item}
-                  theme={theme}
-                  mode={mode}
-                  actionIconSx={actionIconSx}
-                  onAdd={openCreateWorkNote}
-                  onEdit={openEditWorkNote}
-                  onDelete={handleDeleteWorkNote}
-               />
-            </Grid>
-
             {canManage && (
                <Box sx={{ display: 'flex', justifyContent: 'flex-end', px: 1.35, pb: 1.35 }}>
                   <Button
@@ -3124,6 +3321,57 @@ ${url}`;
                </Box>
             )}
           </Collapse>
+
+          <Drawer
+             anchor="right"
+             open={historyDrawerOpen}
+             onClose={() => setHistoryDrawerOpen(false)}
+             PaperProps={{
+                sx: {
+                   width: { xs: '100%', sm: 500 },
+                   bgcolor: theme.bgPanel,
+                   color: theme.text,
+                   borderLeft: `1px solid ${theme.border}`,
+                   background: mode === 'light'
+                      ? 'linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,252,0.96))'
+                      : 'linear-gradient(180deg, rgba(18,18,28,0.98), rgba(10,10,16,0.98))',
+                },
+             }}
+          >
+             <Stack spacing={1.4} sx={{ p: { xs: 1.35, sm: 2 }, minHeight: '100%' }}>
+                <Box
+                   sx={{
+                      p: 1.25,
+                      borderRadius: 3,
+                      border: `1px solid ${theme.border}`,
+                      bgcolor: mode === 'light' ? 'rgba(124,58,237,0.045)' : 'rgba(255,255,255,0.035)',
+                   }}
+                >
+                   <Typography sx={{ fontWeight: 950, fontSize: 18, lineHeight: 1.2 }} noWrap>
+                      {item?.title || 'Об’єкт'}
+                   </Typography>
+                   <Typography sx={{ color: theme.textSoft, fontSize: 13, mt: 0.35 }} noWrap>
+                      {locationText || 'Адресу не вказано'}
+                   </Typography>
+                </Box>
+
+                <ObjectWorkHistoryPanel
+                   item={item}
+                   theme={theme}
+                   mode={mode}
+                   actionIconSx={actionIconSx}
+                   items={timelineItems}
+                   loading={timelineLoading}
+                   error={timelineError}
+                   onRetry={() => loadTimeline(true)}
+                   onAdd={openCreateWorkNote}
+                   onEdit={openEditWorkNote}
+                   onDelete={handleDeleteWorkNote}
+                   onClose={() => setHistoryDrawerOpen(false)}
+                   inDrawer
+                />
+             </Stack>
+          </Drawer>
 
 
           <Dialog
@@ -3922,8 +4170,6 @@ ${url}`;
                         <MenuItem value="call">Дзвінок</MenuItem>
                         <MenuItem value="message">Переписка</MenuItem>
                         <MenuItem value="meeting">Зустріч</MenuItem>
-                        <MenuItem value="review">Огляд</MenuItem>
-                        <MenuItem value="showing">Показ</MenuItem>
                      </TextField>
                   </Grid>
 
@@ -4008,8 +4254,30 @@ ${url}`;
                },
             }}
          >
-            <DialogTitle sx={{ fontWeight: 950 }}>
-               Поділитися об’єктом
+            <DialogTitle
+               sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 1,
+                  fontWeight: 950,
+               }}
+            >
+               <Box component="span">Поділитися об’єктом</Box>
+               <Chip
+                  size="small"
+                  label={`Посилань: ${shareLinksCount}`}
+                  sx={{
+                     height: 24,
+                     fontSize: 11,
+                     fontWeight: 950,
+                     color: mode === 'light' ? '#5b21b6' : '#ddd6fe',
+                     bgcolor: mode === 'light' ? 'rgba(124,58,237,0.10)' : 'rgba(167,139,250,0.14)',
+                     border: mode === 'light'
+                        ? '1px solid rgba(124,58,237,0.20)'
+                        : '1px solid rgba(196,181,253,0.24)',
+                  }}
+               />
             </DialogTitle>
 
             <DialogContent>
@@ -4042,8 +4310,58 @@ ${url}`;
                            color: theme.textSoft,
                            opacity: 1,
                         },
-                     }}
-                  />
+                      }}
+                   />
+
+                   <Autocomplete
+                      value={shareLead}
+                      inputValue={shareLeadQuery}
+                      onChange={(_event, value) => {
+                         setShareLead(value);
+                         setShareLeadQuery(value?.name || '');
+                      }}
+                      onInputChange={(_event, value, reason) => {
+                         if (reason !== 'reset') setShareLeadQuery(value);
+                      }}
+                      options={shareLeadOptions}
+                      loading={shareLeadLoading}
+                      getOptionLabel={(option) => {
+                         if (!option) return '';
+                         const phone = Array.isArray(option.phones) ? option.phones[0] : '';
+                         return [option.name, phone].filter(Boolean).join(' · ');
+                      }}
+                      isOptionEqualToValue={(option, value) => option?._id === value?._id}
+                      noOptionsText={shareLeadQuery.trim().length < 2 ? 'Введіть мінімум 2 символи' : 'Ліда не знайдено'}
+                      renderInput={(params) => (
+                         <TextField
+                            {...params}
+                            size="small"
+                            label="Лід / клієнт для посилання"
+                            placeholder="Почніть вводити ім’я або телефон"
+                            sx={fieldSx}
+                         />
+                      )}
+                   />
+
+                   {!!repeatedLeadLinks.length && (
+                      <Box
+                         sx={{
+                            px: 1,
+                            py: 0.75,
+                            borderRadius: 3,
+                            border: '1px solid rgba(245,158,11,0.30)',
+                            bgcolor: mode === 'light' ? 'rgba(245,158,11,0.08)' : 'rgba(245,158,11,0.12)',
+                            color: mode === 'light' ? '#92400e' : '#fde68a',
+                         }}
+                      >
+                         <Typography sx={{ fontSize: 13, fontWeight: 950 }}>
+                            Цьому ліду вже створювали посилання на цей об’єкт: {repeatedLeadLinks.length}
+                         </Typography>
+                         <Typography sx={{ fontSize: 12, opacity: 0.82 }}>
+                            Можна створити ще одне посилання, але команда бачитиме повтор у списку.
+                         </Typography>
+                      </Box>
+                   )}
 
                   {/* <Typography sx={{ color: theme.textSoft, fontSize: 11, mt: -0.4 }}>
                      Можна залишити порожнім — тоді буде стандартна назва.
@@ -4051,11 +4369,17 @@ ${url}`;
                   <Button
                      disabled={shareLoading}
                      onClick={() => handleCreateShareLink('client', 'classic')}
+                     startIcon={<Box component="span" sx={{ fontSize: 18, lineHeight: 1 }}>💎</Box>}
                      sx={{
                         borderRadius: 3,
                         fontWeight: 950,
                         color: '#0b0b12',
                         background: `linear-gradient(90deg, ${theme.accent}, ${theme.accentLight})`,
+                        boxShadow: `0 10px 24px ${theme.glow}`,
+                        '&:hover': {
+                           filter: 'brightness(1.08)',
+                           boxShadow: `0 14px 30px ${theme.glow}`,
+                        },
                      }}
                   >
                      Створити клієнтську презентацію
@@ -4063,36 +4387,57 @@ ${url}`;
 
                   <Button
                      disabled={shareLoading}
-                     onClick={() => handleCreateShareLink('partner', 'classic')}
+                     onClick={() => handleCreateShareLink('client', 'landing')}
+                     startIcon={<Box component="span" sx={{ fontSize: 18, lineHeight: 1 }}>✨</Box>}
                      sx={{
                         borderRadius: 3,
                         fontWeight: 950,
                         color: theme.text,
-                        border: `1px solid ${theme.border}`,
+                        border: `1px solid ${mode === 'light' ? 'rgba(124,58,237,0.28)' : 'rgba(196,181,253,0.28)'}`,
+                        background: mode === 'light'
+                           ? 'linear-gradient(90deg, rgba(124,58,237,0.08), rgba(14,165,233,0.06))'
+                           : 'linear-gradient(90deg, rgba(139,92,246,0.16), rgba(14,165,233,0.10))',
+                        '&:hover': {
+                           borderColor: mode === 'light' ? 'rgba(124,58,237,0.48)' : 'rgba(196,181,253,0.46)',
+                           background: mode === 'light'
+                              ? 'linear-gradient(90deg, rgba(124,58,237,0.14), rgba(14,165,233,0.10))'
+                              : 'linear-gradient(90deg, rgba(139,92,246,0.24), rgba(14,165,233,0.16))',
+                           boxShadow: `0 10px 24px ${theme.glow}`,
+                        },
+                     }}
+                  >
+                     Створити клієнтський лендінг
+                  </Button>
+
+                  <Button
+                     disabled={shareLoading}
+                     onClick={() => handleCreateShareLink('partner', 'classic')}
+                     startIcon={<Box component="span" sx={{ fontSize: 18, lineHeight: 1 }}>🪲</Box>}
+                     sx={{
+                        borderRadius: 3,
+                        fontWeight: 950,
+                        color: mode === 'light' ? '#991b1b' : '#fecaca',
+                        border: '1px solid rgba(239,68,68,0.30)',
+                        bgcolor: mode === 'light'
+                           ? 'rgba(239,68,68,0.06)'
+                           : 'rgba(239,68,68,0.10)',
+                        '&:hover': {
+                           borderColor: 'rgba(239,68,68,0.48)',
+                           bgcolor: mode === 'light'
+                              ? 'rgba(239,68,68,0.11)'
+                              : 'rgba(239,68,68,0.16)',
+                        },
                      }}
                   >
                      Створити нейтральну презентацію для партнера
                   </Button>
 
-                  <Button
-                     disabled={shareLoading}
-                     onClick={() => handleCreateShareLink('client', 'landing')}
-                     sx={{
-                        borderRadius: 3,
-                        fontWeight: 950,
-                        color: theme.text,
-                        border: `1px solid ${theme.border}`,
-                        bgcolor: mode === 'light'
-                           ? 'rgba(124,58,237,0.06)'
-                           : 'rgba(255,255,255,0.04)',
-                     }}
-                  >
-                     Створити лендінг
-                  </Button>
-
                   <Divider sx={{ borderColor: theme.border }} />
 
-                  {(item?.shareLinks || []).map((link) => (
+                  {shareLinks.map((link, linkIndex) => {
+                     const isRepeated = isRepeatedShareLink(link, linkIndex, shareLinks);
+
+                     return (
 
                      <Box
                         key={link._id || link.slug}
@@ -4111,7 +4456,7 @@ ${url}`;
                         }}
                      >
                         {/* ЛІВА ЧАСТИНА */}
-                        <Box sx={{ minWidth: 0 }}>
+                         <Box sx={{ minWidth: 0, flex: 1, py: 0.1 }}>
                            {/* <Typography sx={{ fontWeight: 950 }}>
                               {link.type === 'partner' ? 'Партнерська' : 'Клієнтська'} презентація
                            </Typography>  */}
@@ -4122,46 +4467,85 @@ ${url}`;
                                     ? 'Партнерська'
                                     : 'Клієнтська'} презентація
                            </Typography> */}
-                           <Typography sx={{ fontWeight: 950 }}>
-                              {getShareKindLabel(link)}
-                           </Typography>
+                            <Typography
+                               sx={{
+                                  fontWeight: 950,
+                                  fontSize: { xs: 14, sm: 15 },
+                                  lineHeight: 1.12,
+                                  mb: 0.15,
+                               }}
+                             >
+                                {getShareKindLabel(link)}
+                             </Typography>
 
-                           <Typography sx={{ fontSize: 10, color: theme.textSoft }}>
-                              👁 {link.viewsCount} · {formatDateTime(link.lastViewedAt)}
-                           </Typography>
+                             {isRepeated && (
+                                <Typography
+                                   sx={{
+                                      mt: -0.05,
+                                      mb: 0.2,
+                                      fontSize: 10.5,
+                                      lineHeight: 1.15,
+                                      color: mode === 'light' ? '#dc2626' : '#fca5a5',
+                                      fontWeight: 950,
+                                   }}
+                                >
+                                   повторна презентація
+                                </Typography>
+                             )}
 
-                           {!!link.reactions?.length && (
-                              <Tooltip
-                                 title={
-                                    <Box>
-                                       {link.reactions.map((r, idx) => (
-                                          <Typography key={idx} sx={{ fontSize: 12 }}>
-                                             {r.label} — {formatDateTime(r.createdAt)}
-                                          </Typography>
-                                       ))}
-                                    </Box>
-                                 }
-                              >
-                                 <Chip
-                                    size="small"
-                                    label={`❤️ ${link.reactions.length}`}
-                                    sx={{
-                                       height: 22,
-                                       fontSize: 11,
-                                       fontWeight: 900,
-                                    }}
-                                 />
-                              </Tooltip>
+                             <Typography sx={{ fontSize: 10, lineHeight: 1.15, color: theme.textSoft }}>
+                               👁 {link.viewsCount} · {formatDateTime(link.lastViewedAt)}
+                            </Typography>
+
+                            {!!link.title && (link.leadNameSnapshot || link.leadPhoneSnapshot) && (
+                               <Typography sx={{ fontSize: 11, lineHeight: 1.18, color: theme.accentLight, fontWeight: 900 }}>
+                                  Клієнт: {[link.leadNameSnapshot, link.leadPhoneSnapshot].filter(Boolean).join(' · ')}
+                               </Typography>
+                            )}
+
+                            {!!link.reactions?.length && (
+                               <Stack direction="row" spacing={0.45} flexWrap="wrap" useFlexGap sx={{ mt: 0.45 }}>
+                                  {getShareReactionGroups(link.reactions).map((group) => (
+                                     <Tooltip
+                                        key={group.type}
+                                        title={
+                                           <Box>
+                                              <Typography sx={{ fontSize: 12, fontWeight: 900, mb: 0.4 }}>
+                                                 {group.icon} {group.label}: {group.count}
+                                              </Typography>
+                                              {group.items.map((r, idx) => (
+                                                 <Typography key={idx} sx={{ fontSize: 12 }}>
+                                                    {r.label || group.label} — {formatDateTime(r.createdAt)}
+                                                 </Typography>
+                                              ))}
+                                           </Box>
+                                        }
+                                     >
+                                        <Chip
+                                           size="small"
+                                           label={`${group.icon} ${group.count}`}
+                                           sx={{
+                                              height: 22,
+                                              fontSize: 11,
+                                              fontWeight: 950,
+                                              color: mode === 'light' ? '#334155' : '#e5e7eb',
+                                              bgcolor: mode === 'light' ? 'rgba(15,23,42,0.06)' : 'rgba(255,255,255,0.08)',
+                                              border: `1px solid ${theme.border}`,
+                                           }}
+                                        />
+                                     </Tooltip>
+                                  ))}
+                               </Stack>
                            )}
 
-                           <Typography sx={{ fontSize: 11, color: theme.textSoft }}>
-                              {/* {getEmployeeName(item.createdByEmployee)} */}
-                              {getEmployeeName(link.createdByEmployee)}
-                           </Typography>
-                        </Box>
+                            <Typography sx={{ fontSize: 11, lineHeight: 1.18, color: theme.textSoft }}>
+                               {/* {getEmployeeName(item.createdByEmployee)} */}
+                               {getEmployeeName(link.createdByEmployee)}
+                            </Typography>
+                         </Box>
 
                         {/* ПРАВА ЧАСТИНА — ІКОНКИ */}
-                        <Stack direction="row" spacing={0.3}>
+                         <Stack direction="row" spacing={0.3} sx={{ alignSelf: 'center', flexShrink: 0 }}>
                            <Tooltip title="Скопіювати лінк">
 
                               <IconButton
@@ -4230,7 +4614,8 @@ ${url}`;
                            </Tooltip>
                         </Stack>
                      </Box>
-                  ))}
+                     );
+                  })}
 
                   {!item?.shareLinks?.length && (
                      <Typography sx={{ color: theme.textSoft, fontSize: 13 }}>

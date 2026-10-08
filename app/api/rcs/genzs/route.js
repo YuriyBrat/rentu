@@ -20,11 +20,12 @@ const { Document, Packer, Paragraph, Tab, TextRun, SequentialIdentifier,
    FrameAnchorType, HorizontalPositionAlign, VerticalPositionAlign } = docx;
 
 async function saveDocumentGenerationLog({ fieldsData, kind, nameFile, propertyId, leadId }) {
-   const [{ default: connectDB }, { default: DocumentGeneration }, { getSessionUser }, { Types }] = await Promise.all([
+   const [{ default: connectDB }, { default: DocumentGeneration }, { getSessionUser }, { Types }, { logDocumentGenerationActivity }] = await Promise.all([
       import('@/config/database'),
       import('@/models/DocumentGeneration'),
       import('@/utils/getSessionUser'),
       import('mongoose'),
+      import('@/utils/crm/documentGenerationActivity'),
    ]);
 
    const objectIdOrNull = (value) => {
@@ -38,7 +39,7 @@ async function saveDocumentGenerationLog({ fieldsData, kind, nameFile, propertyI
    const employeeId = objectIdOrNull(sessionUser?.employeeId);
    const documentType = kind === 'rp' ? 'sale_buyer_service' : 'sale_deposit';
 
-   await DocumentGeneration.create({
+   const created = await DocumentGeneration.create({
       documentDomain: 'sale',
       documentType,
       generatedAt: new Date(),
@@ -53,6 +54,17 @@ async function saveDocumentGenerationLog({ fieldsData, kind, nameFile, propertyI
       contractDateText: fieldsData?.dateZS || '',
       source: 'crm_gen_sale',
       fieldsSnapshot: fieldsData || {},
+   });
+
+   await logDocumentGenerationActivity({
+      sessionUser,
+      item: created.toObject ? created.toObject() : created,
+      action: 'generated',
+      source: 'api',
+      message: documentType === 'sale_buyer_service'
+         ? 'Згенеровано договір послуг з покупцем'
+         : 'Згенеровано договір завдатку продажу',
+      extraMeta: { eventKind: 'docx_generated' },
    });
 }
 

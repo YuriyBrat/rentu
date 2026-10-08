@@ -2,6 +2,34 @@ import connectDB from '@/config/database';
 import Property from '@/models/Property';
 import Employee from '@/models/Employee';
 
+function getShareImageUrl(img, useBrandedPhotos) {
+   if (!img) return '';
+
+   if (useBrandedPhotos) {
+      return (
+         img.brandedUrl ||
+         img.variants?.branded ||
+         img.processedUrl ||
+         img.variants?.full ||
+         img.variants?.card ||
+         img.variants?.preview ||
+         img.url ||
+         ''
+      );
+   }
+
+   return (
+      img.processedUrl ||
+      img.variants?.full ||
+      img.variants?.card ||
+      img.variants?.preview ||
+      img.url ||
+      img.brandedUrl ||
+      img.variants?.branded ||
+      ''
+   );
+}
+
 export const GET = async (req, { params }) => {
    try {
       await connectDB();
@@ -10,7 +38,7 @@ export const GET = async (req, { params }) => {
          'shareLinks.slug': params.slug,
          'shareLinks.isActive': true,
       })
-         .populate('assignee', 'name fullName surname phone email avatar position')
+         .populate('assignee', 'name fullName surname phone phones email emails avatar avatarUrl position photos livePhoto')
          .lean();
 
       if (!property) {
@@ -35,9 +63,7 @@ export const GET = async (req, { params }) => {
          .filter((img) => !img.isHidden)
          .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
          .map((img) => {
-            const url = shareLink.useBrandedPhotos
-               ? img.brandedUrl || img.variants?.branded || img.processedUrl || img.url
-               : img.processedUrl || img.variants?.card || img.url;
+            const url = getShareImageUrl(img, shareLink.useBrandedPhotos);
 
             return {
                url,
@@ -45,7 +71,8 @@ export const GET = async (req, { params }) => {
                height: img.height,
                isMain: img.isMain,
             };
-         });
+         })
+         .filter((img) => img.url);
 
       return Response.json({
          ok: true,

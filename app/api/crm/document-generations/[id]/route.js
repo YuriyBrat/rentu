@@ -2,6 +2,7 @@ import connectDB from '@/config/database';
 import DocumentGeneration from '@/models/DocumentGeneration';
 import { getSessionUser } from '@/utils/getSessionUser';
 import { canManageEmployeeScope, isElevatedCrmUser } from '@/utils/crm/accessControl';
+import { logDocumentGenerationActivity } from '@/utils/crm/documentGenerationActivity';
 import { Types } from 'mongoose';
 
 function idString(value) {
@@ -25,7 +26,10 @@ export const DELETE = async (req, { params }) => {
 
       await connectDB();
 
-      const item = await DocumentGeneration.findById(id).select('generatedByEmployee').lean();
+      const item = await DocumentGeneration.findById(id)
+         .populate('property', 'title rentOptions.rentTitle location_text type_estate type_deal cost currency')
+         .populate('lead', 'name phones stage status')
+         .lean();
       if (!item) return Response.json({ error: 'Not found' }, { status: 404 });
 
       if (!(await canAccessDocumentGeneration(sessionUser, item))) {
@@ -33,6 +37,15 @@ export const DELETE = async (req, { params }) => {
       }
 
       await DocumentGeneration.deleteOne({ _id: idString(item._id) });
+
+      await logDocumentGenerationActivity({
+         sessionUser,
+         item,
+         action: 'deleted',
+         source: 'api',
+         message: 'Видалено договір із реєстру генерацій',
+         extraMeta: { eventKind: 'registry_deleted' },
+      });
 
       return Response.json({ ok: true }, { status: 200 });
    } catch (error) {

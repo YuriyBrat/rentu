@@ -43,6 +43,7 @@ const ACTION_OPTIONS = [
    ['communication_added', 'Комунікація'],
    ['moved', 'Перенос'],
    ['deleted', 'Видалення'],
+   ['generated', 'Згенеровано'],
    ['access_denied', 'Відмовлено'],
 ];
 
@@ -53,6 +54,7 @@ const ENTITY_OPTIONS = [
    ['lead', 'Ліди'],
    ['communication', 'Комунікації'],
    ['operation', 'Операційка'],
+   ['documentGeneration', 'Договори'],
    ['employee', 'Персонал'],
 ];
 
@@ -230,6 +232,7 @@ const actionMeta = {
    communication_added: { label: 'Комунікація', color: '#14b8a6', icon: <NotesRoundedIcon fontSize="small" /> },
    moved: { label: 'Перенос', color: '#06b6d4', icon: <SwapHorizRoundedIcon fontSize="small" /> },
    deleted: { label: 'Видалення', color: '#ef4444', icon: <DeleteOutlineRoundedIcon fontSize="small" /> },
+   generated: { label: 'Згенеровано', color: '#06b6d4', icon: <AutoGraphRoundedIcon fontSize="small" /> },
    access_denied: { label: 'Відмовлено', color: '#dc2626', icon: <LockRoundedIcon fontSize="small" /> },
 };
 
@@ -284,6 +287,7 @@ function getActorName(item) {
 
 function getEntityLabel(type) {
    if (type === 'financeEvent') return 'Фінансова подія';
+   if (type === 'documentGeneration') return 'Договір';
    return ENTITY_OPTIONS.find(([value]) => value === type)?.[1] || type || '-';
 }
 
@@ -306,6 +310,7 @@ function getPageLabel(item) {
       lead: 'Ліди',
       communication: 'Комунікації',
       operation: 'Операційка',
+      documentGeneration: 'Генерації',
       employee: 'Персонал',
       system: 'Система',
    };
@@ -315,6 +320,13 @@ function getPageLabel(item) {
 
 function getActivityMessage(item) {
    const message = item?.message || getActionLabel(item?.action);
+   if (item?.entityType === 'documentGeneration') {
+      const typeLabel = item?.meta?.documentTypeLabel || 'договір';
+      if (item?.action === 'generated') return `Згенеровано ${typeLabel}`;
+      if (item?.action === 'created') return `Збережено ${typeLabel}`;
+      if (item?.action === 'deleted') return `Видалено ${typeLabel}`;
+      return message;
+   }
    if (item?.entityType === 'financeEvent') {
       const financeType = item?.meta?.financeType;
       if (item?.action === 'created' && financeType) {
@@ -341,6 +353,16 @@ function getActivityMessage(item) {
        if (item?.action === 'updated') return 'Оновлено запис в історії роботи';
        if (item?.action === 'deleted') return 'Видалено запис з історії роботи';
     }
+   if (item?.entityType === 'property' && item?.meta?.kind === 'shareLink') {
+      const presentationLabel = item?.meta?.shareLinkType === 'partner'
+         ? 'партнерську презентацію'
+         : item?.meta?.presentationType === 'landing'
+            ? 'клієнтський лендінг'
+            : 'клієнтську презентацію';
+
+      if (item?.action === 'created') return `Створено ${presentationLabel}`;
+      if (item?.action === 'deleted') return `Видалено ${presentationLabel}`;
+   }
    if (item?.entityType === 'property') {
       if (item?.action === 'access_denied') return item?.message || 'Спроба дії з об’єктом без доступу';
       if (item?.action === 'status_changed') return 'Змінено статус об’єкта';
@@ -381,6 +403,13 @@ function getEventVisual(item) {
    const pzsStepType = item?.meta?.pzsStepType;
    const message = getActivityMessage(item);
 
+   if (item?.meta?.kind === 'shareLink') {
+      return {
+         label: 'Презентація',
+         color: item?.action === 'deleted' ? '#fb7185' : '#c4b5fd',
+         icon: <AutoGraphRoundedIcon sx={{ fontSize: 15 }} />,
+      };
+   }
    if (financeType === 'deposit' || /завдат/i.test(message)) {
       return { label: 'ЗС', color: '#22c55e', icon: <HandshakeRoundedIcon sx={{ fontSize: 15 }} /> };
    }
@@ -448,6 +477,39 @@ function DiffPreview({ item, theme }) {
              <Chip size="small" label={`+${diff.length - 5}`} sx={{ height: 19, color: theme.textSoft, fontSize: 11 }} />
          )}
       </Stack>
+   );
+}
+
+function DocumentOptionsPreview({ item, theme }) {
+   const options = Array.isArray(item?.meta?.optionsPreview) ? item.meta.optionsPreview : [];
+   if (item?.entityType !== 'documentGeneration' || !options.length) return null;
+
+   const tooltip = item?.meta?.optionsText || options.map((entry) => `${entry.label}: ${entry.value}`).join(' | ');
+
+   return (
+      <Tooltip title={tooltip}>
+         <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
+            {options.slice(0, 5).map((entry) => (
+               <Chip
+                  key={entry.field}
+                  size="small"
+                  label={`${entry.label}: ${entry.value}`}
+                  sx={{
+                     height: 19,
+                     maxWidth: 210,
+                     fontSize: 11,
+                     color: theme.textSoft,
+                     border: `1px solid ${theme.border}`,
+                     bgcolor: 'transparent',
+                     '& .MuiChip-label': { overflow: 'hidden', textOverflow: 'ellipsis' },
+                  }}
+               />
+            ))}
+            {options.length > 5 && (
+               <Chip size="small" label={`+${options.length - 5}`} sx={{ height: 19, color: theme.textSoft, fontSize: 11 }} />
+            )}
+         </Stack>
+      </Tooltip>
    );
 }
 
@@ -521,6 +583,7 @@ function ActivityRow({ item }) {
                 {item.title || item.entityId || '-'}
              </Typography>
             <DiffPreview item={item} theme={theme} />
+            <DocumentOptionsPreview item={item} theme={theme} />
          </Stack>
 
          <Stack spacing={0.15} sx={{ display: { xs: 'none', lg: 'flex' } }}>
@@ -613,6 +676,8 @@ export default function ActivityPage() {
          item.source,
          item.action,
          item.entityType,
+         item?.meta?.documentTypeLabel,
+         item?.meta?.optionsText,
          getPageLabel(item),
          getActorName(item),
       ].filter(Boolean).join(' ').toLowerCase().includes(query));

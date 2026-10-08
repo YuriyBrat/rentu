@@ -2,6 +2,7 @@ import connectDB from '@/config/database';
 import DocumentGeneration from '@/models/DocumentGeneration';
 import { getSessionUser } from '@/utils/getSessionUser';
 import { getEmployeeScopeIds, isElevatedCrmUser } from '@/utils/crm/accessControl';
+import { logDocumentGenerationActivity } from '@/utils/crm/documentGenerationActivity';
 import { Types } from 'mongoose';
 
 function objectIdOrNull(value) {
@@ -94,6 +95,15 @@ export const POST = async (req) => {
          .populate('property', 'title rentOptions.rentTitle location_text type_estate type_deal cost currency')
          .populate('lead', 'name phones stage status')
          .lean();
+
+      await logDocumentGenerationActivity({
+         sessionUser,
+         item,
+         action: 'created',
+         source: 'api',
+         message: isRent ? 'Збережено договір оренди в реєстрі' : 'Збережено договір продажу в реєстрі',
+         extraMeta: { eventKind: 'registry_saved' },
+      });
 
       return Response.json({ item }, { status: 201 });
    } catch (error) {

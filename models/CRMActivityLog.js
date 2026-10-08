@@ -7,6 +7,7 @@ export const CRM_ACTIVITY_ENTITY_TYPES = [
    "communication",
    "operation",
    "financeEvent",
+   "documentGeneration",
    "employee",
    "system",
 ];
@@ -16,6 +17,7 @@ export const CRM_ACTIVITY_ACTIONS = [
    "imported",
    "updated",
    "deleted",
+   "generated",
    "status_changed",
    "communication_added",
    "moved",
