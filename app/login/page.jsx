@@ -24,7 +24,8 @@ export default function LoginPage() {
          setError('Невірний email/телефон або пароль');
       } else if (result?.ok) {
          const session = await getSession();
-         window.location.href = session?.user?.role === 'marketing' ? '/crm/advertising' : '/crm/objects3';
+         const role = session?.user?.role;
+         window.location.href = role === 'marketing' ? '/crm/advertising' : role === 'callcenter' ? '/crm/call-center' : '/crm/objects3';
       }
    };
 

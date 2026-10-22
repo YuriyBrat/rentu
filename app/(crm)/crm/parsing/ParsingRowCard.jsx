@@ -16,6 +16,7 @@ import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
 
 import { useCRMTheme } from '@/app/(crm)/crm/context/CRMThemeContext';
 import ImageLightbox from '@/crm_components/ImageLightbox';
+import { CallWorkflowBar } from './CallCenterWorkspace';
 
 function formatMoney(value, currency = 'USD') {
    if (!value && value !== 0) return '-';
@@ -490,13 +491,14 @@ function ContactCell({ item, theme }) {
    );
 }
 
-export default function ParsingRowCard({ item, expanded, onToggleExpand, onStatus, onHistory, onQuickCommunication, onEdit, onDelete, canDelete, canManageReservation = false, now = Date.now() }) {
+export default function ParsingRowCard({ item, expanded, onToggleExpand, onStatus, onHistory, onQuickCommunication, onEdit, onDelete, canDelete, canManageReservation = false, now = Date.now(), workspace }) {
    if (item?.sourceStatus === 'unknown') {
       item = { ...item, sourceStatus: 'не перевірено' };
    }
    const { theme, mode } = useCRMTheme();
    const displayStage = getParsingStageKey(item, now);
    const meta = STAGE_META[displayStage] || STAGE_META.raw;
+   const isNew = displayStage === 'raw';
    const awaitsInspection = displayStage === 'inspection_ready';
    const reservationActive = displayStage === 'inspection_reserved';
    const reservationName = item?.inspectionReservation?.reservedByEmployee?.name ||
@@ -532,17 +534,21 @@ export default function ParsingRowCard({ item, expanded, onToggleExpand, onStatu
                   ? 'rgba(34,211,238,0.68)'
                   : awaitsInspection
                      ? 'rgba(245,158,11,0.62)'
-                     : theme.border
+                     : isNew
+                        ? 'rgba(96,165,250,0.62)'
+                        : theme.border
             }`,
             bgcolor: reservationActive
                ? (mode === 'light' ? 'rgba(34,211,238,0.10)' : 'rgba(34,211,238,0.085)')
                : awaitsInspection
                   ? (mode === 'light' ? 'rgba(245,158,11,0.085)' : 'rgba(245,158,11,0.07)')
-                  : (mode === 'light' ? 'rgba(255,255,255,0.78)' : 'rgba(255,255,255,0.025)'),
+                  : isNew
+                     ? (mode === 'light' ? 'rgba(96,165,250,0.085)' : 'rgba(96,165,250,0.07)')
+                     : (mode === 'light' ? 'rgba(255,255,255,0.78)' : 'rgba(255,255,255,0.025)'),
              display: 'grid',
              gridTemplateColumns: {
                 xs: '36px 42px 1fr',
-                lg: '36px 44px minmax(190px, 1.32fr) 84px 72px 94px minmax(145px, 0.75fr) 74px 92px minmax(166px, auto)',
+                lg: '36px 44px minmax(190px, 1.32fr) 84px 72px 94px minmax(145px, 0.75fr) 74px 92px minmax(132px, auto)',
              },
             gap: 0.8,
             alignItems: 'center',
@@ -550,7 +556,9 @@ export default function ParsingRowCard({ item, expanded, onToggleExpand, onStatu
                ? '0 8px 24px rgba(34,211,238,0.16)'
                : awaitsInspection
                   ? '0 8px 24px rgba(245,158,11,0.12)'
-                  : (mode === 'light' ? '0 10px 24px rgba(124,58,237,0.05)' : 'none'),
+                  : isNew
+                     ? '0 8px 24px rgba(96,165,250,0.12)'
+                     : (mode === 'light' ? '0 10px 24px rgba(124,58,237,0.05)' : 'none'),
          }}
       >
          <CommunicationClock item={item} theme={theme} onClick={onQuickCommunication} />
@@ -705,23 +713,6 @@ export default function ParsingRowCard({ item, expanded, onToggleExpand, onStatu
                 </IconButton>
              </Tooltip>
 
-             {canDelete && (
-                <Tooltip title="Видалити">
-                   <IconButton
-                      onClick={() => onDelete?.(item)}
-                      sx={{
-                         ...iconButtonSx,
-                         color: '#ef4444',
-                         borderColor: 'rgba(239,68,68,0.38)',
-                         bgcolor: 'rgba(239,68,68,0.08)',
-                         '&:hover': { bgcolor: 'rgba(239,68,68,0.16)' },
-                      }}
-                   >
-                      <DeleteOutlineRoundedIcon fontSize="small" />
-                   </IconButton>
-                </Tooltip>
-             )}
-
              <Tooltip title={expanded ? 'Згорнути' : 'Розгорнути'}>
                <IconButton onClick={() => onToggleExpand?.(item)} sx={iconButtonSx}>
                   {expanded ? <KeyboardArrowUpRoundedIcon fontSize="small" /> : <KeyboardArrowDownRoundedIcon fontSize="small" />}
@@ -745,6 +736,8 @@ export default function ParsingRowCard({ item, expanded, onToggleExpand, onStatu
                </IconButton>
             </Tooltip>
          </Stack>
+
+         <CallWorkflowBar item={item} workspace={workspace} expanded={expanded} now={now} />
 
          {expanded && (
             <Box
@@ -986,6 +979,28 @@ export default function ParsingRowCard({ item, expanded, onToggleExpand, onStatu
                         <Typography sx={{ color: theme.textSoft, fontSize: 13, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>
                            {item?.description || 'Опису немає'}
                         </Typography>
+                        {canDelete && (
+                           <Box sx={{ display: 'flex', justifyContent: 'flex-end', pt: 0.65 }}>
+                              <Button
+                                 startIcon={<DeleteOutlineRoundedIcon fontSize="small" />}
+                                 onClick={() => onDelete?.(item)}
+                                 sx={{
+                                    ...iconButtonSx,
+                                    width: 'auto',
+                                    px: 1.25,
+                                    fontSize: 12,
+                                    fontWeight: 800,
+                                    textTransform: 'none',
+                                    color: '#ef4444',
+                                    borderColor: 'rgba(239,68,68,0.38)',
+                                    bgcolor: 'rgba(239,68,68,0.08)',
+                                    '&:hover': { bgcolor: 'rgba(239,68,68,0.16)' },
+                                 }}
+                              >
+                                 Видалити
+                              </Button>
+                           </Box>
+                        )}
                      </Stack>
                   </Stack>
                </Box>

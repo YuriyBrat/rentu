@@ -9,6 +9,8 @@ import OperationEvent from '@/models/OperationEvent';
 import { logActivity } from '@/utils/crm/activityLog';
 import { getSessionUser } from '@/utils/getSessionUser';
 import { Types } from 'mongoose';
+import LeadProperty from '@/models/LeadProperty';
+import { getCallActor, callClaimConflict } from '@/utils/crm/callCenter';
 
 void Employee;
 void OperationEvent;
@@ -99,6 +101,12 @@ export const POST = async (request) => {
 
       if (!entityType || !entityId) {
          return Response.json({ error: 'entityType and entityId required' }, { status: 400 });
+      }
+      if (entityType === 'leadProperty') {
+         const target = await LeadProperty.findById(entityId).select('callQueue').lean();
+         if (callClaimConflict(target, getCallActor(sessionUser).key)) {
+            return Response.json({ error: 'Оголошення вже обробляє інший працівник.' }, { status: 409 });
+         }
       }
 
       const sessionEmployeeId = objectIdOrNull(sessionUser?.employeeId);

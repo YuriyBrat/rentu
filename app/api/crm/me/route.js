@@ -16,7 +16,9 @@ export const GET = async () => {
 
          const envLogin = String(process.env.CRM_SUPERADMIN_LOGIN || '').trim().toLowerCase();
          const employee = envLogin
-            ? await Employee.findOne({
+            // Legacy records may store phones as strings; avoid casting those
+            // branches to the newer phone subdocument schema.
+            ? await Employee.collection.findOne({
                isActive: true,
                $or: [
                   { login: envLogin },
@@ -24,7 +26,7 @@ export const GET = async () => {
                   { 'phones.number': envLogin },
                   { phones: envLogin },
                ],
-            }).lean()
+            })
             : null;
 
          return Response.json(

@@ -185,6 +185,29 @@ const LeadPropertySchema = new Schema(
       inspectionReservation: { type: LeadPropertyInspectionReservationSchema, default: () => ({}) },
       lastCallAt: { type: Date, default: null, index: true },
       assignedToEmployee: { type: Schema.Types.ObjectId, ref: "Employee", default: null, index: true },
+      callQueue: {
+         ownerKey: { type: String, default: '' },
+         ownerName: { type: String, default: '' },
+         startedAt: Date,
+         expiresAt: { type: Date, index: true },
+         nextContactAt: { type: Date, index: true },
+         callbackOwnerKey: { type: String, default: '' },
+         lastOutcome: { type: String, default: '' },
+         lastHandledAt: Date,
+         lastSubmissionId: String,
+      },
+      callRequests: [{
+         requestedByKey: { type: String, required: true },
+         requestedByName: String,
+         level: { type: String, enum: ['interesting', 'priority', 'urgent'], required: true },
+         note: String,
+         dueAt: Date,
+         createdAt: { type: Date, default: Date.now },
+         resolvedAt: { type: Date, default: null },
+         resolvedByKey: String,
+         resolution: String,
+      }],
+      callPriorityRank: { type: Number, default: 0 },
       duplicateOf: { type: Schema.Types.ObjectId, ref: "LeadProperty", default: null, index: true },
       duplicatePropertyId: { type: Schema.Types.ObjectId, ref: "Property", default: null, index: true },
 
@@ -219,6 +242,8 @@ const LeadPropertySchema = new Schema(
 );
 
 // точний дедуп по джерелу
+LeadPropertySchema.index({ updatedAt: -1 });
+LeadPropertySchema.index({ callPriorityRank: -1, importedAt: -1 });
 LeadPropertySchema.index(
    { source: 1, sourceId: 1 },
    {

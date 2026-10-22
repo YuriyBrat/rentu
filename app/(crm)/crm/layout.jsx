@@ -31,7 +31,10 @@ function CRMAuthWrapper({ children }) {
             router.replace('/crm/advertising');
          }
          if (role === 'callcenter' && pathname?.startsWith('/crm/advertising')) {
-            router.replace('/crm/objects3');
+            router.replace('/crm/call-center');
+         }
+         if (role === 'callcenter' && pathname === '/crm') {
+            router.replace('/crm/call-center');
          }
       }
    }, [status, session, router, pathname]);
@@ -46,6 +49,7 @@ function CRMAuthWrapper({ children }) {
    const role = session?.user?.role || 'viewer';
    if (role === 'marketing' && !pathname?.startsWith('/crm/advertising')) return null;
    if (role === 'callcenter' && pathname?.startsWith('/crm/advertising')) return null;
+   if (role === 'callcenter' && pathname === '/crm') return null;
 
    return (
       <CRMThemeProvider>

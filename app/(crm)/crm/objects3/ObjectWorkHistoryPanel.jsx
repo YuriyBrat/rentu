@@ -26,6 +26,15 @@ const TONE_LABELS = {
    important: 'Важлива',
 };
 
+const TONE_ACCENTS = {
+   operationNeutral: '#7dd3fc',
+   pzs: '#e879f9',
+   positive: '#34d399',
+   negative: '#fb7185',
+   important: '#60a5fa',
+   info: '#fbbf24',
+};
+
 function formatDateTime(value) {
    if (!value) return '—';
    const d = new Date(value);
@@ -42,93 +51,131 @@ function formatDateTime(value) {
 }
 
 function getToneSx(tone, mode) {
+   const accent = TONE_ACCENTS[tone] || TONE_ACCENTS.info;
+   const darkBg = tone === 'operationNeutral'
+      ? 'rgba(30,41,59,0.58)'
+      : 'rgba(30,30,44,0.56)';
+   const lightBg = tone === 'operationNeutral'
+      ? 'rgba(248,250,252,0.92)'
+      : 'rgba(255,255,255,0.92)';
+
    if (tone === 'operationNeutral') {
       return {
          color: mode === 'light' ? '#334155' : '#dbeafe',
-         bgcolor: mode === 'light' ? 'rgba(71,85,105,0.08)' : 'rgba(30,41,59,0.72)',
-         border: mode === 'light' ? '1px solid rgba(14,165,233,0.20)' : '1px solid rgba(125,211,252,0.22)',
+         bgcolor: mode === 'light' ? lightBg : darkBg,
+         border: mode === 'light' ? '1px solid rgba(14,165,233,0.18)' : '1px solid rgba(125,211,252,0.22)',
+         boxShadow: `inset 3px 0 0 ${accent}55`,
       };
    }
 
    if (tone === 'pzs') {
       return {
-         color: mode === 'light' ? '#9d174d' : '#fbcfe8',
-         bgcolor: mode === 'light' ? 'rgba(219,39,119,0.09)' : 'rgba(131,24,67,0.34)',
-         border: '1px solid rgba(236,72,153,0.34)',
+         color: mode === 'light' ? '#475569' : '#f1f5f9',
+         bgcolor: mode === 'light' ? lightBg : darkBg,
+         border: '1px solid rgba(236,72,153,0.24)',
+         boxShadow: `inset 3px 0 0 ${accent}55`,
       };
    }
 
    if (tone === 'positive') {
       return {
-         color: mode === 'light' ? '#166534' : '#bbf7d0',
-         bgcolor: mode === 'light' ? 'rgba(22,101,52,0.08) !important' : 'rgba(34,197,94,0.13) !important',
-         border: '1px solid rgba(34,197,94,0.24)',
+         color: mode === 'light' ? '#334155' : '#f1f5f9',
+         bgcolor: mode === 'light' ? lightBg : darkBg,
+         border: '1px solid rgba(34,197,94,0.20)',
+         boxShadow: `inset 3px 0 0 ${accent}55`,
       };
    }
 
    if (tone === 'negative') {
       return {
-         color: mode === 'light' ? '#991b1b' : '#fecaca',
-         bgcolor: mode === 'light' ? 'rgba(239,68,68,0.08)' : 'rgba(239,68,68,0.13)',
-         border: '1px solid rgba(239,68,68,0.24)',
+         color: mode === 'light' ? '#334155' : '#f1f5f9',
+         bgcolor: mode === 'light' ? lightBg : darkBg,
+         border: '1px solid rgba(239,68,68,0.20)',
+         boxShadow: `inset 3px 0 0 ${accent}55`,
       };
    }
 
    if (tone === 'important') {
       return {
-         color: mode === 'light' ? '#1e40af' : '#bfdbfe',
-         bgcolor: mode === 'light' ? 'rgba(59,130,246,0.08)' : 'rgba(59,130,246,0.13)',
-         border: '1px solid rgba(59,130,246,0.24)',
+         color: mode === 'light' ? '#334155' : '#f1f5f9',
+         bgcolor: mode === 'light' ? lightBg : darkBg,
+         border: '1px solid rgba(59,130,246,0.22)',
+         boxShadow: `inset 3px 0 0 ${accent}55`,
       };
    }
 
    return {
-      color: mode === 'light' ? '#92400e' : '#fde68a',
-      bgcolor: mode === 'light' ? 'rgba(245,158,11,0.10)' : 'rgba(245,158,11,0.13)',
-      border: '1px solid rgba(245,158,11,0.26)',
+      color: mode === 'light' ? '#334155' : '#f1f5f9',
+      bgcolor: mode === 'light' ? lightBg : darkBg,
+      border: '1px solid rgba(245,158,11,0.20)',
+      boxShadow: `inset 3px 0 0 ${accent}55`,
    };
 }
 
-function getChipSx(kind, mode) {
+function getChipSx(kind, mode, tone = '') {
    const base = {
       height: 21,
       fontSize: 11,
-      fontWeight: 950,
+      fontWeight: 850,
       color: 'inherit',
    };
 
-   if (kind === 'pzs') {
+   const chipTone = tone || kind;
+
+   if (chipTone === 'pzs') {
       return {
          ...base,
-         bgcolor: mode === 'light' ? 'rgba(219,39,119,0.10) !important' : 'rgba(236,72,153,0.18) !important',
-         border: '1px solid rgba(236,72,153,0.38) !important',
+         color: mode === 'light' ? '#9d174d' : '#fbcfe8',
+         bgcolor: mode === 'light' ? 'rgba(219,39,119,0.08) !important' : 'rgba(236,72,153,0.13) !important',
+         border: '1px solid rgba(236,72,153,0.28) !important',
       };
    }
 
-   if (kind === 'zs') {
+   if (chipTone === 'zs' || chipTone === 'positive') {
       return {
          ...base,
-         bgcolor: mode === 'light' ? 'rgba(22,163,74,0.10) !important' : 'rgba(34,197,94,0.18) !important',
-         border: '1px solid rgba(34,197,94,0.36) !important',
+         color: mode === 'light' ? '#166534' : '#bbf7d0',
+         bgcolor: mode === 'light' ? 'rgba(22,163,74,0.08) !important' : 'rgba(34,197,94,0.12) !important',
+         border: '1px solid rgba(34,197,94,0.24) !important',
       };
    }
 
    if (['showing', 'review', 'inspection'].includes(kind)) {
       return {
          ...base,
-         bgcolor: mode === 'light' ? 'rgba(71,85,105,0.08) !important' : 'rgba(96,165,250,0.14) !important',
+         color: mode === 'light' ? '#334155' : '#dbeafe',
+         bgcolor: mode === 'light' ? 'rgba(71,85,105,0.07) !important' : 'rgba(96,165,250,0.10) !important',
          border: mode === 'light'
-            ? '1px solid rgba(14,165,233,0.22) !important'
-            : '1px solid rgba(125,211,252,0.26) !important',
+            ? '1px solid rgba(14,165,233,0.18) !important'
+            : '1px solid rgba(125,211,252,0.22) !important',
+      };
+   }
+
+   if (chipTone === 'negative') {
+      return {
+         ...base,
+         color: mode === 'light' ? '#991b1b' : '#fecaca',
+         bgcolor: mode === 'light' ? 'rgba(239,68,68,0.07) !important' : 'rgba(239,68,68,0.11) !important',
+         border: '1px solid rgba(239,68,68,0.22) !important',
+      };
+   }
+
+   if (chipTone === 'important') {
+      return {
+         ...base,
+         color: mode === 'light' ? '#1d4ed8' : '#bfdbfe',
+         bgcolor: mode === 'light' ? 'rgba(59,130,246,0.07) !important' : 'rgba(59,130,246,0.11) !important',
+         border: '1px solid rgba(59,130,246,0.22) !important',
       };
    }
 
    return {
       ...base,
-      bgcolor: mode === 'light' ? 'rgba(22,101,52,0.08) !important' : 'rgba(34,197,94,0.12) !important',
+      color: mode === 'light' ? '#92400e' : '#fde68a',
+      bgcolor: mode === 'light' ? 'rgba(245,158,11,0.08) !important' : 'rgba(245,158,11,0.11) !important',
       border: mode === 'light'
-         ? '1px solid rgba(22,101,52,0.18) !important'
-         : '1px solid rgba(34,197,94,0.22) !important',
+         ? '1px solid rgba(245,158,11,0.18) !important'
+         : '1px solid rgba(245,158,11,0.22) !important',
    };
 }
 
@@ -240,6 +287,7 @@ export default function ObjectWorkHistoryPanel({
                   const tone = n.tone || 'info';
                   const editable = n.editable !== false && n.source !== 'operation';
                   const chipKind = n.operationKind || n.type;
+                  const details = Array.isArray(n.details) ? n.details.filter(Boolean) : [];
 
                   return (
                      <Box
@@ -252,33 +300,25 @@ export default function ObjectWorkHistoryPanel({
                      >
                         <Stack direction="row" spacing={0.6} alignItems="center" flexWrap="wrap" useFlexGap>
                            <Chip
-                              label={n.label || TYPE_LABELS[n.type] || 'Запис'}
-                              size="small"
-                              sx={getChipSx(chipKind, mode)}
-                           />
+                               label={n.label || TYPE_LABELS[n.type] || 'Запис'}
+                               size="small"
+                               sx={getChipSx(chipKind, mode, chipKind)}
+                            />
 
                             {n.source === 'operation' ? (
                                <Chip
-                                  label={n.meta || 'Операційка'}
-                                  size="small"
-                                  sx={getChipSx(chipKind, mode)}
-                               />
+                                   label={n.meta || 'Операційка'}
+                                   size="small"
+                                   sx={getChipSx(chipKind, mode, chipKind)}
+                                />
                             ) : (
                                <Chip
                                   label={TONE_LABELS[tone] || 'Інформуюча'}
                                   size="small"
-                                  sx={{
-                                     height: 21,
-                                     fontSize: 11,
-                                     fontWeight: 950,
-                                     color: 'inherit',
-                                     // bgcolor: 'rgba(255,255,255,0.18)',
-                                     bgcolor: mode === 'light' ? 'rgba(22,101,52,0.08) !important' : 'rgba(34,197,94,0.12) !important',
-                                     border: mode === 'light'
-                                        ? '1px solid rgba(22,101,52,0.18) !important'
-                                        : '1px solid rgba(34,197,94,0.22) !important',
-                                  }}
-                               />
+                                   sx={{
+                                      ...getChipSx('', mode, tone),
+                                   }}
+                                />
                             )}
 
                             <Typography sx={{ ml: 'auto', fontSize: 11, opacity: 0.78 }}>
@@ -329,14 +369,33 @@ export default function ObjectWorkHistoryPanel({
                               mt: 0.65,
                               fontSize: 13,
                               lineHeight: 1.45,
-                              fontWeight: 750,
+                              fontWeight: 500,
                               whiteSpace: 'pre-wrap',
-                           }}
-                        >
-                           {n.text}
-                        </Typography>
-                     </Box>
-                  );
+                              color: mode === 'light' ? 'rgba(15,23,42,0.82)' : 'rgba(241,245,249,0.84)',
+                            }}
+                         >
+                            {n.text}
+                         </Typography>
+
+                         {!!details.length && (
+                            <Stack spacing={0.35} sx={{ mt: 0.6 }}>
+                               {details.map((line, index) => (
+                                  <Typography
+                                     key={`${n._id || n.createdAt}-detail-${index}`}
+                                     sx={{
+                                        fontSize: 12.2,
+                                        lineHeight: 1.35,
+                                        fontWeight: 500,
+                                        color: mode === 'light' ? 'rgba(71,85,105,0.78)' : 'rgba(203,213,225,0.76)',
+                                     }}
+                                  >
+                                     {line}
+                                  </Typography>
+                               ))}
+                            </Stack>
+                         )}
+                      </Box>
+                   );
                })}
 
                 {!loading && !error && !history.length && (

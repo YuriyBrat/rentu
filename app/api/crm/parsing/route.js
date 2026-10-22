@@ -8,6 +8,7 @@ import { logActivity, pickActivitySnapshot } from '@/utils/crm/activityLog';
 import { attachPhoneIntel, buildPhoneIntelMap, normalizePhone } from '@/utils/crm/phoneIntel';
 import { getSessionUser } from '@/utils/getSessionUser';
 import { randomUUID } from 'crypto';
+import { getCallActor } from '@/utils/crm/callCenter';
 
 function parseNumber(value) {
    if (value === undefined || value === null || value === '') return undefined;
@@ -453,6 +454,17 @@ export const GET = async (req) => {
       const skip = (page - 1) * pageSize;
 
       const filter = {};
+      const callQueue = sp.get('callQueue') || '';
+      const queueActor = callQueue ? getCallActor(await getSessionUser()) : null;
+      if (callQueue && !queueActor?.key) return Response.json({ error: 'Увійди в CRM.' }, { status: 401 });
+      const queueNow = new Date();
+      if (callQueue === 'new') addAndFilter(filter, { 'callQueue.lastHandledAt': null, lastCallAt: null });
+      if (callQueue === 'retry') addAndFilter(filter, { 'callQueue.lastOutcome': { $in: ['no_answer', 'busy'] }, 'callQueue.nextContactAt': null });
+      if (callQueue === 'mine') addAndFilter(filter, { 'callQueue.ownerKey': queueActor.key, 'callQueue.expiresAt': { $gt: queueNow } });
+      if (callQueue === 'callbacks') addAndFilter(filter, { 'callQueue.callbackOwnerKey': queueActor.key, 'callQueue.nextContactAt': { $ne: null } });
+      if (callQueue === 'overdue') addAndFilter(filter, { 'callQueue.callbackOwnerKey': queueActor.key, 'callQueue.nextContactAt': { $lte: queueNow, $ne: null } });
+      if (callQueue === 'requests') addAndFilter(filter, { callRequests: { $elemMatch: { resolvedAt: null } } });
+      if (callQueue === 'myRequests') addAndFilter(filter, { callRequests: { $elemMatch: { requestedByKey: queueActor.key } } });
       const phoneIntelMap = await buildPhoneIntelMap();
       const now = new Date();
 
@@ -511,6 +523,8 @@ export const GET = async (req) => {
                ],
             });
             addAndFilter(filter, { stage: 'moved', propertyId: { $in: objectPropertyIds } });
+         } else if (stage === 'raw') {
+            filter.stage = { $in: ['raw', 'processing', 'called'] };
          } else {
             filter.stage = stage;
          }
@@ -585,7 +599,7 @@ export const GET = async (req) => {
          .populate('inspectionReservation.reservedByEmployee', 'name fullName surname role color avatarUrl')
          .populate('duplicateOf', 'title source sourceUrl')
          .populate('duplicatePropertyId', 'title location_text crmStage actualityGroup')
-         .sort({ importedAt: -1, updatedAt: -1 })
+         .sort(callQueue === 'callbacks' || callQueue === 'overdue' ? { 'callQueue.nextContactAt': 1, _id: 1 } : callQueue === 'requests' ? { callPriorityRank: -1, importedAt: -1, _id: -1 } : { importedAt: -1, _id: -1 })
          .skip(skip)
          .limit(pageSize)
          .lean();

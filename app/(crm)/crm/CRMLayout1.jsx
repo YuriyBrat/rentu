@@ -52,8 +52,11 @@ import BedRoundedIcon from '@mui/icons-material/BedRounded';
 import TimelineRoundedIcon from '@mui/icons-material/TimelineRounded';
 import AutoGraphRoundedIcon from '@mui/icons-material/AutoGraphRounded';
 import CampaignRoundedIcon from '@mui/icons-material/CampaignRounded';
+import HeadsetMicRoundedIcon from '@mui/icons-material/HeadsetMicRounded';
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
 import ArticleRoundedIcon from '@mui/icons-material/ArticleRounded';
+import TelegramIcon from '@mui/icons-material/Telegram';
 
 // для наводок варіанти
 import TipsAndUpdatesIcon from '@mui/icons-material/TipsAndUpdates';
@@ -118,6 +121,7 @@ function getEmployeeGalleryPhotos(user) {
 
 export default function CRMLayout({ children }) {
    const pathname = usePathname();
+   const callCenterMode = pathname?.startsWith('/crm/call-center');
 
    const [open, setOpen] = useState(false);
    const [anchorEl, setAnchorEl] = useState(null);
@@ -169,6 +173,9 @@ export default function CRMLayout({ children }) {
       // { label: 'Завдання', path: '/crm/tasks', icon: <TaskIcon />, badge: 2 },
       { label: 'Наводки', path: '/crm/navodky4', icon: <RadarIcon /> },
       { label: 'Персонал', path: '/crm/employees', icon: <GroupsRoundedIcon /> },
+      ...(session?.user?.isFallbackAdmin || ['owner', 'admin'].includes(session?.user?.role)
+         ? [{ label: 'Telegram', path: '/crm/settings/telegram', icon: <TelegramIcon /> }]
+         : []),
       // { label: 'Аналітика', path: '/crm/analytics', icon: <BarChartIcon /> },
    ];
 
@@ -210,12 +217,13 @@ export default function CRMLayout({ children }) {
          }}
       >
          {/* Drawer */}
-         <Drawer
+         {!callCenterMode && <Drawer
             variant="permanent"
             onMouseEnter={() => setOpen(true)}
             onMouseLeave={() => setOpen(false)}
             sx={{
-               width: open ? 240 : 76,
+               // Reserve only the icon rail; the fixed paper expands over the content.
+               width: 76,
                flexShrink: 0,
                '& .MuiDrawer-paper': {
                   width: open ? 240 : 76,
@@ -366,7 +374,7 @@ export default function CRMLayout({ children }) {
                   Karamax • внутрішня панель
                </Typography>
             </Box>
-         </Drawer>
+         </Drawer>}
 
          {/* Content */}
          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
@@ -389,7 +397,7 @@ export default function CRMLayout({ children }) {
             >
                <Toolbar sx={{ gap: 2 }}>
                   <Stack direction="row" alignItems="center" spacing={2} sx={{ flexGrow: 1 }}>
-                     <IconButton
+                     {callCenterMode ? <IconButton component={Link} href="/crm/parsing" aria-label="До CRM" sx={{ color: TEXT }}><ArrowBackRoundedIcon /></IconButton> : <IconButton
                         color="inherit"
                         onClick={() => setOpen((o) => !o)}
                         sx={{
@@ -400,11 +408,11 @@ export default function CRMLayout({ children }) {
                         }}
                      >
                         <MenuOpenIcon />
-                     </IconButton>
+                     </IconButton>}
 
                      <Box>
                         <Typography sx={{ fontWeight: 900, lineHeight: 1.1 }}>
-                           Панель управління
+                           {callCenterMode ? 'Кабінет продзвону' : 'Панель управління'}
                         </Typography>
                         <Typography sx={{ fontSize: 12, color: 'rgba(230,230,240,0.65)' }}>
                            CRM агентства нерухомості
@@ -538,6 +546,10 @@ export default function CRMLayout({ children }) {
                         </MenuItem>
                      )}
 
+                     {['owner', 'admin', 'manager', 'callcenter', 'realtor'].includes(session?.user?.role) && <MenuItem component={Link} href="/crm/call-center" onClick={handleMenuClose}>
+                        <HeadsetMicRoundedIcon sx={{ mr: 1, color: '#60a5fa' }} /> Кабінет продзвону
+                     </MenuItem>}
+
                      <MenuItem
                         onMouseEnter={handleGenerationMenuOpen}
                         onClick={handleGenerationMenuOpen}
@@ -594,8 +606,8 @@ export default function CRMLayout({ children }) {
             <Box
                component="main"
                sx={{
-                  p: 3,
-                  m: 2,
+                  p: callCenterMode ? { xs: 1.25, md: 2 } : 3,
+                  m: callCenterMode ? { xs: 1, md: 1.5 } : 2,
                   borderRadius: 3,
                   // background: `linear-gradient(180deg, rgba(21,21,33,0.92), rgba(21,21,33,0.78))`,
                   background: MAIN_GRADIENT,

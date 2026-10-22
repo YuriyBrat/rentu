@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
    Alert,
    Box,
@@ -28,6 +28,7 @@ import DoneAllRoundedIcon from '@mui/icons-material/DoneAllRounded';
 import EditRoundedIcon from '@mui/icons-material/EditRounded';
 import HelpOutlineRoundedIcon from '@mui/icons-material/HelpOutlineRounded';
 import HomeWorkRoundedIcon from '@mui/icons-material/HomeWorkRounded';
+import HomeRoundedIcon from '@mui/icons-material/HomeRounded';
 import PestControlRoundedIcon from '@mui/icons-material/PestControlRounded';
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded';
 import PhoneDisabledRoundedIcon from '@mui/icons-material/PhoneDisabledRounded';
@@ -41,6 +42,8 @@ import CommunicationDialog, { EMPTY_COMMUNICATION_FORM } from '@/crm_components/
 import CommunicationTimeline from '@/crm_components/communications/CommunicationTimeline';
 import ParsingRowCard, { getParsingStageKey, STAGE_META } from './ParsingRowCard';
 import ParsingStatusDialog, { buildInitialStatusForm } from './ParsingStatusDialog';
+import { CallCenterOverview, CallWorkflowDialogs, useCallCenter } from './CallCenterWorkspace';
+import { callClaimConflict } from '@/utils/crm/callCenter';
 
 const DEMO_ITEMS = [
    {
@@ -502,12 +505,42 @@ function buildEditForm(item) {
    };
 }
 
-export default function ParsingPage() {
+function getParsingRequestError(error, fallback) {
+   const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
+   const networkFailure = /failed to fetch|fetch failed|networkerror|network request failed|load failed|error fetching/i.test(error?.message || '');
+   if (offline || networkFailure) {
+      return 'Немає зв’язку із сервером. Перевір інтернет і спробуй ще раз.';
+   }
+   return error?.message || fallback;
+}
+
+async function readParsingResponse(response, fallback) {
+   const text = await response.text();
+   let data;
+   try {
+      data = JSON.parse(text);
+   } catch {
+      throw new Error('Не вдалося отримати відповідь сервера. Перевір інтернет і спробуй ще раз.');
+   }
+   if (!response.ok) {
+      throw new Error(typeof data?.error === 'string' ? data.error : fallback);
+   }
+   if (!data || typeof data !== 'object' || Array.isArray(data)) {
+      throw new Error('Отримано некоректну відповідь сервера. Спробуй ще раз.');
+   }
+   return data;
+}
+
+export default function ParsingPage({ callCenterMode = false }) {
    const { theme, mode } = useCRMTheme();
    const fieldSx = getFieldSx(theme, mode);
 
    const [q, setQ] = useState('');
-   const [stage, setStage] = useState('all');
+   const [stage, setStage] = useState(callCenterMode ? 'raw' : 'all');
+   const [callQueue, setCallQueue] = useState(callCenterMode ? 'new' : 'all');
+   const [page, setPage] = useState(1);
+   const [total, setTotal] = useState(0);
+   const listRequest = useRef(0);
    const [source, setSource] = useState('all');
    const [communicationFilter, setCommunicationFilter] = useState('all');
    const [contactKind, setContactKind] = useState('all');
@@ -540,8 +573,10 @@ export default function ParsingPage() {
    const [duplicateCandidates, setDuplicateCandidates] = useState([]);
    const [duplicateLoading, setDuplicateLoading] = useState(false);
    const [dimriaForm, setDimriaForm] = useState(DIMRIA_DEFAULT_FORM);
+   const [openDimriaImport, setOpenDimriaImport] = useState(false);
    const [dimriaImporting, setDimriaImporting] = useState(false);
    const [dimriaResult, setDimriaResult] = useState(null);
+   const [dimriaError, setDimriaError] = useState('');
    const [currentUser, setCurrentUser] = useState(null);
    const [editItem, setEditItem] = useState(null);
    const [editForm, setEditForm] = useState(null);
@@ -553,9 +588,9 @@ export default function ParsingPage() {
 
    const canDeleteParsing = !!currentUser?.isFallbackAdmin || currentUser?.role === 'owner';
 
-   const load = async () => {
-      setLoading(true);
-      setError('');
+   const load = async ({ silent = false } = {}) => {
+      const requestId = ++listRequest.current;
+      if (!silent) { setLoading(true); setError(''); }
 
       try {
          const params = new URLSearchParams();
@@ -565,20 +600,29 @@ export default function ParsingPage() {
          if (communicationFilter) params.set('communicationFilter', communicationFilter);
          if (contactKind) params.set('contactKind', contactKind);
          if (qualityFilters.length) params.set('qualityFilters', qualityFilters.join(','));
+         params.set('page', String(page));
+         if (callQueue !== 'all') params.set('callQueue', callQueue);
 
          const res = await fetch(`/api/crm/parsing?${params.toString()}`, { cache: 'no-store' });
-         const text = await res.text();
-         const data = text ? JSON.parse(text) : {};
-
-         if (!res.ok) throw new Error(data?.error || text || 'Не вдалося завантажити парсинг');
-
-         setItems(Array.isArray(data?.items) ? data.items : []);
+         const data = await readParsingResponse(res, 'Не вдалося завантажити парсинг');
+         if (!Array.isArray(data.items)) throw new Error('Отримано некоректний список оголошень. Спробуй ще раз.');
+         if (requestId !== listRequest.current) return;
+         setItems(data.items);
+         setTotal(data.total ?? data.items.length);
+         if (!silent) setError('');
       } catch (e) {
          console.error(e);
-         setError(e?.message || 'Не вдалося завантажити парсинг');
+         if (requestId === listRequest.current && !silent) setError(getParsingRequestError(e, 'Не вдалося завантажити парсинг'));
       } finally {
-         setLoading(false);
+         if (requestId === listRequest.current) setLoading(false);
       }
+   };
+
+   const workspace = useCallCenter({ overview: callCenterMode, onChange: () => load({ silent: true }) });
+   const chooseQueue = value => {
+      setCallQueue(value);
+      setStage(value === 'new' ? 'raw' : 'all');
+      setPage(1);
    };
 
    useEffect(() => {
@@ -587,8 +631,14 @@ export default function ParsingPage() {
 
    useEffect(() => {
       const t = setTimeout(load, 350);
-      return () => clearTimeout(t);
-   }, [q, stage, source, communicationFilter, contactKind, qualityFilters]);
+      window.addEventListener('online', load);
+      return () => {
+         clearTimeout(t);
+         window.removeEventListener('online', load);
+      };
+   }, [q, stage, source, communicationFilter, contactKind, qualityFilters, callQueue, page]);
+
+   useEffect(() => { setPage(1); }, [q, stage, source, communicationFilter, contactKind, qualityFilters, callQueue]);
 
    useEffect(() => {
       let alive = true;
@@ -616,13 +666,13 @@ export default function ParsingPage() {
    const visibleItems = useMemo(() => {
       const sourceItems = items.length
          ? items
-         : loading || error
+         : loading || error || callCenterMode
             ? []
             : DEMO_ITEMS;
 
       if (!stage || stage === 'all') return sourceItems;
       return sourceItems.filter((item) => getParsingStageKey(item, reservationNow) === stage);
-   }, [items, loading, error, stage, reservationNow]);
+   }, [items, loading, error, stage, reservationNow, callCenterMode]);
 
    const stats = useMemo(() => {
       return visibleItems.reduce((acc, item) => {
@@ -657,6 +707,7 @@ export default function ParsingPage() {
 
       setItems((prev) => prev.map((x) => x._id === item._id ? data.item : x));
       if (selected?._id === item._id) setSelected(data.item);
+      workspace.notify();
    };
 
    const handleStage = async (item, nextStage) => {
@@ -717,6 +768,7 @@ export default function ParsingPage() {
 
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data?.error || 'Не вдалося зберегти комунікацію');
+      workspace.notify();
       return data.item;
    };
 
@@ -733,6 +785,10 @@ export default function ParsingPage() {
    };
 
    const openStatus = (item) => {
+      if (callClaimConflict(item, workspace.actor?.key)) {
+         setError(`В обробці: ${item.callQueue.ownerName}. Дочекайся завершення.`);
+         return;
+      }
       setStatusItem(item);
       setStatusForm(buildInitialStatusForm(item));
       setStatusError('');
@@ -828,6 +884,10 @@ export default function ParsingPage() {
             });
          }
 
+         if (statusItem.callQueue?.ownerKey === workspace.actor?.key) {
+            await workspace.mutate(statusItem, { action: 'release' }).catch(() => {});
+         }
+         workspace.notify();
          setStatusItem(null);
          setStatusForm(null);
          await load();
@@ -994,10 +1054,7 @@ export default function ParsingPage() {
             body: isFormData ? payload : JSON.stringify(payload),
          });
 
-         const text = await res.text();
-         const data = text ? JSON.parse(text) : {};
-
-         if (!res.ok) throw new Error(data?.error || text || 'Не вдалося додати оголошення');
+         await readParsingResponse(res, 'Не вдалося додати оголошення');
 
          setOpenCreate(false);
          setManualForm(EMPTY_MANUAL_FORM);
@@ -1006,7 +1063,7 @@ export default function ParsingPage() {
          await load();
       } catch (e) {
          console.error(e);
-         setError(e?.message || 'Не вдалося додати оголошення');
+         setError(getParsingRequestError(e, 'Не вдалося додати оголошення'));
       } finally {
          setSavingCreate(false);
       }
@@ -1062,7 +1119,7 @@ export default function ParsingPage() {
    const handleDimriaImport = async () => {
       setDimriaImporting(true);
       setDimriaResult(null);
-      setError('');
+      setDimriaError('');
 
       try {
          const contact = DIMRIA_CONTACT_OPTIONS.find((item) => item.value === dimriaForm.contactType) || DIMRIA_CONTACT_OPTIONS[0];
@@ -1083,9 +1140,7 @@ export default function ParsingPage() {
             body: JSON.stringify(payload),
          });
 
-         const text = await res.text();
-         const data = text ? JSON.parse(text) : {};
-         if (!res.ok) throw new Error(data?.error || text || 'DIM.RIA import failed');
+         const data = await readParsingResponse(res, 'Не вдалося імпортувати з DIM.RIA');
 
          setDimriaResult(data);
          setSource('dimria');
@@ -1093,7 +1148,7 @@ export default function ParsingPage() {
          await load();
       } catch (e) {
          console.error(e);
-         setError(e?.message || 'DIM.RIA import failed');
+         setDimriaError(getParsingRequestError(e, 'Не вдалося імпортувати з DIM.RIA'));
       } finally {
          setDimriaImporting(false);
       }
@@ -1101,6 +1156,12 @@ export default function ParsingPage() {
 
    return (
       <Box>
+         {callCenterMode && <CallCenterOverview workspace={workspace} queue={callQueue} onQueueChange={chooseQueue} onOpenRecord={async id => {
+            try {
+               const data = await readParsingResponse(await fetch(`/api/crm/parsing/${id}`, { cache: 'no-store' }), 'Не вдалося відкрити оголошення');
+               await openHistory(data.item);
+            } catch (error) { setError(getParsingRequestError(error, 'Не вдалося відкрити оголошення')); }
+         }} />}
          <Stack
             direction="row"
             spacing={0.8}
@@ -1110,9 +1171,10 @@ export default function ParsingPage() {
             sx={{ mb: 1.5 }}
          >
             <Typography variant="h5" fontWeight={950} sx={{ color: theme.text, whiteSpace: 'nowrap', mr: 0.5 }}>
-               Парсинг
+               {callCenterMode ? 'Черга продзвону' : 'Парсинг'}
             </Typography>
 
+            {!callCenterMode && <>
             <Tooltip title="REAMAK Hunter">
                <IconButton
                   component="a"
@@ -1134,6 +1196,35 @@ export default function ParsingPage() {
                   <PestControlRoundedIcon fontSize="small" />
                </IconButton>
             </Tooltip>
+
+            <Tooltip title="Імпорт DIM.RIA">
+               <IconButton
+                  aria-label="Відкрити імпорт DIM.RIA"
+                  onClick={() => setOpenDimriaImport(true)}
+                  size="small"
+                  sx={{
+                     width: 34,
+                     height: 34,
+                     borderRadius: 2,
+                     color: mode === 'light' ? '#2563eb' : '#60a5fa',
+                     border: '1px solid rgba(96,165,250,0.35)',
+                     bgcolor: 'rgba(96,165,250,0.10)',
+                     '&:hover': {
+                        bgcolor: 'rgba(96,165,250,0.20)',
+                        borderColor: '#60a5fa',
+                     },
+                  }}
+               >
+                  <HomeRoundedIcon fontSize="small" />
+               </IconButton>
+            </Tooltip>
+            </>}
+
+            {['owner', 'admin', 'manager', 'realtor'].includes(workspace.actor?.role) && (
+               <Button size="small" onClick={() => chooseQueue(callQueue === 'myRequests' ? 'all' : 'myRequests')} sx={{ color: callQueue === 'myRequests' ? '#60a5fa' : theme.textSoft, textTransform: 'none', border: `1px solid ${theme.border}`, borderRadius: 2 }}>
+                  Мої запити
+               </Button>
+            )}
 
             <TextField
                placeholder="Пошук"
@@ -1265,6 +1356,9 @@ export default function ParsingPage() {
                      setContactKind('all');
                      setQualityFilters([]);
                      setShowAdvancedFilters(false);
+                     setCallQueue(callCenterMode ? 'new' : 'all');
+                     setStage(callCenterMode ? 'raw' : 'all');
+                     setPage(1);
                   }}
                   sx={{ width: 38, height: 38, color: theme.text, border: `1px solid ${theme.border}` }}
                >
@@ -1272,7 +1366,7 @@ export default function ParsingPage() {
                </IconButton>
             </Tooltip>
 
-            <Tooltip title="Додати в парсинг">
+            {!callCenterMode && <Tooltip title="Додати в парсинг">
                <IconButton
                   onClick={() => setOpenCreate(true)}
                   sx={{
@@ -1284,72 +1378,114 @@ export default function ParsingPage() {
                >
                   <AddRoundedIcon />
                </IconButton>
-            </Tooltip>
+            </Tooltip>}
          </Stack>
 
-         <Box
-            sx={{
-               mb: 1.5,
-               p: 1,
-               borderRadius: 2.5,
-               border: `1px solid ${theme.border}`,
-               bgcolor: mode === 'light' ? 'rgba(124,58,237,0.035)' : 'rgba(255,255,255,0.025)',
+         <Dialog
+            open={openDimriaImport}
+            onClose={dimriaImporting ? undefined : () => setOpenDimriaImport(false)}
+            aria-labelledby="dimria-import-title"
+            disableScrollLock
+            fullWidth
+            maxWidth="sm"
+            PaperProps={{
+               sx: {
+                  borderRadius: 4,
+                  bgcolor: theme.bgPanel,
+                  color: theme.text,
+                  border: `1px solid ${theme.border}`,
+               },
             }}
          >
-            <Stack direction="row" spacing={0.9} alignItems="center" flexWrap="wrap" useFlexGap>
-               <Typography sx={{ color: theme.text, fontWeight: 950, fontSize: 13, mr: 0.3 }}>
-                  DIM.RIA
-               </Typography>
+            <DialogTitle id="dimria-import-title" sx={{ fontWeight: 950 }}>
+               <Stack direction="row" spacing={1} alignItems="center">
+                  <HomeRoundedIcon sx={{ color: '#60a5fa' }} />
+                  <span>Імпорт DIM.RIA</span>
+               </Stack>
+            </DialogTitle>
+            <DialogContent>
+               <Stack spacing={1.5} sx={{ pt: 1 }}>
+                  <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(2, minmax(0, 1fr))' }, gap: 1.5 }}>
+                     <TextField
+                        select
+                        size="small"
+                        label="Місто"
+                        value={dimriaForm.city}
+                        disabled={dimriaImporting}
+                        onChange={(e) => updateDimriaCity(e.target.value)}
+                        sx={fieldSx}
+                     >
+                        {DIMRIA_CITY_OPTIONS.map((item) => (
+                           <MenuItem key={item.city_id} value={item.label}>{item.label}</MenuItem>
+                        ))}
+                     </TextField>
 
-               <TextField
-                  select
-                  size="small"
-                  label="Місто"
-                  value={dimriaForm.city}
-                  onChange={(e) => updateDimriaCity(e.target.value)}
-                  sx={{ ...fieldSx, width: { xs: '100%', sm: 130 } }}
+                     <TextField
+                        select
+                        size="small"
+                        label="Тип"
+                        value={dimriaForm.realty}
+                        disabled={dimriaImporting}
+                        onChange={(e) => updateDimriaRealty(e.target.value)}
+                        sx={fieldSx}
+                     >
+                        {DIMRIA_REALTY_OPTIONS.map((item) => (
+                           <MenuItem key={item.value} value={item.value}>{item.label}</MenuItem>
+                        ))}
+                     </TextField>
+
+                     <TextField
+                        select
+                        size="small"
+                        label="Контакт"
+                        value={dimriaForm.contactType}
+                        disabled={dimriaImporting}
+                        onChange={(e) => setDimriaForm((prev) => ({ ...prev, contactType: e.target.value }))}
+                        sx={fieldSx}
+                     >
+                        {DIMRIA_CONTACT_OPTIONS.map((item) => (
+                           <MenuItem key={item.value} value={item.value}>{item.label}</MenuItem>
+                        ))}
+                     </TextField>
+
+                     <TextField
+                        size="small"
+                        label="К-сть"
+                        type="number"
+                        value={dimriaForm.limit}
+                        disabled={dimriaImporting}
+                        onChange={(e) => setDimriaForm((prev) => ({ ...prev, limit: e.target.value }))}
+                        inputProps={{ min: 1, max: 20 }}
+                        sx={fieldSx}
+                     />
+                  </Box>
+                  {dimriaError && <Alert severity="error" sx={{ borderRadius: 2 }}>{dimriaError}</Alert>}
+                  {dimriaResult && (
+                     <Chip
+                        size="small"
+                        label={`Створено: ${dimriaResult.created || 0} · Дублі: ${dimriaResult.duplicates || 0} · Помилки: ${dimriaResult.failed || 0}`}
+                        sx={{
+                           height: 'auto',
+                           py: 0.5,
+                           '& .MuiChip-label': { whiteSpace: 'normal' },
+                           borderRadius: 1.5,
+                           fontWeight: 900,
+                           color: (dimriaResult.created || 0) > 0 ? '#22c55e' : theme.textSoft,
+                           bgcolor: (dimriaResult.created || 0) > 0 ? 'rgba(34,197,94,0.12)' : theme.hover,
+                           border: `1px solid ${(dimriaResult.created || 0) > 0 ? 'rgba(34,197,94,0.35)' : theme.border}`,
+                        }}
+                     />
+                  )}
+               </Stack>
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+               <Button
+                  disabled={dimriaImporting}
+                  onClick={() => setOpenDimriaImport(false)}
+                  sx={{ color: theme.textSoft }}
                >
-                  {DIMRIA_CITY_OPTIONS.map((item) => (
-                     <MenuItem key={item.city_id} value={item.label}>{item.label}</MenuItem>
-                  ))}
-               </TextField>
-
-               <TextField
-                  select
-                  size="small"
-                  label="Тип"
-                  value={dimriaForm.realty}
-                  onChange={(e) => updateDimriaRealty(e.target.value)}
-                  sx={{ ...fieldSx, width: { xs: '100%', sm: 130 } }}
-               >
-                  {DIMRIA_REALTY_OPTIONS.map((item) => (
-                     <MenuItem key={item.value} value={item.value}>{item.label}</MenuItem>
-                  ))}
-               </TextField>
-
-               <TextField
-                  select
-                  size="small"
-                  label="Контакт"
-                  value={dimriaForm.contactType}
-                  onChange={(e) => setDimriaForm((prev) => ({ ...prev, contactType: e.target.value }))}
-                  sx={{ ...fieldSx, width: { xs: '100%', sm: 130 } }}
-               >
-                  {DIMRIA_CONTACT_OPTIONS.map((item) => (
-                     <MenuItem key={item.value} value={item.value}>{item.label}</MenuItem>
-                  ))}
-               </TextField>
-
-               <TextField
-                  size="small"
-                  label="К-сть"
-                  type="number"
-                  value={dimriaForm.limit}
-                  onChange={(e) => setDimriaForm((prev) => ({ ...prev, limit: e.target.value }))}
-                  inputProps={{ min: 1, max: 20 }}
-                  sx={{ ...fieldSx, width: { xs: '100%', sm: 86 } }}
-               />
-
+                  Закрити
+               </Button>
                <Tooltip title="1 пошук + кількість деталей. За замовчуванням імпортуємо 1 квартиру з фото.">
                   <span>
                      <Button
@@ -1374,23 +1510,8 @@ export default function ParsingPage() {
                      </Button>
                   </span>
                </Tooltip>
-
-               {dimriaResult && (
-                  <Chip
-                     size="small"
-                     label={`Створено: ${dimriaResult.created || 0} · Дублі: ${dimriaResult.duplicates || 0} · Помилки: ${dimriaResult.failed || 0}`}
-                     sx={{
-                        height: 28,
-                        borderRadius: 1.5,
-                        fontWeight: 900,
-                        color: (dimriaResult.created || 0) > 0 ? '#22c55e' : theme.textSoft,
-                        bgcolor: (dimriaResult.created || 0) > 0 ? 'rgba(34,197,94,0.12)' : theme.hover,
-                        border: `1px solid ${(dimriaResult.created || 0) > 0 ? 'rgba(34,197,94,0.35)' : theme.border}`,
-                     }}
-                  />
-               )}
-            </Stack>
-         </Box>
+            </DialogActions>
+         </Dialog>
 
          {showAdvancedFilters && (
             <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mb: 1.5 }}>
@@ -1424,7 +1545,7 @@ export default function ParsingPage() {
             </Stack>
          )}
 
-         <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mb: 1.5 }}>
+         {!callCenterMode && <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mb: 1.5 }}>
             {STAGE_OPTIONS.filter(([key]) => key !== 'all').map(([key]) => {
                const meta = STAGE_META[key] || STAGE_META.raw;
 
@@ -1444,15 +1565,29 @@ export default function ParsingPage() {
                />
                );
             })}
-         </Stack>
+         </Stack>}
 
-         {error && <Alert severity="error" sx={{ mb: 1.5, borderRadius: 2 }}>{error}</Alert>}
+         {error && (
+            <Alert
+               severity="error"
+               sx={{ mb: 1.5, borderRadius: 2 }}
+               action={
+                  <Button color="inherit" size="small" disabled={loading} onClick={load} sx={{ textTransform: 'none' }}>
+                     Оновити список
+                  </Button>
+               }
+            >
+               {error}
+            </Alert>
+         )}
 
-         {!items.length && !loading && !error && (
+         {!items.length && !loading && !error && !callCenterMode && (
             <Alert severity="info" sx={{ mb: 1.5, borderRadius: 2 }}>
                У базі поки немає записів, тому показую демо-рядки майбутнього потоку.
             </Alert>
          )}
+
+         {!items.length && !loading && !error && callCenterMode && <Alert severity="info" sx={{ mb: 1.5, borderRadius: 2 }}>У цій черзі поки немає оголошень.</Alert>}
 
          <Stack spacing={0.85}>
             {visibleItems.map((item) => (
@@ -1476,9 +1611,23 @@ export default function ParsingPage() {
                       )
                    }
                    now={reservationNow}
+                   workspace={workspace}
                 />
             ))}
          </Stack>
+
+         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mt: 1.5 }}>
+            <Typography sx={{ fontSize: 12, color: theme.textSoft }}>Знайдено: {total} · Сторінка {page} з {Math.max(1, Math.ceil(total / 40))}</Typography>
+            <Stack direction="row" spacing={1}>
+               <Button size="small" disabled={page <= 1 || loading} onClick={() => setPage(value => value - 1)} sx={{ color: theme.textSoft, textTransform: 'none' }}>Назад</Button>
+               <Button size="small" disabled={page * 40 >= total || loading} onClick={() => setPage(value => value + 1)} sx={{ color: theme.textSoft, textTransform: 'none' }}>Далі</Button>
+            </Stack>
+         </Stack>
+
+         <CallWorkflowDialogs workspace={workspace} onDecision={(item, text) => {
+            openStatus(item);
+            setStatusForm(previous => ({ ...previous, communication: { ...previous?.communication, type: 'note', text } }));
+         }} />
 
          <Dialog
             open={openCreate}

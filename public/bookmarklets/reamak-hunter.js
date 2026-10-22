@@ -440,7 +440,7 @@
             }
          });
       });
-      return Array.from(byKey.values()).map((item) => item.url).slice(0, 8);
+      return Array.from(byKey.values()).map((item) => item.url);
    }
 
    function getNodeUrlCandidates(node) {

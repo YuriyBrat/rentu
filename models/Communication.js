@@ -71,5 +71,10 @@ const CommunicationSchema = new Schema(
 
 CommunicationSchema.index({ entityType: 1, entityId: 1, happenedAt: -1 });
 CommunicationSchema.index({ responsibleEmployee: 1, happenedAt: -1 });
+CommunicationSchema.index({ entityType: 1, createdAt: -1 });
+CommunicationSchema.index({ 'meta.callCenter.requestId': 1 }, {
+   unique: true,
+   partialFilterExpression: { 'meta.callCenter.requestId': { $type: 'string' } },
+});
 
 export default models.Communication || model('Communication', CommunicationSchema);

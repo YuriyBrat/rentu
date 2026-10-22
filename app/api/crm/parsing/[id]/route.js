@@ -6,6 +6,7 @@ import { buildActivityDiff, logActivity, pickActivitySnapshot } from '@/utils/cr
 import { attachPhoneIntel, buildPhoneIntelMap } from '@/utils/crm/phoneIntel';
 import { getSessionUser } from '@/utils/getSessionUser';
 import { randomUUID } from 'crypto';
+import { getCallActor, callClaimConflict } from '@/utils/crm/callCenter';
 
 const STAGES = ['raw', 'processing', 'called', 'qualified', 'duplicate', 'fake', 'rejected', 'moved'];
 const INSPECTION_RESERVATION_HOURS = 24;
@@ -251,6 +252,9 @@ export const PATCH = async (request, { params }) => {
       if (!item) return new Response('Parsed property not found', { status: 404 });
       const beforeSnapshot = pickActivitySnapshot(item);
       const beforeStage = item.stage;
+      if (callClaimConflict(item, getCallActor(sessionUser).key)) {
+         return Response.json({ error: `В обробці: ${item.callQueue.ownerName || 'інший працівник'}. Дочекайся завершення.` }, { status: 409 });
+      }
 
       if (body?.action === 'reserveInspection') {
          const role = sessionUser?.role || sessionUser?.user?.role || '';
@@ -464,6 +468,9 @@ export const DELETE = async (_request, { params }) => {
 
       const item = await LeadProperty.findById(params.id);
       if (!item) return new Response('Parsed property not found', { status: 404 });
+      if (callClaimConflict(item, getCallActor(sessionUser).key)) {
+         return Response.json({ error: 'Оголошення обробляє інший працівник. Дочекайся завершення.' }, { status: 409 });
+      }
       const beforeSnapshot = pickActivitySnapshot(item);
 
       const publicIds = (Array.isArray(item.images) ? item.images : [])

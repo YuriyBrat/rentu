@@ -1,9 +1,12 @@
 import connectDB from '@/config/database';
+import Lead from '@/models/Lead';
 import OperationEvent from '@/models/OperationEvent';
 import Property from '@/models/Property';
 import { buildPropertyAccessFilter, combineMongoFilters } from '@/utils/crm/accessControl';
 import { getSessionUser } from '@/utils/getSessionUser';
 import { Types } from 'mongoose';
+
+void Lead;
 
 const OPERATION_TYPE_LABELS = {
    showing: 'Показ',
@@ -23,6 +26,35 @@ const OPERATION_KIND_LABELS = {
    review: 'Огляд',
 };
 
+const RESULT_SHOWING_LABELS = {
+   zs: 'ЗС',
+   pzs: 'ПЗС',
+   high_interest: 'висока зацікавленість',
+   objections_found: 'виявлені заперечення',
+   unclear: 'незрозуміло',
+   refusal: 'відмова',
+};
+
+const RESULT_OBJECT_LABELS = {
+   new_object: 'новий об’єкт',
+   price_reduced: 'зменшено ціну',
+   loyalty_improved: 'покращено лояльність',
+   ad_removed_by_owner: 'знято рекламу власником',
+   category_improved: 'покращено категорію об’єкта',
+   exclusive_agreed: 'ексклюзив погоджено',
+   exclusive_signed: 'ексклюзив підписано',
+   documents_checked: 'перевірено документи',
+};
+
+const RESULT_BUYER_LABELS = {
+   new_client: 'новий клієнт',
+   loyalty_improved: 'покращено лояльність',
+   exclusive_work: 'ексклюзивно працюємо',
+   readiness_increased: 'підвищено готовність',
+   deposit_taken: 'взято аванс',
+   category_improved: 'покращено категорію',
+};
+
 function idString(value) {
    return value?._id?.toString?.() || value?.toString?.() || '';
 }
@@ -35,6 +67,44 @@ function employeeName(employee) {
       employee.name ||
       ''
    );
+}
+
+function leadName(lead) {
+   if (!lead) return '';
+   return lead.name || lead.fullName || [lead.surname, lead.firstName].filter(Boolean).join(' ') || '';
+}
+
+function operationBuyerName(event) {
+   return (
+      leadName(event?.lead) ||
+      leadName(event?.pzs?.sourceOperationEvent?.lead) ||
+      ''
+   );
+}
+
+function operationBuyerRealtorName(event) {
+   const kind = event?.buyerRealtorKind || event?.pzs?.sourceOperationEvent?.buyerRealtorKind || '';
+   if (kind === 'partner') {
+      return event?.buyerPartnerName || event?.pzs?.sourceOperationEvent?.buyerPartnerName || 'СП';
+   }
+   if (kind === 'none') return '';
+
+   return (
+      employeeName(event?.buyerRealtorEmployee) ||
+      employeeName(event?.pzs?.sourceOperationEvent?.buyerRealtorEmployee) ||
+      ''
+   );
+}
+
+function operationCounterpartyLine(event) {
+   const buyer = operationBuyerName(event);
+   const realtor = operationBuyerRealtorName(event);
+   if (!buyer && !realtor) return '';
+
+   return [
+      `Покупець: ${buyer || 'Без клієнта'}`,
+      realtor ? `рієлтор: ${realtor}` : '',
+   ].filter(Boolean).join(' · ');
 }
 
 function isoDate(value) {
@@ -65,18 +135,40 @@ function operationTone(event) {
 }
 
 function operationText(event) {
-   return (
+   const counterparty = operationCounterpartyLine(event);
+   const mainText = (
       event?.resultDescription ||
       event?.review?.note ||
       event?.review?.reason ||
       event?.pzs?.condition ||
       event?.loss?.note ||
-      [
-         event?.showingKind ? `Формат показу: ${event.showingKind}` : '',
-         event?.financialProduct ? `Фінпродукт: ${event.financialProduct}` : '',
-      ].filter(Boolean).join('\n') ||
       'Операційна подія по об’єкту'
    );
+
+   if (counterparty) return [counterparty, mainText].filter(Boolean).join('\n');
+
+   return (
+      mainText
+   );
+}
+
+function operationDetails(event) {
+   const kind = operationKind(event);
+
+   return [
+      event?.type === 'showing' &&
+      !['pzs', 'zs'].includes(kind) &&
+      event?.resultShowing &&
+      event.resultShowing !== 'unclear'
+         ? `Результат показу: ${RESULT_SHOWING_LABELS[event.resultShowing] || event.resultShowing}`
+         : '',
+      event?.resultObject && event.resultObject !== 'none'
+         ? `Результат об’єкта: ${RESULT_OBJECT_LABELS[event.resultObject] || event.resultObject}`
+         : '',
+      event?.resultBuyer && event.resultBuyer !== 'none'
+         ? `Результат покупця: ${RESULT_BUYER_LABELS[event.resultBuyer] || event.resultBuyer}`
+         : '',
+   ].filter(Boolean);
 }
 
 function normalizeWorkNote(note) {
@@ -109,6 +201,7 @@ function normalizeOperation(event) {
       tone: operationTone(event),
       label: OPERATION_KIND_LABELS[operationKind(event)] || OPERATION_TYPE_LABELS[event?.type] || 'Операційка',
       text: operationText(event),
+      details: operationDetails(event),
       createdAt: isoDate(event?.occurredAt || event?.createdAt),
       meta: who ? `Операційка · ${who}` : 'Операційка',
    };
@@ -134,11 +227,27 @@ export const GET = async (_req, { params }) => {
       }
 
       const operations = await OperationEvent.find({ property: propertyId })
-         .select('type occurredAt createdAt responsibleEmployee shownByEmployee facilitatedByEmployee createdByEmployee showingKind financialProduct resultObject resultBuyer resultShowing resultDescription review pzs loss')
+         .select('type occurredAt createdAt responsibleEmployee shownByEmployee facilitatedByEmployee createdByEmployee lead buyerRealtorKind buyerRealtorEmployee buyerPartnerName showingKind financialProduct resultObject resultBuyer resultShowing resultDescription review pzs loss')
          .populate('responsibleEmployee', 'name fullName surname')
          .populate('shownByEmployee', 'name fullName surname')
          .populate('facilitatedByEmployee', 'name fullName surname')
          .populate('createdByEmployee', 'name fullName surname')
+         .populate('buyerRealtorEmployee', 'name fullName surname')
+         .populate('lead', 'name phones stage status')
+         .populate({
+            path: 'pzs.sourceOperationEvent',
+            select: 'lead type occurredAt resultShowing financialProduct showingKind buyerRealtorKind buyerRealtorEmployee buyerPartnerName',
+            populate: [
+               {
+                  path: 'lead',
+                  select: 'name phones stage status',
+               },
+               {
+                  path: 'buyerRealtorEmployee',
+                  select: 'name fullName surname',
+               },
+            ],
+         })
          .sort({ occurredAt: -1, createdAt: -1 })
          .limit(80)
          .lean();

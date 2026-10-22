@@ -155,8 +155,19 @@ const NavodkaSchema = new mongoose.Schema(
          ref: 'Employee',
          default: null
       },
+      telegramNotificationRequestedAt: { type: Date, default: null },
+      telegramNotificationQueuedAt: { type: Date, default: null },
    },
    { timestamps: true }
 );
 
-export default mongoose.models.Navodka || mongoose.model('Navodka', NavodkaSchema);
+const Navodka = mongoose.models.Navodka || mongoose.model('Navodka', NavodkaSchema);
+// Next.js hot reload keeps existing Mongoose models alive between edits.
+if (!Navodka.schema.path('telegramNotificationRequestedAt')) {
+   Navodka.schema.add({
+      telegramNotificationRequestedAt: { type: Date, default: null },
+      telegramNotificationQueuedAt: { type: Date, default: null },
+   });
+}
+
+export default Navodka;

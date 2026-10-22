@@ -28,7 +28,6 @@ import './assets/stylesheets/mystyles.scss'
 // {/* <!-- Template Main JS File --> */}
 // import './assets/javascripts/main.js'
 
-import { sendMessageTelegram } from "@/hooks/telegram.js";
 import { checkPhone, checkFieldsByOptions } from "@/hooks/valid.hook.js";
 import { cutLetters } from "@/hooks/text.hook.js";
 
@@ -516,7 +515,6 @@ const HomeZra = () => {
       const messageToSend = `Отримано заявку із сайту для Продавців. %0A Ім'я: ${fields.name}
       %0A Телефон: ${fields.phone} %0A Емейл: ${fields.email} %0A Побажання: ${fields.notes}`;
 
-      //! await sendMessageTelegram(messageToSend);
     }
 
 
@@ -571,7 +569,6 @@ const HomeZra = () => {
       // const messageToSend = `Отримано заявку із сайту для Продавців. %0A Ім'я: ${fieldsProp.name}
       // %0A Телефон: ${fieldsProp.phone} %0A Емейл: ${fieldsProp.email} %0A Побажання: ${fieldsProp.notes}`;
 
-      //! await sendMessageTelegram(messageToSend);
     };
 
     const { fieldsPropNew, errCount2, errText2 } = checkFieldsByOptions(fieldsProp);

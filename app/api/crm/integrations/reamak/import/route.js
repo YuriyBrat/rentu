@@ -119,8 +119,7 @@ function normalizeImages(images) {
             variants: { preview: url, card: url, full: url },
          };
       })
-      .filter(Boolean)
-      .slice(0, 12);
+      .filter(Boolean);
 }
 
 function normalizeSourceName(value) {
