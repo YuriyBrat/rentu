@@ -29,6 +29,7 @@ import {
    Dialog,
    DialogContent,
    Chip,
+   useMediaQuery,
 } from '@mui/material';
 
 import DashboardIcon from '@mui/icons-material/Dashboard';
@@ -122,6 +123,9 @@ function getEmployeeGalleryPhotos(user) {
 export default function CRMLayout({ children }) {
    const pathname = usePathname();
    const callCenterMode = pathname?.startsWith('/crm/call-center');
+   const navodkyMode = pathname?.startsWith('/crm/navodky4');
+   const smallScreen = useMediaQuery('(max-width:599px)');
+   const compactNavodky = navodkyMode && smallScreen;
 
    const [open, setOpen] = useState(false);
    const [anchorEl, setAnchorEl] = useState(null);
@@ -218,15 +222,17 @@ export default function CRMLayout({ children }) {
       >
          {/* Drawer */}
          {!callCenterMode && <Drawer
-            variant="permanent"
-            onMouseEnter={() => setOpen(true)}
-            onMouseLeave={() => setOpen(false)}
+            variant={compactNavodky ? 'temporary' : 'permanent'}
+            open={open}
+            onClose={() => setOpen(false)}
+            onMouseEnter={() => { if (!compactNavodky) setOpen(true); }}
+            onMouseLeave={() => { if (!compactNavodky) setOpen(false); }}
             sx={{
                // Reserve only the icon rail; the fixed paper expands over the content.
-               width: 76,
+               width: compactNavodky ? 0 : 76,
                flexShrink: 0,
                '& .MuiDrawer-paper': {
-                  width: open ? 240 : 76,
+                  width: compactNavodky || open ? 240 : 76,
                   transition: 'width 0.35s ease',
                   boxSizing: 'border-box',
                   background: `linear-gradient(180deg, ${BG_DARK}, ${BG_PANEL})`,
@@ -395,11 +401,13 @@ export default function CRMLayout({ children }) {
                   color: TEXT,
                }}
             >
-               <Toolbar sx={{ gap: 2 }}>
-                  <Stack direction="row" alignItems="center" spacing={2} sx={{ flexGrow: 1 }}>
+               <Toolbar sx={{ gap: navodkyMode ? { xs: 1, sm: 2 } : 2, ...(navodkyMode ? { px: { xs: 1.5, sm: 3 } } : {}) }}>
+                  <Stack direction="row" alignItems="center" spacing={navodkyMode ? { xs: 1, sm: 2 } : 2} sx={{ flexGrow: 1, minWidth: 0 }}>
                      {callCenterMode ? <IconButton component={Link} href="/crm/parsing" aria-label="До CRM" sx={{ color: TEXT }}><ArrowBackRoundedIcon /></IconButton> : <IconButton
                         color="inherit"
                         onClick={() => setOpen((o) => !o)}
+                        aria-label={open ? 'Згорнути меню CRM' : 'Відкрити меню CRM'}
+                        aria-expanded={open}
                         sx={{
                            borderRadius: 2,
                            border: `1px solid rgba(255,255,255,0.06)`,
@@ -411,10 +419,10 @@ export default function CRMLayout({ children }) {
                      </IconButton>}
 
                      <Box>
-                        <Typography sx={{ fontWeight: 900, lineHeight: 1.1 }}>
+                        <Typography sx={{ fontWeight: 900, lineHeight: 1.1, ...(navodkyMode ? { fontSize: { xs: 14, sm: 16 } } : {}) }}>
                            {callCenterMode ? 'Кабінет продзвону' : 'Панель управління'}
                         </Typography>
-                        <Typography sx={{ fontSize: 12, color: 'rgba(230,230,240,0.65)' }}>
+                        <Typography sx={{ fontSize: 12, color: TEXT_SOFT, ...(navodkyMode ? { display: { xs: 'none', sm: 'block' } } : {}) }}>
                            CRM агентства нерухомості
                         </Typography>
                      </Box>
@@ -435,6 +443,7 @@ export default function CRMLayout({ children }) {
                   </Stack> */}
                   <IconButton
                      onClick={toggleTheme}
+                     aria-label="Змінити тему CRM"
                      sx={{
                         borderRadius: 2,
                         border: `1px solid ${BORDER}`,
@@ -606,8 +615,8 @@ export default function CRMLayout({ children }) {
             <Box
                component="main"
                sx={{
-                  p: callCenterMode ? { xs: 1.25, md: 2 } : 3,
-                  m: callCenterMode ? { xs: 1, md: 1.5 } : 2,
+                  p: callCenterMode ? { xs: 1.25, md: 2 } : navodkyMode ? { xs: 0, sm: 1, md: 1.5 } : 3,
+                  m: callCenterMode ? { xs: 1, md: 1.5 } : navodkyMode ? { xs: 0.75, md: 2 } : 2,
                   borderRadius: 3,
                   // background: `linear-gradient(180deg, rgba(21,21,33,0.92), rgba(21,21,33,0.78))`,
                   background: MAIN_GRADIENT,

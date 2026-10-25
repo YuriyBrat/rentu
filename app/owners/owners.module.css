@@ -24,7 +24,7 @@
 .page :focus-visible { outline: 2px solid var(--gold); outline-offset: 5px; }
 .page h2 { font: 400 clamp(37px, 4.3vw, 62px)/1.12 Georgia, 'Times New Roman', serif; letter-spacing: -2.2px; }
 .page h2 em { color: var(--gold); font-weight: 400; }
-.page section[id], .page [id='request'] { scroll-margin-top: 95px; }
+.page section[id], .page [id='request'], .page [id='owners-privacy'] { scroll-margin-top: var(--owners-header-offset, 125px); }
 .container { width: min(1280px, calc(100% - 112px)); margin: 0 auto; }
 .section { padding: 116px 0; }
 .eyebrow { display: block; color: var(--gold); font-size: 10px; letter-spacing: 2.2px; font-weight: 600; line-height: 1.6; }
@@ -480,4 +480,92 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .page *, .page *::before, .page *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+/* Conversion refinements stay scoped to /owners; /owners2 keeps the original. */
+.hero { height: auto; min-height: min(940px, max(820px, 100svh)); }
+.heroContent { padding-top: clamp(160px, 18svh, 200px); padding-bottom: 130px; }
+.hero h1 { max-width: 870px; font-size: clamp(54px, 4.7vw, 74px); line-height: 1.1; }
+.heroDescription { max-width: 620px; font-size: 15px; margin-top: 24px !important; }
+.heroBenefits { list-style: none; display: flex; flex-wrap: wrap; gap: 8px 20px; max-width: 680px; padding: 0; margin: 22px 0 0; font-size: 10px; color: #e1dfd1; }
+.heroBenefits li { display: flex; align-items: center; gap: 6px; }
+.heroBenefits svg { flex-shrink: 0; color: #dfc79f; }
+.heroButtons { margin-top: 27px; }
+.trackingNotice { border-bottom: 1px solid var(--line); background: var(--paper); }
+.trackingNotice > div { display: flex; align-items: center; justify-content: space-between; gap: 25px; padding-block: 17px; }
+.trackingNotice p { font-size: 11px; color: var(--muted); max-width: 580px; }
+.trackingNotice > div > div { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; flex-shrink: 0; }
+.trackingNotice button { padding: 9px 13px; min-height: 44px; border: 1px solid #b5b7a9; background: transparent; font-size: 11px; }
+.trackingNotice a { font-size: 11px; text-decoration: underline; padding: 10px; }
+.heroNote { bottom: 110px; }
+.trust { padding: 75px 0; background: #eeece3; border-block: 1px solid #deded3; }
+.trustIntro { display: grid; grid-template-columns: .65fr 1.5fr; gap: 100px; align-items: center; }
+.trustYear { border-right: 1px solid #cdcaba; padding: 20px 45px 20px 0; display: flex; flex-direction: column; align-items: start; }
+.trustYear > span { font-size: 11px; letter-spacing: 4px; }
+.trustYear strong { font: 400 clamp(65px, 7vw, 100px)/1.25 Georgia, serif; color: var(--gold); letter-spacing: -5px; }
+.trustYear small { font-size: 12px; color: var(--muted); margin-top: 12px; }
+.trustIntro h2 { font-size: clamp(32px, 3vw, 44px); letter-spacing: -1.4px; margin-top: 15px; max-width: 700px; }
+.trustIntro p { color: var(--muted); font-size: 13px; max-width: 620px; margin-top: 16px; }
+.expert, .saleCase { margin-top: 40px; border-top: 1px solid var(--line); padding-top: 30px; }
+.expert { display: flex; gap: 30px; align-items: center; }
+.expertPhoto { position: relative; width: 180px; height: 220px; flex-shrink: 0; }
+.expert h3, .saleCase h3 { font: 400 28px/1.3 Georgia, serif; }
+.expert span, .expert p, .saleCase p { font-size: 13px; color: var(--muted); margin-top: 12px; }
+.stepCount { font: 400 12px/1.5 'Segoe UI', Arial, sans-serif; color: var(--gold); }
+.formNext { font-size: 11px; line-height: 1.8; color: #62685d; margin-top: 18px !important; }
+.privacy { font-size: 11px; }
+.privacy a { text-decoration: underline; text-underline-offset: 3px; }
+.privacyChoices { background: #eeece3; border-top: 1px solid var(--line); padding: 25px 0; }
+.privacyChoices summary { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: #62685d; list-style: none; min-height: 36px; }
+.privacyChoices summary::-webkit-details-marker { display: none; }
+.privacyChoices details[open] summary > svg { transform: rotate(180deg); }
+.privacyContent { display: grid; grid-template-columns: 1.2fr 1fr; gap: 55px; padding: 30px 0 15px; }
+.privacyContent h2 { font-size: 28px; letter-spacing: -.6px; }
+.privacyContent p { font-size: 12px; color: #62685d; margin-top: 15px; }
+.privacyContent p a { text-decoration: underline; }
+.privacyControls { display: flex; flex-direction: column; gap: 18px; }
+.privacyControls label { display: flex; align-items: start; gap: 10px; font-size: 12px; cursor: pointer; }
+.privacyControls input { margin-top: 4px; accent-color: var(--gold); flex-shrink: 0; }
+.privacyControls > div { display: flex; flex-wrap: wrap; gap: 10px; }
+.privacyControls button { padding: 10px 15px; border: 1px solid #999c8b; background: transparent; font-size: 12px; min-height: 44px; }
+.privacyControls button:first-child { background: var(--ink); color: var(--paper); }
+.privacyControls > span { font-size: 12px; min-height: 20px; color: var(--gold); }
+@media (max-width: 1150px) {
+  .hero h1 { max-width: 780px; font-size: 62px; }
+  .heroNote { display: none; }
+  .trustIntro { gap: 50px; }
+}
+@media (max-width: 800px) {
+  .trackingNotice > div { align-items: start; flex-direction: column; gap: 12px; }
+  .heroContent { padding-top: 160px; padding-bottom: 100px; }
+  .hero h1 { font-size: 56px; }
+  .heroBenefits { max-width: 520px; }
+  .trust { padding: 55px 0; }
+  .trustIntro { grid-template-columns: 1fr 2fr; gap: 30px; }
+  .trustYear { padding-right: 25px; }
+  .privacyContent { grid-template-columns: 1fr; gap: 30px; }
+}
+@media (max-width: 560px) {
+  .hero { min-height: 100svh; }
+  .heroContent { padding-top: 140px; padding-bottom: 70px; }
+  .hero h1 { font-size: clamp(32px, 9.2vw, 46px); line-height: 1.12; letter-spacing: -1.1px; margin-top: 20px; }
+  .heroDescription { font-size: 13px; line-height: 1.7; margin-top: 20px !important; }
+  .heroBenefits { font-size: 10px; gap: 8px 14px; margin-top: 18px; }
+  .heroButtons { margin-top: 22px; }
+  .heroButtons .button { width: 100%; font-size: 12px; padding-inline: 16px; gap: 12px; justify-content: space-between; }
+  .heroSecondary, .heroBottom { display: none; }
+  .trustIntro { grid-template-columns: 1fr; gap: 28px; }
+  .trustYear { border-right: 0; border-bottom: 1px solid #cdcaba; padding: 0 0 25px; display: grid; grid-template-columns: 1fr auto; gap: 4px 20px; align-items: center; }
+  .trustYear strong { grid-column: 2; grid-row: 1 / 3; font-size: 64px; letter-spacing: -3px; }
+  .trustYear small { margin-top: 0; font-size: 10px; }
+  .trustIntro h2 { font-size: 33px; }
+  .trustIntro p { font-size: 12px; }
+  .expert { align-items: start; gap: 20px; }
+  .expertPhoto { width: 120px; height: 160px; }
+  .expert h3, .saleCase h3 { font-size: 24px; }
+  .formTop { flex-wrap: wrap; gap: 8px; }
+  .stepCount { font-size: 11px; }
+  .formFootnote { font-size: 10px; }
+  .formNext, .privacy { font-size: 11px; }
+  .consent { font-size: 11px; }
 }

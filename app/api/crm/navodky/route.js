@@ -1,141 +1,52 @@
-import { NextResponse } from 'next/server';
-import connectDB from '@/config/database';
 import Navodka from '@/models/Navodka';
+import Employee from '@/models/Employee';
+import { combineMongoFilters } from '@/utils/crm/accessControl';
+import { navodkaActor, navodkaJson, navodkaFailure, navodkaRequestBody, checkNavodkaAssignment } from '@/utils/crm/navodkaAccess';
+import { buildNavodkaQuery, navodkaScopeFilter, serializeNavodka, validateNavodkaBody, redactNavodkaPhones, kyivDayStart, NAVODKA_EMPLOYEE_FIELDS } from '@/utils/crm/navodky.mjs';
 
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/utils/authOptions';
+export const dynamic = 'force-dynamic';
 
-export const GET = async (req) => {
-   try {
-      await connectDB();
+export async function GET(request) {
+  try {
+    const actor = await navodkaActor();
+    const query = buildNavodkaQuery(request.nextUrl.searchParams);
+    // Free text can contain phones in any field. Restrict searches to the actor's
+    // scope so result counts cannot be used to guess another team's number.
+    const scope = navodkaScopeFilter(actor.user, actor.scopeIds);
+    const unsafeSource = typeof query.filter.source === 'string' && redactNavodkaPhones(query.filter.source) !== query.filter.source;
+    const filter = combineMongoFilters(query.filter, (query.q || unsafeSource) && !actor.elevated ? scope : {});
+    const today = kyivDayStart(query.today), tomorrow = kyivDayStart(query.tomorrow);
+    const [items, total, sources, employees, contactToday, overdue, active] = await Promise.all([
+      Navodka.find(filter).populate('assignedTo', NAVODKA_EMPLOYEE_FIELDS).populate('createdBy', NAVODKA_EMPLOYEE_FIELDS).populate('notes.createdBy', NAVODKA_EMPLOYEE_FIELDS).sort(query.sort).skip((query.page - 1) * query.pageSize).limit(query.pageSize).lean(),
+      Navodka.countDocuments(filter),
+      Navodka.distinct('source'),
+      Employee.find(actor.elevated ? {} : { _id: { $in: actor.scopeIds } }).select('name firstName lastName avatarUrl isActive').sort({ name: 1 }).lean(),
+      Navodka.countDocuments(combineMongoFilters(filter, { nextContactAt: { $gte: today, $lt: tomorrow } })),
+      Navodka.countDocuments(combineMongoFilters(filter, { nextContactAt: { $ne: null, $lt: today } })),
+      Navodka.countDocuments(combineMongoFilters(filter, { status: { $in: ['active', 'contact'] } })),
+    ]);
+    return navodkaJson({
+      items: items.map(item => serializeNavodka(item, actor.user, actor.scopeIds)),
+      pagination: { total, page: query.page, pageSize: query.pageSize, pages: Math.ceil(total / query.pageSize) },
+      stats: { total, today: contactToday, overdue, active },
+      filters: {
+        sources: sources.filter(value => value && (actor.elevated || redactNavodkaPhones(value) === value)).sort((a, b) => a.localeCompare(b, 'uk')),
+        employees: employees.map(employee => ({ _id: employee._id, name: employee.name || [employee.firstName, employee.lastName].filter(Boolean).join(' '), isActive: employee.isActive !== false })),
+      },
+      permissions: { canCreate: actor.elevated || (actor.user.role !== 'viewer' && !!actor.user.employeeId), canManageAll: actor.elevated, employeeId: actor.user.employeeId },
+    });
+  } catch (error) { return navodkaFailure(error); }
+}
 
-      const sp = req.nextUrl.searchParams;
-
-      const page = Math.max(parseInt(sp.get('page') || '1', 10), 1);
-      const pageSize = Math.min(Math.max(parseInt(sp.get('pageSize') || '20', 10), 1), 100);
-      const skip = (page - 1) * pageSize;
-
-      const q = (sp.get('q') || '').trim();
-      const status = (sp.get('status') || '').trim();
-      const contactFilter = (sp.get('contactFilter') || '').trim();
-
-      const filter = {};
-
-      if (q) {
-         filter.$or = [
-            { title: { $regex: q, $options: 'i' } },
-            { ownerName: { $regex: q, $options: 'i' } },
-            { phone: { $regex: q, $options: 'i' } },
-            { locationText: { $regex: q, $options: 'i' } },
-            { source: { $regex: q, $options: 'i' } },
-            { description: { $regex: q, $options: 'i' } }
-         ];
-      }
-
-      if (status && status !== 'all') {
-         filter.status = status;
-      }
-
-      if (contactFilter && contactFilter !== 'all') {
-         const today = new Date();
-         today.setHours(0, 0, 0, 0);
-
-         const tomorrow = new Date(today);
-         tomorrow.setDate(tomorrow.getDate() + 1);
-
-         if (contactFilter === 'today') {
-            filter.nextContactAt = { $gte: today, $lt: tomorrow };
-         }
-
-         if (contactFilter === 'overdue') {
-            filter.nextContactAt = { $lt: today };
-         }
-
-         if (contactFilter === 'planned') {
-            filter.nextContactAt = { $gte: tomorrow };
-         }
-      }
-
-      const total = await Navodka.countDocuments(filter);
-
-      const items = await Navodka.find(filter)
-         .populate('assignedTo', 'name firstName lastName email phone avatar')
-            .populate('createdBy', 'name firstName lastName email phone avatar')
-   .populate('notes.createdBy', 'name firstName lastName email phone avatar')
-         .sort({ nextContactAt: 1, updatedAt: -1 })
-         .skip(skip)
-         .limit(pageSize)
-         .lean();
-
-      return NextResponse.json({
-         items,
-         pagination: {
-            total,
-            page,
-            pageSize,
-            pages: Math.ceil(total / pageSize)
-         }
-      });
-   } catch (error) {
-      console.error('GET /api/crm/navodky error:', error);
-      return NextResponse.json(
-         { error: 'Не вдалося отримати список наводок' },
-         { status: 500 }
-      );
-   }
-};
-
-export const POST = async (req) => {
-   try {
-      await connectDB();
-
-      const session = await getServerSession(authOptions);
-
-      const createdBy =
-         session?.user?.employeeId && !session?.user?.isFallbackAdmin
-            ? session.user.employeeId
-            : null;
-
-      const body = await req.json();
-
-      const payload = {
-         title: body?.title?.trim(),
-         ownerName: body?.ownerName?.trim(),
-         phone: body?.phone?.trim(),
-         source: body?.source?.trim() || '',
-         status: body?.status || 'active',
-         readiness: body?.readiness || 'unknown',
-         propertyType: body?.propertyType?.trim() || '',
-         locationText: body?.locationText?.trim() || '',
-         priceExpectation: body?.priceExpectation?.trim() || '',
-         description: body?.description?.trim() || '',
-         lastContactAt: body?.lastContactAt || null,
-         nextContactAt: body?.nextContactAt || null,
-
-         assignedTo: body?.assignedTo || null,
-         createdBy // body?.createdBy || null,
-      };
-
-      if (!payload.title) {
-         return NextResponse.json({ error: 'Назва обов’язкова' }, { status: 400 });
-      }
-
-      if (!payload.ownerName) {
-         return NextResponse.json({ error: 'Ім’я власника обов’язкове' }, { status: 400 });
-      }
-
-      if (!payload.phone) {
-         return NextResponse.json({ error: 'Телефон обов’язковий' }, { status: 400 });
-      }
-
-      const created = await Navodka.create(payload);
-
-      return NextResponse.json(created, { status: 201 });
-   } catch (error) {
-      console.error('POST /api/crm/navodky error:', error);
-      return NextResponse.json(
-         { error: 'Не вдалося створити наводку' },
-         { status: 500 }
-      );
-   }
-};
+export async function POST(request) {
+  try {
+    const actor = await navodkaActor(true);
+    const payload = validateNavodkaBody(await navodkaRequestBody(request));
+    if (!actor.elevated && !actor.user.employeeId) return navodkaJson({ error: 'До облікового запису не прив’язаний працівник.' }, 403);
+    delete payload.newNote;
+    payload.assignedTo ||= actor.elevated ? null : actor.user.employeeId;
+    await checkNavodkaAssignment(actor, payload.assignedTo);
+    const created = await Navodka.create({ ...payload, createdBy: actor.user.employeeId || null });
+    return navodkaJson(serializeNavodka(created.toObject(), actor.user, actor.scopeIds), 201);
+  } catch (error) { return navodkaFailure(error); }
+}

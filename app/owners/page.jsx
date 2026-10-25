@@ -1,11 +1,12 @@
 import OwnersLanding from './OwnersLanding';
 
-const title = 'Продаж квартири у Львові — персональний розбір | KARAMAX';
-const description = 'Дізнайтеся, з якою ціною виходити на ринок. Безкоштовний персональний розбір квартири у Львові: ціна, конкуренти та три сценарії продажу від KARAMAX.';
+const title = 'За скільки продати квартиру у Львові — безкоштовний розбір | KARAMAX';
+const description = 'Дізнайтеся, за скільки реально можна продати вашу квартиру у Львові. Безкоштовний розбір від Karamax: орієнтир вартості, аналіз конкурентів і три стратегії продажу.';
 
 export const metadata = {
   title,
   description,
+  robots: { index: true, follow: true },
   alternates: { canonical: 'https://karamax.com.ua/owners' },
   openGraph: {
     title,

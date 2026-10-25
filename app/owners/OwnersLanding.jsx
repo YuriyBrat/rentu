@@ -5,7 +5,10 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { AnimatePresence, motion, useReducedMotion, useScroll, useTransform } from 'framer-motion';
 import { ArrowDown, ArrowRight, ArrowUpRight, Building2, ChartNoAxesCombined, Check, CheckCheck, ChevronDown, FileText, Layers3, LoaderCircle, MapPin, Menu, MoveUpRight, Phone, ShieldCheck, Sparkles, X } from 'lucide-react';
-import { ATTRIBUTION_KEYS, normalizeOwnerPhone } from '@/utils/owners/request.mjs';
+import { normalizeOwnerPhone } from '@/utils/owners/request.mjs';
+import { CONSENT_KEY, createOwnersAttribution, readOwnersConsent } from '@/utils/owners/attribution.mjs';
+import { createOwnersAnalytics } from '@/utils/owners/analytics.mjs';
+import { ownersTrust } from './trust.config';
 import s from './owners.module.css';
 
 const PHONE = '+380679850911';
@@ -39,9 +42,9 @@ function useMotionPreference() {
   return hydrated && preferred;
 }
 
-function Reveal({ children, className = '', delay = 0, id }) {
+function Reveal({ children, className = '', delay = 0, id, visibleOnLoad = false }) {
   const reduced = useMotionPreference();
-  return <motion.div id={id} className={className} initial={reduced ? false : { opacity: 0, y: 25 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.12 }} transition={{ duration: reduced ? 0 : 0.7, delay: reduced ? 0 : delay, ease: [0.22, 1, 0.36, 1] }}>{children}</motion.div>;
+  return <motion.div id={id} className={className} initial={reduced ? false : { opacity: visibleOnLoad ? 1 : 0, y: 25 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.12 }} transition={{ duration: reduced ? 0 : 0.7, delay: reduced ? 0 : delay, ease: [0.22, 1, 0.36, 1] }}>{children}</motion.div>;
 }
 
 function Brand({ footer = false }) {
@@ -54,46 +57,50 @@ function Brand({ footer = false }) {
   );
 }
 
-function Action({ children = 'Отримати мій розбір', light = false, className = '' }) {
+function Action({ children = 'Отримати безкоштовний розбір', light = false, className = '' }) {
   return <a href="#request" className={`${s.button} ${light ? s.buttonLight : ''} ${className}`}>{children}<ArrowUpRight size={19} aria-hidden="true" /></a>;
 }
 
-function readAttribution() {
-  const current = {};
-  const params = new URLSearchParams(window.location.search);
-  ATTRIBUTION_KEYS.forEach(key => { if (params.get(key)) current[key] = params.get(key).slice(0, 250); });
-  try {
-    const cached = JSON.parse(sessionStorage.getItem('karamax_owner_attribution') || 'null');
-    if (Object.keys(current).length) {
-      sessionStorage.setItem('karamax_owner_attribution', JSON.stringify({ values: current, at: Date.now() }));
-      return current;
-    }
-    return cached?.at > Date.now() - 86400000 ? cached.values : {};
-  } catch { return current; }
+function PrivacyChoices({ consent, onChange }) {
+  const [choices, setChoices] = useState(consent);
+  const [saved, setSaved] = useState(false);
+  useEffect(() => { setChoices(consent); }, [consent]);
+  return <aside id="owners-privacy" className={s.privacyChoices} aria-label="Приватність і налаштування аналітики">
+    <div className={s.container}><details>
+      <summary>Приватність та налаштування аналітики <ChevronDown size={15} /></summary>
+      <div className={s.privacyContent}>
+        <div><h2>Ваші дані та ваш вибір.</h2><p>KARAMAX отримує ім’я, телефон, район або вулицю, параметри квартири та спосіб зв’язку лише після надсилання форми зі згодою. Використовуємо ці дані для відповіді та підготовки розбору; зберігаємо в CRM, а повідомлення про заявку надходить команді в Telegram. Це не підписка на рекламні розсилки.</p><p>Адреса сторінки входу зберігається без довільних параметрів і фрагмента. Аналітика, UTM і рекламні ідентифікатори необов’язкові. Без дозволу зовнішні трекери не завантажуються. Для уточнення, зміни або видалення даних зверніться за номером <a href={`tel:${PHONE}`}>067 985 09 11</a>.</p></div>
+        <div className={s.privacyControls}><label><input type="checkbox" checked={choices.analytics} onChange={event => { setChoices(previous => ({ ...previous, analytics: event.target.checked })); setSaved(false); }} /> Аналітика відвідувань та UTM (Google Analytics)</label><label><input type="checkbox" checked={choices.ads} onChange={event => { setChoices(previous => ({ ...previous, ads: event.target.checked })); setSaved(false); }} /> Рекламне вимірювання та мітки кліків (Google Ads, Meta)</label><p>Вибір можна змінити тут будь-коли. Він не впливає на можливість отримати розбір.</p><div><button type="button" onClick={() => { onChange(choices); setSaved(true); }}>Зберегти вибір</button><button type="button" onClick={() => { onChange({ analytics: false, ads: false }); setSaved(true); }}>Без аналітики</button></div><span role="status">{saved ? 'Ваш вибір збережено.' : ''}</span></div>
+      </div>
+    </details></div>
+  </aside>;
 }
 
-function RequestForm() {
+function RequestForm({ track, getAttribution }) {
   const [step, setStep] = useState(1);
   const [values, setValues] = useState({ location: '', rooms: '', area: '', readiness: 'unknown', name: '', phone: '', contact: 'phone', consent: false, website: '' });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [done, setDone] = useState(false);
-  const attribution = useRef({});
   const heading = useRef(null);
   const errorRef = useRef(null);
   const submitting = useRef(false);
   const controller = useRef(null);
+  const previousStep = useRef(1);
 
   useEffect(() => {
-    attribution.current = readAttribution();
     return () => controller.current?.abort();
   }, []);
 
   useEffect(() => { if (error) errorRef.current?.focus(); }, [error]);
-  useEffect(() => { if (step === 2 || done) heading.current?.focus({ preventScroll: true }); }, [step, done]);
+  useEffect(() => {
+    if (previousStep.current !== step || done) heading.current?.focus({ preventScroll: true });
+    previousStep.current = step;
+  }, [step, done]);
   const update = event => {
     const { name, value, type, checked } = event.target;
     setValues(previous => ({ ...previous, [name]: type === 'checkbox' ? checked : value }));
+    if (name !== 'website') track('owners_form_start', 'request', 'form');
     if (error) setError('');
   };
 
@@ -105,6 +112,7 @@ function RequestForm() {
       if (values.location.trim().length < 3) { setError('Вкажіть район або вулицю квартири.'); return; }
       if (!values.rooms) { setError('Оберіть кількість кімнат.'); return; }
       setStep(2);
+      track('owners_step_2', 'request', 'form');
       return;
     }
     if (!normalizeOwnerPhone(values.phone)) { setError('Перевірте номер: +380 XX XXX XX XX або 0XX XXX XX XX.'); return; }
@@ -117,17 +125,13 @@ function RequestForm() {
       const response = await fetch('/api/public/owner-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...values, attribution: attribution.current }),
+        body: JSON.stringify({ ...values, attribution: getAttribution() }),
         signal: controller.current.signal,
       });
       const result = await response.json();
       if (!response.ok || !result.success) throw new Error(result.error || 'Не вдалося надіслати заявку. Спробуйте ще раз.');
       setDone(true);
-      // No contact data is included. Configure this event as a conversion in GTM.
-      try {
-        window.dataLayer = window.dataLayer || [];
-        window.dataLayer.push({ event: 'owner_analysis_request', form_location: 'owners', selling_timeline: values.readiness });
-      } catch { /* Analytics must never affect a successfully saved request. */ }
+      track('owners_submit_success', 'request', 'form');
     } catch (err) {
       setError(err.name === 'AbortError' ? 'Не отримали підтвердження вчасно. Зателефонуйте нам або повторіть спробу трохи пізніше.' : err.message || 'Перевірте підключення до інтернету та спробуйте ще раз.');
     } finally {
@@ -147,7 +151,7 @@ function RequestForm() {
   </div>;
 
   return <div className={s.formCard}>
-    <div className={s.formTop}><span className={s.eyebrow}>ВАШ ПЕРСОНАЛЬНИЙ РОЗБІР</span><span className={s.stepCount}>0{step}<i> / 02</i></span></div>
+    <div className={s.formTop}><span className={s.eyebrow}>ВАШ ПЕРСОНАЛЬНИЙ РОЗБІР</span><span className={s.stepCount} aria-live="polite">Крок {step} із 2</span></div>
     <div className={s.progress} aria-hidden="true"><span style={{ width: `${step * 50}%` }} /></div>
     <h3 ref={heading} tabIndex={-1}>{step === 1 ? 'Розкажіть про квартиру.' : 'Як із вами зв’язатися?'}</h3>
     <p className={s.formIntro}>{step === 1 ? 'Почнемо з основного. Решту уточнимо особисто.' : 'Погодимо деталі й підготуємо розбір саме для вас.'}</p>
@@ -169,7 +173,8 @@ function RequestForm() {
       {error && <p className={s.formError} role="alert" ref={errorRef} tabIndex={-1}>{error}</p>}
       <div className={s.formActions}>{step === 2 && <button type="button" className={s.backButton} disabled={busy} onClick={() => { setStep(1); setError(''); }}>Назад</button>}<button className={s.button} type="submit" disabled={busy}>{busy ? <><LoaderCircle className={s.spinner} size={18} /> Надсилаємо…</> : <>{step === 1 ? 'Продовжити' : 'Отримати мій розбір'}<ArrowUpRight size={19} aria-hidden="true" /></>}</button></div>
       <p className={s.formFootnote}><ShieldCheck size={15} aria-hidden="true" /> Безкоштовно. Без зобов’язання укладати договір.</p>
-      <details className={s.privacy}><summary>Як ми використовуємо ваші дані</summary><p>Контактні дані та параметри квартири отримує команда KARAMAX для відповіді на цей запит і підготовки розбору. Разом із заявкою зберігаємо рекламні мітки, якщо вони є. Ця згода не є підпискою на рекламні розсилки. Щоб уточнити, змінити або видалити надані дані, зверніться за номером <a href={`tel:${PHONE}`}>067 985 09 11</a>.</p></details>
+      <p className={s.formNext}>Після отримання заявки спеціаліст Karamax зв’яжеться з вами, уточнить деталі квартири та погодить підготовку персонального розбору.</p>
+      <p className={s.privacy}><a href="#owners-privacy" data-privacy-link>Політика приватності та використання даних</a></p>
     </form>
   </div>;
 }
@@ -180,6 +185,14 @@ export default function OwnersLanding() {
   const [scenario, setScenario] = useState(1);
   const [faq, setFaq] = useState(0);
   const [formVisible, setFormVisible] = useState(false);
+  const [heroPassed, setHeroPassed] = useState(false);
+  const [consent, setConsent] = useState({ analytics: false, ads: false });
+  const [consentChosen, setConsentChosen] = useState(false);
+  const measurements = useRef(null);
+  const attribution = useRef(null);
+  const consentRef = useRef(consent);
+  const pageRef = useRef(null);
+  const headerRef = useRef(null);
   const reduced = useMotionPreference();
   const heroRef = useRef(null);
   const requestRef = useRef(null);
@@ -187,6 +200,57 @@ export default function OwnersLanding() {
   const { scrollYProgress } = useScroll({ target: heroRef, offset: ['start start', 'end start'] });
   const heroY = useTransform(scrollYProgress, [0, 1], ['0%', reduced ? '0%' : '17%']);
   const active = scenarios[scenario];
+  const stickyVisible = heroPassed && !formVisible;
+  const track = (name, placement, onceKey) => {
+    try { measurements.current?.event(name, placement, onceKey); } catch { /* Optional analytics never block the form. */ }
+  };
+  const getAttribution = () => {
+    try { return attribution.current?.(consentRef.current) || {}; } catch { return {}; }
+  };
+  const updateConsent = next => {
+    setConsentChosen(true);
+    consentRef.current = next;
+    setConsent(next);
+    try { localStorage.setItem(CONSENT_KEY, JSON.stringify({ ...next, at: Date.now() })); } catch { /* In-memory choice remains valid. */ }
+    try { measurements.current?.setConsent(next); } catch { /* Tracking is optional. */ }
+    getAttribution();
+  };
+
+  useEffect(() => {
+    let storage;
+    try { storage = window.sessionStorage; } catch { storage = { getItem: () => null, setItem() {}, removeItem() {} }; }
+    attribution.current ||= createOwnersAttribution(window.location.href, storage);
+    measurements.current ||= createOwnersAnalytics(window);
+    let saved = { analytics: false, ads: false };
+    try { saved = readOwnersConsent(localStorage); } catch { /* Privacy mode. */ }
+    consentRef.current = saved;
+    setConsentChosen(saved.decided === true);
+    setConsent(saved);
+    try { measurements.current.setConsent(saved); } catch { /* Tracking is optional. */ }
+    attribution.current(saved);
+  }, []);
+
+  useEffect(() => {
+    const observer = new ResizeObserver(() => {
+      const header = headerRef.current;
+      const height = (header?.firstElementChild?.getBoundingClientRect().height || 78) + (header?.children[1]?.getBoundingClientRect().height || 0);
+      pageRef.current?.style.setProperty('--owners-header-offset', `${height + 18}px`);
+    });
+    if (headerRef.current) observer.observe(headerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  function captureClick(event) {
+    const link = event.target.closest('a');
+    if (!link) return;
+    const placement = link.closest('[data-placement]')?.dataset.placement || 'other';
+    if (link.getAttribute('href') === '#request') track('owners_cta_click', placement);
+    if (link.getAttribute('href')?.startsWith('tel:')) track('owners_phone_click', placement);
+    if (link.hasAttribute('data-privacy-link')) {
+      const details = document.querySelector('#owners-privacy details');
+      if (details) details.open = true;
+    }
+  }
 
   useEffect(() => {
     const root = document.documentElement;
@@ -196,10 +260,10 @@ export default function OwnersLanding() {
   }, [reduced]);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 40);
+    const onScroll = () => { setScrolled(window.scrollY > 40); setHeroPassed((heroRef.current?.getBoundingClientRect().bottom ?? Infinity) <= 0); };
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
-    const observer = new IntersectionObserver(entries => setFormVisible(entries[0].isIntersecting), { threshold: 0.1 });
+    const observer = new IntersectionObserver(entries => setFormVisible(entries[0].isIntersecting), { threshold: 0, rootMargin: '0px 0px 85px 0px' });
     if (requestRef.current) observer.observe(requestRef.current);
     return () => { window.removeEventListener('scroll', onScroll); observer.disconnect(); };
   }, []);
@@ -211,9 +275,9 @@ export default function OwnersLanding() {
     return () => window.removeEventListener('keydown', close);
   }, [menuOpen]);
 
-  return <div className={s.page} lang="uk">
+  return <div className={s.page} lang="uk" ref={pageRef} onClickCapture={captureClick}>
     <a href="#main-content" className={s.skipLink}>Перейти до вмісту</a>
-    <header className={`${s.header} ${scrolled || menuOpen ? s.headerScrolled : ''}`}>
+    <header ref={headerRef} data-placement="header" className={`${s.header} ${scrolled || menuOpen ? s.headerScrolled : ''}`}>
       <div className={s.headerInner}>
         <div className={s.brandLockup}>
           <Brand />
@@ -223,26 +287,28 @@ export default function OwnersLanding() {
         <div className={s.headerActions}><a className={s.phone} href={`tel:${PHONE}`}><Phone size={15} aria-hidden="true" /><span>067 985 09 11</span></a><a href="#request" className={s.headerCta}>Отримати розбір <ArrowUpRight size={15} /></a><button ref={menuButton} type="button" className={s.menuButton} aria-label={menuOpen ? 'Закрити меню' : 'Відкрити меню'} aria-expanded={menuOpen} aria-controls="owners-mobile-nav" onClick={() => setMenuOpen(!menuOpen)}>{menuOpen ? <X /> : <Menu />}</button></div>
       </div>
       <div className={s.mobileTagline}>Вміємо продавати нерухомість.</div>
-      {menuOpen && <nav id="owners-mobile-nav" className={s.mobileNav} aria-label="Мобільна навігація">{[['#analysis', 'Ваш персональний розбір'], ['#strategy', 'Три стратегії продажу'], ['#process', 'Як це працює'], ['#faq', 'Поширені запитання'], ['#request', 'Отримати мій розбір']].map(([href, text]) => <a key={href} href={href} onClick={() => setMenuOpen(false)}>{text}<ArrowUpRight size={18} /></a>)}</nav>}
+      {menuOpen && <nav id="owners-mobile-nav" data-placement="mobile_menu" className={s.mobileNav} aria-label="Мобільна навігація">{[['#analysis', 'Ваш персональний розбір'], ['#strategy', 'Три стратегії продажу'], ['#process', 'Як це працює'], ['#faq', 'Поширені запитання'], ['#request', 'Отримати мій розбір']].map(([href, text]) => <a key={href} href={href} onClick={() => setMenuOpen(false)}>{text}<ArrowUpRight size={18} /></a>)}</nav>}
     </header>
 
     <div id="main-content">
-      <section className={s.hero} ref={heroRef} aria-labelledby="owners-title">
+      <section className={s.hero} ref={heroRef} aria-labelledby="owners-title" data-placement="hero">
         <motion.div className={s.heroImage} style={{ y: heroY }}><Image src="/owners/living-room.jpg" alt="Світла вітальня з великими вікнами, теплими текстурами та природним світлом" fill priority sizes="100vw" quality={85} /></motion.div>
         <div className={s.heroShade} />
         <div className={`${s.container} ${s.heroContent}`}>
           <Reveal><div className={s.heroEyebrow}><span /> ПРОДАЖ КВАРТИР <i /> ЛЬВІВ</div></Reveal>
-          <Reveal delay={0.1}><h1 id="owners-title">За скільки можна<br />продати <em>вашу<br className={s.desktopBreak} /> квартиру?</em></h1></Reveal>
-          <Reveal delay={0.2}><p className={s.heroDescription}><strong>Допоможемо продати вашу квартиру у Львові.</strong><br className={s.desktopBreak} /> Почніть із персонального розбору квартири<br className={s.desktopBreak} /> та плану продажу від KARAMAX.</p></Reveal>
-          <Reveal delay={0.3}><div className={s.heroButtons}><Action light /><a href="#analysis" className={s.heroSecondary}>Що я отримаю <ArrowDown size={16} /></a></div><p className={s.heroFine}><Check size={14} /> Безкоштовно <span /> Без зобов’язання укладати договір</p></Reveal>
+          <Reveal delay={0.1} visibleOnLoad><h1 id="owners-title">Дізнайтеся, за скільки реально можна продати <em>вашу квартиру у Львові</em></h1></Reveal>
+          <Reveal delay={0.2} visibleOnLoad><p className={s.heroDescription}>Отримайте безкоштовний персональний розбір від Karamax: орієнтир вартості, аналіз конкурентів та три можливі стратегії продажу</p></Reveal>
+          <Reveal delay={0.25} visibleOnLoad><ul className={s.heroBenefits}><li><Check size={14} /> Безкоштовно</li><li><Check size={14} /> Індивідуальний аналіз</li><li><Check size={14} /> Без зобов’язання укладати договір</li></ul></Reveal>
+          <Reveal delay={0.3} visibleOnLoad><div className={s.heroButtons}><Action light /><a href="#analysis" className={s.heroSecondary}>Що я отримаю <ArrowDown size={16} /></a></div></Reveal>
         </div>
         <motion.div className={s.heroNote} initial={reduced ? false : { opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6, duration: 0.8 }}><div className={s.heroNoteTop}><span>ВАША НАСТУПНА ГЛАВА</span><MoveUpRight size={25} strokeWidth={1} /></div><p>Хороший продаж<br />починається з ясності.</p><div className={s.heroNoteBottom}><span>Ціна. Стратегія. Впевненість.</span><span className={s.noteDot} /></div></motion.div>
         <div className={`${s.container} ${s.heroBottom}`}><a href="#analysis"><span className={s.scrollLine} /> ГОРТАЙТЕ, ЩОБ ДІЗНАТИСЯ БІЛЬШЕ</a><span>НЕРУХОМІСТЬ. З УВАГОЮ ДО ВАС.</span></div>
       </section>
 
       <div className={s.assurance}><div className={s.container}><span><MapPin /> Львів та його райони</span><span><FileText /> Персональний аналіз</span><span><Layers3 /> Три сценарії продажу</span><span><ShieldCheck /> Рішення залишається за вами</span></div></div>
+      {!consentChosen && <aside className={s.trackingNotice} aria-label="Вибір аналітики"><div className={s.container}><p>Дозволите аналітику та рекламні мітки для оцінки роботи сторінки? Ваш вибір не впливає на отримання розбору.</p><div><button type="button" onClick={() => updateConsent({ analytics: true, ads: true })}>Дозволити</button><button type="button" onClick={() => updateConsent({ analytics: false, ads: false })}>Лише необхідне</button><a href="#owners-privacy" data-privacy-link>Налаштувати</a></div></div></aside>}
 
-      <section id="analysis" className={`${s.section} ${s.analysis}`} aria-labelledby="analysis-title">
+      <section id="analysis" data-placement="analysis" className={`${s.section} ${s.analysis}`} aria-labelledby="analysis-title">
         <div className={s.container}><Reveal className={s.sectionHeading}><span className={s.eyebrow}>01 / ВАШ ПЕРСОНАЛЬНИЙ РОЗБІР</span><h2 id="analysis-title">Велике рішення.<br /><em>Чіткі орієнтири.</em></h2><p>Перш ніж публікувати оголошення, варто побачити повну картину. Ми зберемо її навколо вашої квартири та ваших планів.</p></Reveal>
           <div className={s.analysisGrid}>
             <div className={s.benefitList}>{benefits.map(([title, text], i) => <Reveal key={title} delay={i * 0.06} className={s.benefit}><span>0{i + 1}</span><div><h3>{title}</h3><p>{text}</p></div><ArrowUpRight aria-hidden="true" size={19} /></Reveal>)}</div>
@@ -259,13 +325,23 @@ export default function OwnersLanding() {
         </div>
       </section>
 
-      <section id="strategy" className={`${s.section} ${s.strategy}`} aria-labelledby="strategy-title"><div className={s.container}>
+      <section className={s.trust} aria-labelledby="trust-title">
+        <div className={s.container}><Reveal className={s.trustIntro}>
+          <div className={s.trustYear}><span>KARAMAX</span><strong>{ownersTrust.founded}</strong><small>Засновано у 2018 році</small></div>
+          <div><span className={s.eyebrow}>ЛОКАЛЬНИЙ ДОСВІД. ОСОБИСТА УВАГА.</span><h2 id="trust-title">Вашу квартиру аналізують люди, які знають <em>ринок Львова</em></h2><p>{ownersTrust.specialization}</p><p>Розбір готуємо навколо вашої квартири та ваших планів. Наступні кроки й умови співпраці обговорюємо особисто.</p></div>
+        </Reveal>
+        {ownersTrust.expert.verified && ['name', 'role', 'bio', 'photo'].every(key => ownersTrust.expert[key]) && <Reveal className={s.expert}><div className={s.expertPhoto}><Image src={ownersTrust.expert.photo} alt={ownersTrust.expert.name} fill sizes="(max-width: 560px) 120px, 180px" /></div><div><h3>{ownersTrust.expert.name}</h3><span>{ownersTrust.expert.role}</span><p>{ownersTrust.expert.bio}</p></div></Reveal>}
+        {ownersTrust.saleCase.verified && ['title', 'context', 'approach', 'result'].every(key => ownersTrust.saleCase[key]) && <Reveal className={s.saleCase}><span className={s.eyebrow}>РЕАЛЬНИЙ КЕЙС ПРОДАЖУ</span><h3>{ownersTrust.saleCase.title}</h3><p>{ownersTrust.saleCase.context}</p><p>{ownersTrust.saleCase.approach}</p><p>{ownersTrust.saleCase.result}</p></Reveal>}
+        </div>
+      </section>
+
+      <section id="strategy" data-placement="strategy" className={`${s.section} ${s.strategy}`} aria-labelledby="strategy-title"><div className={s.container}>
         <Reveal className={s.strategyHeading}><div><span className={s.eyebrow}>02 / ПРОДАЖ ЗА ВАШИМИ ПРАВИЛАМИ</span><h2 id="strategy-title">Одна квартира.<br /><em>Три можливі шляхи.</em></h2></div><p>Важливо, що саме потрібно вам.<br />Дослідіть підходи — і ми допоможемо<br className={s.desktopBreak} /> обрати доречний для вашої ситуації.</p></Reveal>
         <Reveal><div className={s.scenarioTabs} role="tablist" aria-label="Сценарії продажу">{scenarios.map((item, i) => <button key={item.id} id={`tab-${item.id}`} role="tab" type="button" aria-selected={scenario === i} aria-controls="scenario-panel" tabIndex={scenario === i ? 0 : -1} className={scenario === i ? s.activeTab : ''} onClick={() => setScenario(i)} onKeyDown={event => { let next = i; if (event.key === 'ArrowRight') next = (i + 1) % 3; else if (event.key === 'ArrowLeft') next = (i + 2) % 3; else if (event.key === 'Home') next = 0; else if (event.key === 'End') next = 2; else return; event.preventDefault(); setScenario(next); document.getElementById(`tab-${scenarios[next].id}`)?.focus(); }}><span>{item.number}</span>{item.label}<ArrowUpRight size={17} /></button>)}</div>
           <div id="scenario-panel" role="tabpanel" aria-labelledby={`tab-${active.id}`} className={s.scenarioPanel} tabIndex={0}><AnimatePresence mode="wait" initial={false}><motion.div key={active.id} className={s.scenarioContent} initial={reduced ? false : { opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: reduced ? 0 : 0.25 }}><div className={s.scenarioCopy}><span className={s.scenarioNumber}>{active.number} / СТРАТЕГІЯ</span><h3>{active.title}</h3><p>{active.description}</p><div className={s.scenarioTags}>{active.tags.map(tag => <span key={tag}><Check size={13} />{tag}</span>)}</div><p className={s.scenarioNote}>{active.note}</p></div><div className={s.scenarioVisual}><span className={s.chartKicker}>АКЦЕНТИ СТРАТЕГІЇ</span>{['Стартова ціна', 'Пріоритет швидкості', 'Запас часу'].map((label, i) => <div key={label} className={s.chartRow}><div><span>{label}</span><span>{['ЦІНА', 'ТЕМП', 'ЧАС'][i]}</span></div><div className={s.chartTrack}><motion.span initial={{ width: reduced ? `${active.bars[i]}%` : '0%' }} animate={{ width: `${active.bars[i]}%` }} transition={{ duration: reduced ? 0 : 0.7, delay: i * 0.08 }} /></div></div>)}<p>Схематичне порівняння підходів, без прогнозу ціни чи строків.</p><a href="#request" className={s.textLink}>Знайти мій сценарій <ArrowUpRight size={18} /></a></div></motion.div></AnimatePresence></div>
         </Reveal></div></section>
 
-      <section className={`${s.section} ${s.perspective}`} aria-labelledby="perspective-title"><div className={`${s.container} ${s.perspectiveGrid}`}><Reveal className={s.perspectiveImage}><Image src="/owners/interior-detail.jpg" alt="Продуманий сучасний інтер’єр із натуральним деревом і великими вікнами" fill sizes="(max-width: 800px) 100vw, 50vw" /><div className={s.imageCaption}><span>Кожна деталь має значення.</span><ArrowUpRight size={23} strokeWidth={1} /></div></Reveal><Reveal className={s.perspectiveCopy}><span className={s.eyebrow}>БІЛЬШЕ УВАГИ ДО ВАШОЇ НЕРУХОМОСТІ</span><h2 id="perspective-title">Покупець бачить<br />квартиру.<br /><em>Ми допомагаємо<br />побачити її цінність.</em></h2><p>Світло, планування, стан будинку, локація. Те, що для вас звичне, може стати вирішальним для покупця.</p><p>У розборі розглянемо сильні сторони квартири та те, як їх представити. Від першого фото до аргументів у переговорах.</p><a href="#request" className={s.textLink}>Почати з моєї квартири <ArrowUpRight size={18} /></a></Reveal></div></section>
+      <section data-placement="perspective" className={`${s.section} ${s.perspective}`} aria-labelledby="perspective-title"><div className={`${s.container} ${s.perspectiveGrid}`}><Reveal className={s.perspectiveImage}><Image src="/owners/interior-detail.jpg" alt="Продуманий сучасний інтер’єр із натуральним деревом і великими вікнами" fill sizes="(max-width: 800px) 100vw, 50vw" /><div className={s.imageCaption}><span>Кожна деталь має значення.</span><ArrowUpRight size={23} strokeWidth={1} /></div></Reveal><Reveal className={s.perspectiveCopy}><span className={s.eyebrow}>БІЛЬШЕ УВАГИ ДО ВАШОЇ НЕРУХОМОСТІ</span><h2 id="perspective-title">Покупець бачить<br />квартиру.<br /><em>Ми допомагаємо<br />побачити її цінність.</em></h2><p>Світло, планування, стан будинку, локація. Те, що для вас звичне, може стати вирішальним для покупця.</p><p>У розборі розглянемо сильні сторони квартири та те, як їх представити. Від першого фото до аргументів у переговорах.</p><a href="#request" className={s.textLink}>Почати з моєї квартири <ArrowUpRight size={18} /></a></Reveal></div></section>
 
       <section id="process" className={`${s.section} ${s.process}`} aria-labelledby="process-title"><div className={s.container}><Reveal className={s.processHeading}><span className={s.eyebrow}>03 / ПРОСТИЙ ПЕРШИЙ КРОК</span><h2 id="process-title">Від запитання<br /><em>до вашого плану.</em></h2></Reveal><div className={s.processGrid}>{[
         ['01', 'Кілька деталей', 'Вкажіть район, параметри квартири та зручний спосіб зв’язку. Точна адреса на цьому етапі не потрібна.'],
@@ -273,9 +349,9 @@ export default function OwnersLanding() {
         ['03', 'Персональний розбір', 'Розглянемо ціну, конкурентів і сценарії. Ви отримаєте рекомендації для наступного кроку.'],
       ].map(([number, title, text], i) => <Reveal className={s.processItem} key={number} delay={i * 0.1}><div className={s.processNumber}>{number}<ArrowRight size={20} strokeWidth={1} /></div><h3>{title}</h3><p>{text}</p></Reveal>)}</div></div></section>
 
-      <section ref={requestRef} className={`${s.section} ${s.request}`} aria-labelledby="request-title"><div className={`${s.container} ${s.requestGrid}`}><Reveal className={s.requestCopy}><span className={s.eyebrow}>ВАША КВАРТИРА. ВАШ НАСТУПНИЙ КРОК.</span><h2 id="request-title">Почніть<br />із розуміння<br /><em>можливостей.</em></h2><p>Залиште запит на персональний розбір. Обговоримо вашу ситуацію та допоможемо побачити картину продажу.</p><div className={s.requestChecks}><span><Check size={17} /> Аналіз саме вашої квартири</span><span><Check size={17} /> Зрозумілі аргументи щодо ціни</span><span><Check size={17} /> Рішення про співпрацю — за вами</span></div><a className={s.requestPhone} href={`tel:${PHONE}`}><span className={s.phoneCircle}><Phone size={19} strokeWidth={1.4} /></span><span><small>ВІДДАЄТЕ ПЕРЕВАГУ РОЗМОВІ?</small><strong>067 985 09 11</strong></span><ArrowUpRight size={19} /></a></Reveal><Reveal id="request"><RequestForm /></Reveal></div></section>
+      <section data-placement="request" className={`${s.section} ${s.request}`} aria-labelledby="request-title"><div className={`${s.container} ${s.requestGrid}`}><Reveal className={s.requestCopy}><span className={s.eyebrow}>ВАША КВАРТИРА. ВАШ НАСТУПНИЙ КРОК.</span><h2 id="request-title">Почніть<br />із розуміння<br /><em>можливостей.</em></h2><p>Залиште запит на персональний розбір. Обговоримо вашу ситуацію та допоможемо побачити картину продажу.</p><div className={s.requestChecks}><span><Check size={17} /> Аналіз саме вашої квартири</span><span><Check size={17} /> Зрозумілі аргументи щодо ціни</span><span><Check size={17} /> Рішення про співпрацю — за вами</span></div><a className={s.requestPhone} href={`tel:${PHONE}`}><span className={s.phoneCircle}><Phone size={19} strokeWidth={1.4} /></span><span><small>ВІДДАЄТЕ ПЕРЕВАГУ РОЗМОВІ?</small><strong>067 985 09 11</strong></span><ArrowUpRight size={19} /></a></Reveal><div ref={requestRef} id="request"><Reveal><RequestForm track={track} getAttribution={getAttribution} /></Reveal></div></div></section>
 
-      <section id="faq" className={`${s.section} ${s.faq}`} aria-labelledby="faq-title">
+      <section id="faq" data-placement="faq" className={`${s.section} ${s.faq}`} aria-labelledby="faq-title">
         <div className={`${s.container} ${s.faqGrid}`}>
           <Reveal>
             <span className={s.eyebrow}>ДЕТАЛІ, ЯКІ МАЮТЬ ЗНАЧЕННЯ</span>
@@ -299,9 +375,10 @@ export default function OwnersLanding() {
           </div>
         </div>
       </section>
+      <PrivacyChoices consent={consent} onChange={updateConsent} />
     </div>
 
-    <footer className={s.footer}><div className={s.container}><div className={s.footerTop}><Brand footer /><p>Продумані рішення<br />для вашої нерухомості.</p><a href={`tel:${PHONE}`}>067 985 09 11 <ArrowUpRight size={18} /></a></div><div className={s.footerBottom}><span>© {new Date().getFullYear()} KARAMAX. Львів.</span><div><Link href="/">Головна</Link><Link href="/views">Квартири у продажу</Link><a href="#request">Персональний розбір</a></div></div><p className={s.photoCredit}>Фото інтер’єрів: Unsplash. Використані для ілюстрації.</p></div></footer>
-    <div className={`${s.mobileSticky} ${scrolled && !formVisible ? s.mobileStickyVisible : ''}`} inert={!scrolled || formVisible ? '' : undefined} aria-hidden={!scrolled || formVisible}><a href={`tel:${PHONE}`} aria-label="Зателефонувати в KARAMAX"><Phone size={20} /></a><a href="#request">Отримати мій розбір <ArrowUpRight size={18} /></a></div>
+    <footer data-placement="footer" className={s.footer}><div className={s.container}><div className={s.footerTop}><Brand footer /><p>Продумані рішення<br />для вашої нерухомості.</p><a href={`tel:${PHONE}`}>067 985 09 11 <ArrowUpRight size={18} /></a></div><div className={s.footerBottom}><span>© {new Date().getFullYear()} KARAMAX. Львів.</span><div><Link href="/">Головна</Link><Link href="/views">Квартири у продажу</Link><a href="#request">Персональний розбір</a><a href="#owners-privacy" data-privacy-link>Приватність</a></div></div><p className={s.photoCredit}>Фото інтер’єрів: Unsplash. Використані для ілюстрації.</p></div></footer>
+    <div data-placement="mobile_sticky" className={`${s.mobileSticky} ${stickyVisible ? s.mobileStickyVisible : ''}`} inert={!stickyVisible ? '' : undefined} aria-hidden={!stickyVisible}><a href={`tel:${PHONE}`} aria-label="Зателефонувати в KARAMAX"><Phone size={20} /></a><a href="#request">Отримати розбір <ArrowUpRight size={18} /></a></div>
   </div>;
 }

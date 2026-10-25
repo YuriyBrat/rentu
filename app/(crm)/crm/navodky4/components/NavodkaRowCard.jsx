@@ -1,663 +1,92 @@
 'use client';
 
 import { useState } from 'react';
-import {
-   Box,
-   Stack,
-   Typography,
-   Chip,
-   Button,
-   IconButton,
-   Paper,
-   Collapse,
-   Avatar,
-   Divider,
-   Tooltip,
-   Grid
-} from '@mui/material';
+import { Avatar, Box, Button, Chip, Collapse, Divider, Grid, IconButton, Paper, Stack, Tooltip, Typography } from '@mui/material';
 import PhoneIcon from '@mui/icons-material/Phone';
-import HomeWorkIcon from '@mui/icons-material/HomeWork';
-import PersonIcon from '@mui/icons-material/Person';
+import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import AddCommentIcon from '@mui/icons-material/AddComment';
-import PublishedWithChangesIcon from '@mui/icons-material/PublishedWithChanges';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
-import PlaceIcon from '@mui/icons-material/Place';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import SellIcon from '@mui/icons-material/Sell';
-import CampaignIcon from '@mui/icons-material/Campaign';
+import { NAVODKA_STATUSES, NAVODKA_READINESS } from '../navodky.constants';
+import { navodkaDate, navodkaPanelSx } from '../navodky.theme';
+import { kyivDateString } from '@/utils/crm/navodky.mjs';
 
-import EditIcon from '@mui/icons-material/Edit';
+const statusColors = { active: 'warning', contact: 'info', waiting: 'secondary', converted: 'success', lost: 'error' };
+const noteLabels = { positive: 'Позитивна', negative: 'Негативна', info: 'Інформуюча', important: 'Важлива' };
+const noteColors = { positive: 'success', negative: 'error', info: 'warning', important: 'info' };
+const activityLabels = { note: 'Нотатка', call: 'Дзвінок', message: 'Переписка', meeting: 'Зустріч' };
+const employeeName = employee => employee?.name || [employee?.firstName, employee?.lastName].filter(Boolean).join(' ') || 'Не вказано';
 
-const noteTypeMap = {
-   positive: {
-      label: 'Позитивна',
-      bg: 'rgba(46, 125, 50, 0.16)',
-      border: 'rgba(76, 175, 80, 0.4)',
-      color: '#9be7a1'
-   },
-   negative: {
-      label: 'Негативна',
-      bg: 'rgba(211, 47, 47, 0.16)',
-      border: 'rgba(244, 67, 54, 0.4)',
-      color: '#ff9b9b'
-   },
-   info: {
-      label: 'Інформуюча',
-      bg: 'rgba(245, 158, 11, 0.16)',
-      border: 'rgba(245, 158, 11, 0.4)',
-      color: '#ffd37a'
-   },
-   important: {
-      label: 'Важлива',
-      bg: 'rgba(2, 132, 199, 0.16)',
-      border: 'rgba(56, 189, 248, 0.4)',
-      color: '#8bd8ff'
-   }
-};
-
-const activityTypeMap = {
-   note: {
-      label: 'Нотатка',
-      bg: 'rgba(148, 163, 184, 0.16)',
-      border: 'rgba(148, 163, 184, 0.34)',
-      color: '#cbd5e1'
-   },
-   call: {
-      label: 'Дзвінок',
-      bg: 'rgba(34, 197, 94, 0.16)',
-      border: 'rgba(34, 197, 94, 0.34)',
-      color: '#86efac'
-   },
-   message: {
-      label: 'Переписка',
-      bg: 'rgba(59, 130, 246, 0.16)',
-      border: 'rgba(59, 130, 246, 0.34)',
-      color: '#93c5fd'
-   },
-   meeting: {
-      label: 'Зустріч',
-      bg: 'rgba(168, 85, 247, 0.16)',
-      border: 'rgba(168, 85, 247, 0.34)',
-      color: '#d8b4fe'
-   }
-};
-
-const statusMap = {
-   active: {
-      label: 'Активна',
-      chipBg: 'rgba(249, 115, 22, 0.16)',
-      chipColor: '#ffb067',
-      line: '#f97316'
-   },
-   contact: {
-      label: 'На контакті',
-      chipBg: 'rgba(59, 130, 246, 0.16)',
-      chipColor: '#8fc2ff',
-      line: '#3b82f6'
-   },
-   waiting: {
-      label: 'Чекати',
-      chipBg: 'rgba(168, 85, 247, 0.16)',
-      chipColor: '#cda9ff',
-      line: '#a855f7'
-   },
-   converted: {
-      label: 'Конвертована',
-      chipBg: 'rgba(34, 197, 94, 0.16)',
-      chipColor: '#8ef0aa',
-      line: '#22c55e'
-   },
-   lost: {
-      label: 'Втрачена',
-      chipBg: 'rgba(239, 68, 68, 0.16)',
-      chipColor: '#ff9d9d',
-      line: '#ef4444'
-   }
-};
-
-const readinessMap = {
-   soon: 'До 1 місяця',
-   q1: '1-3 місяці',
-   q2: '3-6 місяців',
-   later: '6+ місяців',
-   unknown: 'Невідомо'
-};
-
-function isOverdue(dateStr) {
-   if (!dateStr) return false;
-   const today = new Date();
-   today.setHours(0, 0, 0, 0);
-
-   const date = new Date(dateStr);
-   date.setHours(0, 0, 0, 0);
-
-   return date < today;
-}
-
-function isToday(dateStr) {
-   if (!dateStr) return false;
-   const today = new Date();
-   const date = new Date(dateStr);
-
-   return (
-      today.getFullYear() === date.getFullYear() &&
-      today.getMonth() === date.getMonth() &&
-      today.getDate() === date.getDate()
-   );
-}
-
-function formatDate(dateStr) {
-   if (!dateStr) return '—';
-   return new Date(dateStr).toLocaleDateString('uk-UA');
-}
-
-function formatDateTime(dateStr) {
-   if (!dateStr) return '';
-
-   const date = new Date(dateStr);
-   if (Number.isNaN(date.getTime())) return '';
-
-   return date.toLocaleString('uk-UA', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-   });
-}
-
-function MiniMeta({ icon, text, color = 'text.secondary', strong = false }) {
-   return (
-      <Stack direction="row" spacing={0.8} alignItems="center" sx={{ minWidth: 0 }}>
-         <Box sx={{ display: 'flex', color }}>
-            {icon}
-         </Box>
-         <Typography
-            sx={{
-               fontSize: 13,
-               color,
-               fontWeight: strong ? 700 : 500,
-               whiteSpace: 'nowrap',
-               overflow: 'hidden',
-               textOverflow: 'ellipsis'
-            }}
-         >
-            {text}
-         </Typography>
+export default function NavodkaRowCard({ item, onCreateNote, onCall, onEdit, onDelete }) {
+  const [open, setOpen] = useState(false);
+  const color = statusColors[item.status] || 'warning';
+  const nextDate = item.nextContactAt ? kyivDateString(new Date(item.nextContactAt)) : '';
+  const today = kyivDateString();
+  const overdue = nextDate && nextDate < today;
+  const notes = [...(item.notes || [])].sort((a, b) => new Date(b.contactDate || b.createdAt || 0) - new Date(a.contactDate || a.createdAt || 0));
+  const detailsId = 'navodka-details-' + item._id;
+  return <Paper elevation={0} data-navodka-id={item._id} data-phone-visible={item.canViewPhone ? 'true' : 'false'} sx={{ ...navodkaPanelSx, borderLeft: 4, borderLeftColor: color + '.main', overflow: 'hidden', '& .MuiTypography-root': { overflowWrap: 'anywhere' } }}>
+    <Stack direction={{ xs: 'column', lg: 'row' }} spacing={2} alignItems={{ lg: 'center' }} justifyContent="space-between">
+      <Stack direction="row" spacing={1.5} sx={{ minWidth: 0, flex: 1 }}>
+        <Avatar sx={{ bgcolor: 'action.selected', color: 'primary.main', width: 42, height: 42 }}>{item.ownerName?.[0] || 'Н'}</Avatar>
+        <Box sx={{ minWidth: 0, flex: 1 }}>
+          <Stack direction="row" spacing={1} alignItems="center" useFlexGap flexWrap="wrap">
+            <Typography component="h2" sx={{ fontSize: 18, fontWeight: 800, overflowWrap: 'anywhere' }}>{item.title}</Typography>
+            <Chip size="small" color={color} variant="outlined" label={NAVODKA_STATUSES.find(status => status.value === item.status)?.label || item.status} />
+            <Chip size="small" variant="outlined" label={NAVODKA_READINESS.find(value => value.value === item.readiness)?.label || 'Невідомо'} />
+          </Stack>
+          <Stack direction="row" spacing={1.5} useFlexGap flexWrap="wrap" sx={{ mt: 1 }}>
+            <Typography variant="body2">{item.ownerName}</Typography>
+            {item.canViewPhone && item.phone ? <Box component="a" href={'tel:' + item.phone} sx={{ color: 'primary.main', fontSize: 14, textDecoration: 'none', fontWeight: 700 }}>{item.phone}</Box> : <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: 'text.secondary' }}><LockOutlinedIcon sx={{ fontSize: 15 }} /><Typography variant="body2">Телефон закритий</Typography></Stack>}
+            {item.locationText && <Typography variant="body2" color="text.secondary">{item.locationText}</Typography>}
+            {item.priceExpectation && <Typography variant="body2" color="text.secondary">{item.priceExpectation}</Typography>}
+          </Stack>
+          <Stack direction="row" spacing={1.5} useFlexGap flexWrap="wrap" sx={{ mt: 0.75 }}>
+            <Typography variant="caption" color="text.secondary">{item.source || 'Без джерела'}</Typography>
+            <Typography variant="caption" color="text.secondary">{item.assignedTo ? 'Відповідальний: ' + employeeName(item.assignedTo) : 'Без відповідального'}</Typography>
+            <Typography variant="caption" color={overdue ? 'error.main' : nextDate === today ? 'warning.main' : 'text.secondary'}>{nextDate ? 'Контакт: ' + navodkaDate(item.nextContactAt) + (overdue ? ' · прострочено' : nextDate === today ? ' · сьогодні' : '') : 'Контакт не заплановано'}</Typography>
+            <Typography variant="caption" color="text.secondary">Оновлено: {navodkaDate(item.updatedAt || item.createdAt, true)}</Typography>
+          </Stack>
+        </Box>
       </Stack>
-   );
-}
-
-function NoteBadge({ note }) {
-   const config = noteTypeMap[note.type || note.noteType] || noteTypeMap.info;
-   const activity = activityTypeMap[note.activityType] || activityTypeMap.note;
-   const contactDate = note.contactDate || note.createdAt;
-
-   return (
-      <Box
-         sx={{
-            p: 1.2,
-            borderRadius: 2,
-            bgcolor: config.bg,
-            border: `1px solid ${config.border}`
-         }}
-      >
-         <Stack direction="row" justifyContent="space-between" spacing={1} sx={{ mb: 0.4 }}>
-            <Stack direction="row" spacing={0.7} alignItems="center" useFlexGap flexWrap="wrap">
-               <Box
-                  sx={{
-                     px: 0.9,
-                     py: 0.25,
-                     borderRadius: 999,
-                     bgcolor: activity.bg,
-                     border: `1px solid ${activity.border}`,
-                     color: activity.color,
-                     fontSize: 11,
-                     fontWeight: 900,
-                     lineHeight: 1.25
-                  }}
-               >
-                  {activity.label}
-               </Box>
-               <Typography sx={{ fontSize: 12, fontWeight: 800, color: config.color }}>
-                  {config.label}
-               </Typography>
+      <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="flex-end" useFlexGap flexWrap="wrap">
+        {item.canEdit && <Button size="small" startIcon={<AddCommentIcon />} onClick={() => onCreateNote?.(item)}>Нотатка</Button>}
+        <Tooltip title={item.canViewPhone ? 'Подзвонити' : 'Телефон доступний відповідальному, його керівникам та адміністратору'}><span><IconButton size="small" aria-label="Подзвонити" disabled={!item.canViewPhone || !item.phone} onClick={() => onCall?.(item)}><PhoneIcon /></IconButton></span></Tooltip>
+        {item.canEdit && <Tooltip title="Редагувати"><IconButton size="small" aria-label="Редагувати наводку" onClick={() => onEdit?.(item)}><EditIcon /></IconButton></Tooltip>}
+        <Tooltip title={open ? 'Згорнути' : 'Розгорнути'}><IconButton size="small" aria-label={open ? 'Згорнути наводку' : 'Розгорнути наводку'} aria-expanded={open} aria-controls={detailsId} onClick={() => setOpen(value => !value)} color={open ? 'primary' : 'default'}>{open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}</IconButton></Tooltip>
+      </Stack>
+    </Stack>
+    <Collapse in={open} unmountOnExit>
+      <Box id={detailsId} sx={{ pt: 2 }}>
+        <Divider sx={{ mb: 2 }} />
+        <Grid container spacing={2}>
+          <Grid item xs={12} lg={5}><Box sx={{ p: 1.5, border: 1, borderColor: 'divider', borderRadius: 2, height: '100%' }}>
+            <Typography component="h3" fontWeight={800} sx={{ mb: 1.5 }}>Деталі</Typography>
+            <Stack spacing={1}>
+              <Typography variant="body2">Додано: {navodkaDate(item.createdAt, true)}</Typography>
+              <Typography variant="body2">Оновлено: {navodkaDate(item.updatedAt, true)}</Typography>
+              <Typography variant="body2">Останній контакт: {navodkaDate(item.lastContactAt, true)}</Typography>
+              <Typography variant="body2">Наступний контакт: {navodkaDate(item.nextContactAt, true)}</Typography>
+              <Typography variant="body2">Вніс: {employeeName(item.createdBy)}</Typography>
+              {item.propertyType && <Typography variant="body2">Нерухомість: {item.propertyType}</Typography>}
+              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{item.phoneHidden ? 'Опис і контактні дані доступні відповідальному працівнику, його керівникам та адміністратору.' : item.description || 'Без опису'}</Typography>
             </Stack>
-            <Typography sx={{ fontSize: 11, color: 'text.secondary' }}>
-               {formatDateTime(contactDate)}
-            </Typography>
-         </Stack>
-
-         <Typography sx={{ fontSize: 13.5, lineHeight: 1.4, color: '#e8ecf3' }}>
-            {note.text}
-            <Stack
-               direction="row"
-               justifyContent="space-between"
-               alignItems="center"
-               sx={{ mt: 0.8 }}
-            >
-               <Typography
-                  sx={{
-                     fontSize: 11.5,
-                     color: 'rgba(203,213,225,0.7)',
-                     fontStyle: 'italic'
-                  }}
-               >
-                  {getEmployeeName(note.createdBy)}
-               </Typography>
-
-               <Typography
-                  sx={{
-                     fontSize: 11,
-                     color: 'rgba(148,163,184,0.6)'
-                  }}
-               >
-                  {note.createdAt ? `Внесено: ${formatDateTime(note.createdAt)}` : ''}
-               </Typography>
+          </Box></Grid>
+          <Grid item xs={12} lg={7}><Box sx={{ p: 1.5, border: 1, borderColor: 'divider', borderRadius: 2, height: '100%' }}>
+            <Typography component="h3" fontWeight={800} sx={{ mb: 1.5 }}>Історія контактів і нотатки</Typography>
+            <Stack spacing={1.25}>
+              {item.phoneHidden ? <Typography color="text.secondary" variant="body2">Нотатки закриті разом із контактними даними.</Typography> : notes.length ? notes.map(note => <Box key={note._id} sx={{ p: 1.3, bgcolor: 'action.hover', borderRadius: 2 }}>
+                <Stack direction="row" spacing={1} alignItems="center" useFlexGap flexWrap="wrap"><Chip size="small" variant="outlined" label={activityLabels[note.activityType] || 'Нотатка'} /><Chip size="small" color={noteColors[note.type] || 'info'} variant="outlined" label={noteLabels[note.type] || 'Нотатка'} /><Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>{navodkaDate(note.contactDate || note.createdAt, true)}</Typography></Stack>
+                <Typography variant="body2" sx={{ mt: 1, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{note.text}</Typography>
+                <Stack direction="row" justifyContent="space-between" useFlexGap flexWrap="wrap" sx={{ mt: 1 }}><Typography variant="caption" color="text.secondary">{employeeName(note.createdBy)}</Typography><Typography variant="caption" color="text.secondary">Внесено: {navodkaDate(note.createdAt, true)}</Typography></Stack>
+              </Box>) : <Typography color="text.secondary" variant="body2">Нотаток ще немає</Typography>}
             </Stack>
-         </Typography>
+          </Box></Grid>
+        </Grid>
+        {item.canDelete && <Stack direction="row" justifyContent="flex-end" sx={{ mt: 2 }}><Button color="error" size="small" startIcon={<DeleteOutlineIcon />} onClick={() => onDelete?.(item)}>Видалити наводку</Button></Stack>}
       </Box>
-   );
-};
-
-
-
-function daysFrom(dateStr) {
-   if (!dateStr) return null;
-
-   const today = new Date();
-   today.setHours(0, 0, 0, 0);
-
-   const date = new Date(dateStr);
-   date.setHours(0, 0, 0, 0);
-
-   return Math.floor((today - date) / (1000 * 60 * 60 * 24));
-}
-
-function getLastTouchDate(item) {
-   return item.lastContactAt || item.createdAt || null;
-}
-
-function getContactText(item) {
-   const lastTouchDate = getLastTouchDate(item);
-   const days = daysFrom(lastTouchDate);
-
-   if (item.nextContactAt) {
-      const overdue = isOverdue(item.nextContactAt);
-      const today = isToday(item.nextContactAt);
-
-      if (overdue) return `Контакт: ${formatDate(item.nextContactAt)} • прострочено`;
-      if (today) return `Контакт: ${formatDate(item.nextContactAt)} • сьогодні`;
-
-      return `Контакт: ${formatDate(item.nextContactAt)}`;
-   }
-
-   if (days === null) return 'Контакту ще не було';
-   if (days === 0) return 'Контакт був сьогодні';
-   if (days === 1) return '1 день без контакту';
-
-   return `${days} днів без контакту`;
-};
-
-function getEmployeeName(employee) {
-   if (!employee) return 'Не вказано';
-
-   return (
-      employee.name ||
-      `${employee.firstName || ''} ${employee.lastName || ''}`.trim() ||
-      employee.email ||
-      'Працівник'
-   );
-}
-
-
-
-
-function getNoteSortTime(note) {
-   const date = new Date(note.contactDate || note.createdAt || 0);
-   const time = date.getTime();
-
-   return Number.isNaN(time) ? 0 : time;
-}
-
-export default function NavodkaRowCard({
-   item,
-   onCreateNote,
-   onConvert,
-   onCall,
-   onEdit
-}) {
-   const [open, setOpen] = useState(false);
-
-   const status = statusMap[item.status] || statusMap.active;
-   const overdue = isOverdue(item.nextContactAt);
-   const today = isToday(item.nextContactAt);
-   const sortedNotes = [...(item.notes || [])].sort(
-      (a, b) => getNoteSortTime(b) - getNoteSortTime(a)
-   );
-
-   const nextContactColor = overdue
-      ? '#ff8b8b'
-      : today
-         ? '#ffd166'
-         : '#aab4c3';
-
-   return (
-      <Paper
-         sx={{
-            position: 'relative',
-            overflow: 'hidden',
-            borderRadius: 4,
-            bgcolor: '#111827',
-            border: '1px solid rgba(255,255,255,0.07)',
-            boxShadow: '0 12px 32px rgba(0,0,0,0.22)'
-         }}
-      >
-         <Box
-            sx={{
-               position: 'absolute',
-               left: 0,
-               top: 0,
-               bottom: 0,
-               width: 5,
-               bgcolor: status.line
-            }}
-         />
-
-         <Box sx={{ p: { xs: 1.4, md: 1.8 }, pl: { xs: 2, md: 2.4 } }}>
-            <Stack
-               direction={{ xs: 'column', lg: 'row' }}
-               spacing={1.4}
-               justifyContent="space-between"
-               alignItems={{ xs: 'stretch', lg: 'center' }}
-            >
-               <Stack
-                  direction={{ xs: 'column', md: 'row' }}
-                  spacing={1.5}
-                  alignItems={{ xs: 'flex-start', md: 'center' }}
-                  sx={{ minWidth: 0, flex: 1 }}
-               >
-                  <Avatar
-                     sx={{
-                        width: 44,
-                        height: 44,
-                        bgcolor: 'rgba(255,255,255,0.08)',
-                        color: '#fff',
-                        fontWeight: 800
-                     }}
-                  >
-                     {item.ownerName?.[0] || 'N'}
-                  </Avatar>
-
-                  <Box sx={{ minWidth: 0, flex: 1 }}>
-                     <Stack
-                        direction={{ xs: 'column', md: 'row' }}
-                        spacing={1}
-                        alignItems={{ xs: 'flex-start', md: 'center' }}
-                        sx={{ mb: 0.8 }}
-                     >
-                        <Typography
-                           sx={{
-                              fontSize: { xs: 17, md: 18 },
-                              fontWeight: 900,
-                              color: '#f8fafc',
-                              lineHeight: 1.2
-                           }}
-                        >
-                           {item.title}
-                        </Typography>
-
-                        <Box
-                           sx={{
-                              px: 1.1,
-                              py: 0.45,
-                              borderRadius: 999,
-                              bgcolor: status.chipBg,
-                              color: status.chipColor,
-                              fontSize: 12,
-                              fontWeight: 800,
-                              border: '1px solid rgba(255,255,255,0.08)'
-                           }}
-                        >
-                           {status.label}
-                        </Box>
-
-                        <Chip
-                           size="small"
-                           label={readinessMap[item.readiness] || item.readiness}
-                           sx={{
-                              bgcolor: 'rgba(255,255,255,0.06)',
-                              color: '#dbe4f0',
-                              border: '1px solid rgba(255,255,255,0.06)'
-                           }}
-                        />
-                     </Stack>
-
-                     <Stack
-                        direction="row"
-                        spacing={1.6}
-                        useFlexGap
-                        flexWrap="wrap"
-                        sx={{ minWidth: 0 }}
-                     >
-                        <MiniMeta
-                           icon={<PersonIcon sx={{ fontSize: 16 }} />}
-                           text={`${item.ownerName} • ${item.phone}`}
-                        />
-                        <MiniMeta
-                           icon={<PlaceIcon sx={{ fontSize: 16 }} />}
-                           text={item.locationText}
-                        />
-                        <MiniMeta
-                           icon={<HomeWorkIcon sx={{ fontSize: 16 }} />}
-                           text={item.propertyType}
-                        />
-                        <MiniMeta
-                           icon={<SellIcon sx={{ fontSize: 16 }} />}
-                           text={item.priceExpectation || 'Ціна не вказана'}
-                           strong
-                           color="#e7edf7"
-                        />
-                        <MiniMeta
-                           icon={<CampaignIcon sx={{ fontSize: 16 }} />}
-                           text={item.source}
-                        />
-                        <MiniMeta
-                           icon={<AccessTimeIcon sx={{ fontSize: 16 }} />}
-                           // text={
-                           //    overdue
-                           //       ? `Контакт: ${formatDate(item.nextContactAt)} • прострочено`
-                           //       : today
-                           //          ? `Контакт: ${formatDate(item.nextContactAt)} • сьогодні`
-                           //          : `Контакт: ${formatDate(item.nextContactAt)}`
-                           // }
-                           text={getContactText(item)}
-                           color={nextContactColor}
-                           strong={overdue || today}
-                        />
-
-
-                        <MiniMeta
-                           icon={<PersonIcon sx={{ fontSize: 16 }} />}
-                           text={
-                              item.assignedTo
-                                 ? `Відповідальний: ${item.assignedTo.name || item.assignedTo.firstName || 'Працівник'}`
-                                 : 'Без відповідального'
-                           }
-                        />
-                        {/* <Chip
-                           size="small"
-                           label={
-                              item.assignedTo
-                                 ? item.assignedTo.name || item.assignedTo.firstName || 'Працівник'
-                                 : 'Нічия'
-                           }
-                           sx={{
-                              bgcolor: item.assignedTo ? 'rgba(34,197,94,0.14)' : 'rgba(255,255,255,0.06)',
-                              color: item.assignedTo ? '#8ef0aa' : '#cbd5e1',
-                              border: '1px solid rgba(255,255,255,0.06)',
-                              fontWeight: 700
-                           }}
-                        /> */}
-                     </Stack>
-                  </Box>
-               </Stack>
-
-               <Stack
-                  direction="row"
-                  spacing={1}
-                  alignItems="center"
-                  justifyContent={{ xs: 'space-between', lg: 'flex-end' }}
-                  sx={{ flexShrink: 0 }}
-               >
-                  <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap">
-                     <Button
-                        variant="outlined"
-                        startIcon={<AddCommentIcon />}
-                        onClick={() => onCreateNote?.(item)}
-                        sx={{
-                           minWidth: 0,
-                           borderRadius: 2.5,
-                           color: '#dbe4f0',
-                           borderColor: 'rgba(255,255,255,0.12)'
-                        }}
-                     >
-                        Нотатка
-                     </Button>
-
-                     <Button
-                        variant="contained"
-                        startIcon={<PublishedWithChangesIcon />}
-                        onClick={() => onConvert?.(item)}
-                        sx={{
-                           minWidth: 0,
-                           borderRadius: 2.5,
-                           fontWeight: 800
-                        }}
-                     >
-                        В об’єкт
-                     </Button>
-
-                     <Tooltip title="Подзвонити">
-                        <IconButton
-                           onClick={() => onCall?.(item)}
-                           sx={{
-                              bgcolor: 'rgba(255,255,255,0.06)',
-                              color: '#dbe4f0',
-                              '&:hover': { bgcolor: 'rgba(255,255,255,0.12)' }
-                           }}
-                        >
-                           <PhoneIcon />
-                        </IconButton>
-                     </Tooltip>
-
-                     <Tooltip title="Редагувати">
-                        <IconButton
-                           onClick={() => onEdit?.(item)}
-                           sx={{
-                              bgcolor: 'rgba(255,255,255,0.06)',
-                              color: '#dbe4f0',
-                              '&:hover': { bgcolor: 'rgba(255,255,255,0.12)' }
-                           }}
-                        >
-                           <EditIcon />
-                        </IconButton>
-                     </Tooltip>
-
-
-
-                     <Tooltip title={open ? 'Згорнути' : 'Розгорнути'}>
-                        <IconButton
-                           onClick={() => setOpen(prev => !prev)}
-                           sx={{
-                              bgcolor: open ? 'rgba(59,130,246,0.18)' : 'rgba(255,255,255,0.06)',
-                              color: open ? '#8fc2ff' : '#dbe4f0',
-                              '&:hover': {
-                                 bgcolor: open ? 'rgba(59,130,246,0.25)' : 'rgba(255,255,255,0.12)'
-                              }
-                           }}
-                        >
-                           {open ? <KeyboardArrowUpIcon /> : <KeyboardArrowDownIcon />}
-                        </IconButton>
-                     </Tooltip>
-                  </Stack>
-               </Stack>
-            </Stack>
-
-            <Collapse in={open}>
-               <Box sx={{ pt: 1.8 }}>
-                  <Divider sx={{ borderColor: 'rgba(255,255,255,0.08)', mb: 1.8 }} />
-
-                  <Grid container spacing={2}>
-                     <Grid item xs={12} lg={5}>
-                        <Paper
-                           sx={{
-                              p: 1.6,
-                              borderRadius: 3,
-                              bgcolor: 'rgba(255,255,255,0.03)',
-                              border: '1px solid rgba(255,255,255,0.06)',
-                              color: '#e8ecf3',
-                              height: '100%'
-                           }}
-                        >
-                           <Typography sx={{ fontWeight: 800, mb: 1.2, color: '#fff' }}>
-                              Деталі
-                           </Typography>
-
-                           <Stack spacing={1}>
-                              <Typography sx={{ fontSize: 14 }}>
-                                 <strong>Останній контакт:</strong> {formatDate(item.lastContactAt)}
-                              </Typography>
-                              <Typography sx={{ fontSize: 14 }}>
-                                 <strong>Наступний контакт:</strong> {formatDate(item.nextContactAt)}
-                              </Typography>
-                              <Typography sx={{ fontSize: 14, color: '#cbd5e1', lineHeight: 1.5 }}>
-                                 {item.description || 'Без опису'}
-                              </Typography>
-
-                              <Typography sx={{ fontSize: 14 }}>
-                                 <strong>Вніс:</strong>{' '}
-                                 {item.createdBy
-                                    ? item.createdBy.name ||
-                                    `${item.createdBy.firstName || ''} ${item.createdBy.lastName || ''}`.trim() ||
-                                    item.createdBy.email ||
-                                    'Працівник'
-                                    : 'Не вказано'}
-                              </Typography>
-                           </Stack>
-                        </Paper>
-                     </Grid>
-
-                     <Grid item xs={12} lg={7}>
-                        <Paper
-                           sx={{
-                              p: 1.6,
-                              borderRadius: 3,
-                              bgcolor: 'rgba(255,255,255,0.03)',
-                              border: '1px solid rgba(255,255,255,0.06)',
-                              height: '100%'
-                           }}
-                        >
-                           <Typography sx={{ fontWeight: 800, mb: 1.2, color: '#fff' }}>
-                              Нотатки
-                           </Typography>
-
-                           <Stack spacing={1}>
-                              {sortedNotes.length ? (
-                                 sortedNotes.map(note => <NoteBadge key={note._id} note={note} />)
-                              ) : (
-                                 <Typography sx={{ color: '#94a3b8', fontSize: 14 }}>
-                                    Нотаток ще немає
-                                 </Typography>
-                              )}
-                           </Stack>
-                        </Paper>
-                     </Grid>
-                  </Grid>
-               </Box>
-            </Collapse>
-         </Box>
-      </Paper>
-   );
+    </Collapse>
+  </Paper>;
 }

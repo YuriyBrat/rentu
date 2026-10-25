@@ -1,4 +1,4 @@
-export const ATTRIBUTION_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'gclid', 'gbraid', 'wbraid'];
+export const ATTRIBUTION_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term', 'gclid', 'fbclid', 'gbraid', 'wbraid'];
 export const READINESS_LABELS = { soon: 'До місяця', q1: 'За 1–3 місяці', q2: 'За 3–6 місяців', later: 'Пізніше', unknown: 'Поки придивляюся' };
 export const CONTACT_LABELS = { phone: 'Телефонний дзвінок', telegram: 'Telegram', viber: 'Viber' };
 
@@ -51,6 +51,11 @@ export function validateOwnerRequest(body) {
     const value = clean(body.attribution?.[key], 250);
     if (value) attribution[key] = value;
   }
+  // Accept an additive context field, keeping older clients and CRM mapping intact.
+  try {
+    const landing = new URL(body.attribution?.landing_page);
+    if (['http:', 'https:'].includes(landing.protocol)) attribution.landing_page = `${landing.origin}${landing.pathname}`.slice(0, 500);
+  } catch { /* Missing or invalid optional landing page. */ }
   return { data: { name, location, phone, rooms, area, readiness, contact, attribution } };
 }
 
