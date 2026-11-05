@@ -7,6 +7,8 @@ import { attachPhoneIntel, buildPhoneIntelMap } from '@/utils/crm/phoneIntel';
 import { getSessionUser } from '@/utils/getSessionUser';
 import { randomUUID } from 'crypto';
 import { getCallActor, callClaimConflict } from '@/utils/crm/callCenter';
+import { getPhoneValidation } from '@/utils/crm/phone';
+import { buildParsingMarketPatch, parsingPropertySnapshot } from '@/utils/crm/parsingMarket';
 
 const STAGES = ['raw', 'processing', 'called', 'qualified', 'duplicate', 'fake', 'rejected', 'moved'];
 const INSPECTION_RESERVATION_HOURS = 24;
@@ -40,7 +42,6 @@ function normalizeCallCenterPatch(value) {
 
    const patch = {};
 
-   if (value.verifiedAddressText !== undefined) patch.verifiedAddressText = String(value.verifiedAddressText || '').trim();
    if (value.infoVerified !== undefined) patch.infoVerified = pickEnum(value.infoVerified, ['unchecked', 'verified', 'partial', 'mismatch', ''], 'unchecked');
    if (value.inspectionLoyalty !== undefined) patch.inspectionLoyalty = pickEnum(value.inspectionLoyalty, ['unknown', 'yes', 'maybe', 'no', ''], 'unknown');
    if (value.bottomPrice !== undefined) patch.bottomPrice = parseNumber(value.bottomPrice) ?? null;
@@ -55,6 +56,22 @@ function normalizeCallCenterPatch(value) {
    }
 
    return patch;
+}
+
+function applyCallCenterFields(item, body) {
+   const patch = normalizeCallCenterPatch(body?.callCenter);
+   if (patch) {
+      item.callCenter = {
+         ...(item.callCenter?.toObject ? item.callCenter.toObject() : item.callCenter || {}),
+         ...patch,
+      };
+   }
+
+   const hasAddress = body?.editableFields === true && body?.location_text !== undefined;
+   const legacyAddress = String(body?.callCenter?.verifiedAddressText || '').trim();
+   if (!hasAddress && legacyAddress) item.location_text = legacyAddress;
+   if ((hasAddress || legacyAddress) && item.callCenter) item.callCenter.verifiedAddressText = undefined;
+   return hasAddress || !!legacyAddress;
 }
 
 function normalizeKey(value) {
@@ -116,7 +133,6 @@ function applyEditableFields(item, body) {
       'location_text',
       'currency',
       'leadname',
-      'phone',
       'email',
       'description',
    ];
@@ -124,6 +140,11 @@ function applyEditableFields(item, body) {
    stringFields.forEach((field) => {
       if (body?.[field] !== undefined) item[field] = String(body[field] || '').trim();
    });
+   if (body?.phone !== undefined) {
+      const phone = getPhoneValidation(body.phone);
+      item.phone = phone.isValid ? phone.normalized : String(body.phone || '').trim();
+      item.attrs.phoneNormalized = phone.isValid ? phone.normalized : '';
+   }
 
    ['rooms', 'square_tot', 'floor', 'floors', 'cost'].forEach((field) => {
       if (body?.[field] !== undefined) {
@@ -145,6 +166,7 @@ function applyEditableFields(item, body) {
          item.reviewStatus = 'unknown';
       }
    }
+   item.markModified?.('attrs');
 }
 
 function ensureSourceId(item) {
@@ -223,7 +245,7 @@ export const GET = async (_request, { params }) => {
 
       const item = await LeadProperty.findById(params.id)
          .populate('assignedToEmployee', 'name fullName surname role')
-         .populate('propertyId', 'title actualityGroup crmStage assignee')
+         .populate('propertyId', 'title actualityGroup actualityStatus actualityNote crmStage assignee')
          .populate('inspectionReservation.reservedByEmployee', 'name fullName surname role color avatarUrl')
          .populate('duplicateOf', 'title source sourceUrl')
          .populate('duplicatePropertyId', 'title location_text crmStage actualityGroup')
@@ -231,7 +253,7 @@ export const GET = async (_request, { params }) => {
 
       if (!item) return new Response('Parsed property not found', { status: 404 });
 
-      const phoneIntelMap = await buildPhoneIntelMap();
+      const phoneIntelMap = await buildPhoneIntelMap([item]);
       const [itemWithPhoneCount] = attachPhoneIntel([item], phoneIntelMap);
 
       return Response.json({ item: itemWithPhoneCount }, { status: 200 });
@@ -301,13 +323,13 @@ export const PATCH = async (request, { params }) => {
 
          const reserved = await LeadProperty.findById(item._id)
             .populate('assignedToEmployee', 'name fullName surname role')
-            .populate('propertyId', 'title actualityGroup crmStage assignee')
+            .populate('propertyId', 'title actualityGroup actualityStatus actualityNote crmStage assignee')
             .populate('inspectionReservation.reservedByEmployee', 'name fullName surname role color avatarUrl')
             .populate('duplicateOf', 'title source sourceUrl')
             .populate('duplicatePropertyId', 'title location_text crmStage actualityGroup')
             .lean();
 
-         const phoneIntelMap = await buildPhoneIntelMap();
+         const phoneIntelMap = await buildPhoneIntelMap([reserved]);
          const [reservedWithPhoneCount] = attachPhoneIntel([reserved], phoneIntelMap);
          return Response.json({ item: reservedWithPhoneCount }, { status: 200 });
       }
@@ -321,16 +343,21 @@ export const PATCH = async (request, { params }) => {
       }
 
       if (body?.action === 'moveToObjects') {
-         const callCenterPatch = normalizeCallCenterPatch(body.callCenter);
-         if (callCenterPatch) {
-            item.callCenter = {
-               ...(item.callCenter?.toObject ? item.callCenter.toObject() : item.callCenter || {}),
-               ...callCenterPatch,
-            };
-         }
+         if (body?.editableFields === true) applyEditableFields(item, body);
+         const hasAddress = applyCallCenterFields(item, body);
 
          if (item.propertyId) {
+            const actualityGroup = ['active', 'paused', 'inactive'].includes(body?.actualityGroup) ? body.actualityGroup : 'active';
+            const previous = await Property.findById(item.propertyId);
+            if (!previous) return Response.json({ error: 'Пов’язаний об’єкт у Базі не знайдено.' }, { status: 404 });
+            const property = await Property.findByIdAndUpdate(item.propertyId, { $set: {
+               ...buildParsingMarketPatch(actualityGroup, body?.marketReason, previous, body?.actualityNote),
+               ...(hasAddress ? { location_text: item.location_text } : {}),
+            } }, { new: true, runValidators: true });
+            if (!property) return Response.json({ error: 'Пов’язаний об’єкт у Базі не знайдено.' }, { status: 404 });
             item.stage = 'moved';
+            item.reviewStatus = actualityGroup === 'inactive' ? 'not_actual' : 'actual';
+            if (actualityGroup !== 'active') item.inspectionReservation = undefined;
             ensureSourceId(item);
             await item.save();
             const afterSnapshot = pickActivitySnapshot(item);
@@ -345,20 +372,20 @@ export const PATCH = async (request, { params }) => {
                before: beforeSnapshot,
                after: afterSnapshot,
                diff: buildActivityDiff(beforeSnapshot, afterSnapshot),
-               meta: { propertyId: item.propertyId },
+               meta: { propertyId: item.propertyId, actualityGroup, marketReason: body?.marketReason || '' },
             });
-            return Response.json({ item, propertyId: item.propertyId }, { status: 200 });
+            return Response.json({ item: { ...(item.toObject ? item.toObject() : item), propertyId: parsingPropertySnapshot(property) }, propertyId: item.propertyId }, { status: 200 });
          }
 
-         const property = await Property.create(buildPropertyData(item, {
-            actualityGroup: ['active', 'paused', 'inactive'].includes(body?.actualityGroup)
-               ? body.actualityGroup
-               : 'active',
-            actualityNote: String(body?.actualityNote || body?.marketReason || '').trim(),
-         }));
+         const actualityGroup = ['active', 'paused', 'inactive'].includes(body?.actualityGroup) ? body.actualityGroup : 'active';
+         const property = await Property.create({
+            ...buildPropertyData(item),
+            ...buildParsingMarketPatch(actualityGroup, body?.marketReason, {}, body?.actualityNote),
+         });
          item.stage = 'moved';
          item.propertyId = property._id;
          item.reviewStatus = body?.actualityGroup === 'inactive' ? 'not_actual' : 'actual';
+         if (actualityGroup !== 'active') item.inspectionReservation = undefined;
          item.lastCallAt = item.lastCallAt || new Date();
          ensureSourceId(item);
          await item.save();
@@ -381,7 +408,7 @@ export const PATCH = async (request, { params }) => {
             },
          });
 
-         return Response.json({ item, property }, { status: 200 });
+         return Response.json({ item: { ...(item.toObject ? item.toObject() : item), propertyId: parsingPropertySnapshot(property) }, property }, { status: 200 });
       }
 
       if (STAGES.includes(body?.stage)) item.stage = body.stage;
@@ -395,18 +422,11 @@ export const PATCH = async (request, { params }) => {
       if (body?.sourceStatus !== undefined) item.sourceStatus = String(body.sourceStatus || 'unknown').trim() || 'unknown';
       if (body?.sourceCheckedAt !== undefined) item.sourceCheckedAt = parseDate(body.sourceCheckedAt);
       if (body?.editableFields === true) applyEditableFields(item, body);
-      if (body?.callCenter !== undefined) {
-         const callCenterPatch = normalizeCallCenterPatch(body.callCenter);
-         if (callCenterPatch) {
-            item.callCenter = {
-               ...(item.callCenter?.toObject ? item.callCenter.toObject() : item.callCenter || {}),
-               ...callCenterPatch,
-            };
-         }
-      }
+      applyCallCenterFields(item, body);
 
       if (item.stage === 'duplicate' && !item.duplicatePropertyId) {
-         const phoneTail = String(item.phone || '').replace(/\D/g, '').slice(-9);
+         const phone = getPhoneValidation(item.phone);
+         const phoneTail = phone.isValid ? phone.normalized.slice(-9) : '';
          if (phoneTail) {
             const match = await Property.findOne({ 'owners.phones': { $regex: phoneTail } })
                .select('_id')
@@ -441,13 +461,13 @@ export const PATCH = async (request, { params }) => {
 
       const saved = await LeadProperty.findById(item._id)
          .populate('assignedToEmployee', 'name fullName surname role')
-         .populate('propertyId', 'title actualityGroup crmStage assignee')
+         .populate('propertyId', 'title actualityGroup actualityStatus actualityNote crmStage assignee')
          .populate('inspectionReservation.reservedByEmployee', 'name fullName surname role color avatarUrl')
          .populate('duplicateOf', 'title source sourceUrl')
          .populate('duplicatePropertyId', 'title location_text crmStage actualityGroup')
          .lean();
 
-      const phoneIntelMap = await buildPhoneIntelMap();
+      const phoneIntelMap = await buildPhoneIntelMap([saved]);
       const [savedWithPhoneCount] = attachPhoneIntel([saved], phoneIntelMap);
 
       return Response.json({ item: savedWithPhoneCount }, { status: 200 });

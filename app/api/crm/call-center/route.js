@@ -4,7 +4,8 @@ import LeadProperty from '@/models/LeadProperty';
 import Communication from '@/models/Communication';
 import CRMActivityLog from '@/models/CRMActivityLog';
 import { getSessionUser } from '@/utils/getSessionUser';
-import { CALL_CENTER_ROLES, getCallActor, callPeriodStart, kyivDateKey } from '@/utils/crm/callCenter';
+import { CALL_CENTER_ROLES, getCallActor, getNewCallQueueFilter, callPeriodStart, kyivDateKey } from '@/utils/crm/callCenter';
+import { cachedCRMQuery } from '@/utils/crm/queryCache';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,33 +34,45 @@ export async function GET(request) {
          { 'meta.callCenter.actorKey': actor.key },
          ...(employeeId ? [{ createdByEmployee: employeeId }] : []),
       ] };
-      const [calls, baseEvents, queue, recent] = await Promise.all([
-         Communication.aggregate([
+      const reportKey = `call-center:${actor.key}:${days}:${kyivDateKey(now)}:${revision}`;
+      const [calls, baseEvents, inspectionEvents, queue, recent] = await Promise.all([
+         cachedCRMQuery(`${reportKey}:calls`, 30000, () => Communication.aggregate([
             { $match: { entityType: 'leadProperty', type: 'call', happenedAt: { $gte: graphStart, $lte: now }, ...author } },
             { $lookup: { from: LeadProperty.collection.name, localField: 'entityId', foreignField: '_id', as: 'lead' } },
             { $project: { happenedAt: 1, outcome: '$meta.callCenter.outcome', canonicalId: { $ifNull: [{ $arrayElemAt: ['$lead.propertyId', 0] }, '$entityId'] } } },
-         ]),
-         CRMActivityLog.aggregate([
+         ])),
+         cachedCRMQuery(`${reportKey}:base`, 30000, () => CRMActivityLog.aggregate([
             { $match: {
                entityType: 'leadProperty', action: 'moved', createdAt: { $gte: start, $lte: now },
                'before.propertyId': null, 'meta.actualityGroup': 'active',
                ...(employeeId ? { actorEmployee: employeeId } : { actorUserId: actor.key }),
             } },
             { $group: { _id: '$meta.propertyId' } },
-         ]),
-         LeadProperty.aggregate([{ $facet: {
+         ])),
+         cachedCRMQuery(`${reportKey}:inspection`, 30000, () => CRMActivityLog.aggregate([
+            { $match: {
+               entityType: 'leadProperty', createdAt: { $gte: start, $lte: now },
+               diff: { $elemMatch: { field: 'callCenter.inspectionLoyalty', before: { $ne: 'yes' }, after: 'yes' } },
+               ...(employeeId ? { actorEmployee: employeeId } : { actorUserId: actor.key }),
+            } },
+            { $group: { _id: { $ifNull: ['$after.propertyId', '$entityId'] } } },
+         ])),
+         cachedCRMQuery(`${reportKey}:queue`, 2000, () => LeadProperty.aggregate([{ $facet: {
             new: [{ $match: {
-               stage: { $in: ['raw', 'processing', 'called'] }, 'callQueue.lastHandledAt': null, lastCallAt: null,
-               $or: [{ 'inspectionReservation.expiresAt': null }, { 'inspectionReservation.expiresAt': { $lte: now } }],
+               stage: { $in: ['raw', 'processing', 'called'] },
+               $and: [
+                  getNewCallQueueFilter(),
+                  { $or: [{ 'inspectionReservation.expiresAt': null }, { 'inspectionReservation.expiresAt': { $lte: now } }] },
+               ],
             } }, { $count: 'count' }],
             retry: [{ $match: { 'callQueue.lastOutcome': { $in: ['no_answer', 'busy'] }, 'callQueue.nextContactAt': null } }, { $count: 'count' }],
             mine: [{ $match: { 'callQueue.ownerKey': actor.key, 'callQueue.expiresAt': { $gt: now } } }, { $count: 'count' }],
             callbacks: [{ $match: { 'callQueue.callbackOwnerKey': actor.key, 'callQueue.nextContactAt': { $ne: null } } }, { $count: 'count' }],
             overdue: [{ $match: { 'callQueue.callbackOwnerKey': actor.key, 'callQueue.nextContactAt': { $lte: now, $ne: null } } }, { $count: 'count' }],
             requests: [{ $match: { callRequests: { $elemMatch: { resolvedAt: null } } } }, { $count: 'count' }],
-         } }]),
-         Communication.find({ entityType: 'leadProperty', happenedAt: { $gte: start, $lte: now }, ...author })
-            .sort({ happenedAt: -1 }).limit(8).select('entityId type text happenedAt meta').lean(),
+         } }])),
+         cachedCRMQuery(`${reportKey}:recent`, 10000, () => Communication.find({ entityType: 'leadProperty', happenedAt: { $gte: start, $lte: now }, ...author })
+            .sort({ happenedAt: -1 }).limit(8).select('entityId type text happenedAt meta').lean()),
       ]);
       const daysMap = new Map();
       for (let index = Math.max(days, 7) - 1; index >= 0; index--) {
@@ -84,6 +97,7 @@ export async function GET(request) {
             reached: selected.filter(call => ['reached', 'callback'].includes(call.outcome)).length,
             unique: new Set(selected.map(call => String(call.canonicalId))).size,
             addedBase: baseEvents.filter(event => event._id).length,
+            inspectionReady: inspectionEvents.filter(event => event._id).length,
          },
          queue: counts, chart: Array.from(daysMap.values()), recent,
       }, { headers });

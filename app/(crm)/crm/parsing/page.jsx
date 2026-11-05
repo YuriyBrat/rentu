@@ -15,6 +15,7 @@ import {
    IconButton,
    MenuItem,
    Stack,
+   Snackbar,
    TextField,
    Tooltip,
    Typography,
@@ -40,10 +41,11 @@ import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import { useCRMTheme } from '@/app/(crm)/crm/context/CRMThemeContext';
 import CommunicationDialog, { EMPTY_COMMUNICATION_FORM } from '@/crm_components/communications/CommunicationDialog';
 import CommunicationTimeline from '@/crm_components/communications/CommunicationTimeline';
-import ParsingRowCard, { getParsingStageKey, STAGE_META } from './ParsingRowCard';
+import ParsingRowCard, { getParsingStageKey, getParsingStageMeta, getSourceExternalId, STAGE_META } from './ParsingRowCard';
 import ParsingStatusDialog, { buildInitialStatusForm } from './ParsingStatusDialog';
 import { CallCenterOverview, CallWorkflowDialogs, useCallCenter } from './CallCenterWorkspace';
 import { callClaimConflict } from '@/utils/crm/callCenter';
+import { getPhoneValidation } from '@/utils/crm/phone';
 
 const DEMO_ITEMS = [
    {
@@ -115,6 +117,8 @@ const STAGE_OPTIONS = [
    ['inspection_ready', 'Чекає огляд'],
    ['inspection_reserved', 'Їде на огляд'],
    ['objects', 'Обʼєкти'],
+   ['inactive', 'Неактуальні'],
+   ['paused', 'Зупинені'],
 ];
 
 const COMMUNICATION_FILTER_OPTIONS = [
@@ -220,7 +224,6 @@ const EMPTY_MANUAL_FORM = {
    sourceUpdatedAt: '',
    sourcePriceChangedAt: '',
    contactType: 'unknown',
-   verifiedAddressText: '',
    infoVerified: 'unchecked',
    inspectionLoyalty: 'unknown',
    bottomPrice: '',
@@ -254,6 +257,8 @@ const getFieldSx = (theme, mode) => ({
       '&.Mui-focused fieldset': { borderColor: theme.accentLight },
    },
    '& .MuiInputLabel-root': { color: theme.textSoft },
+   '& .MuiOutlinedInput-root.Mui-error fieldset': { borderColor: '#ef4444' },
+   '& .MuiInputLabel-root.Mui-error': { color: '#ef4444' },
    '& .MuiInputBase-input': {
       color: `${theme.text} !important`,
       WebkitTextFillColor: theme.text,
@@ -383,7 +388,6 @@ function buildManualFormData(form, images) {
       ? form.contactType
       : 'unknown';
    const callCenter = {
-      verifiedAddressText: form.verifiedAddressText,
       infoVerified: form.infoVerified || 'unchecked',
       inspectionLoyalty: form.inspectionLoyalty || 'unknown',
       bottomPrice: form.bottomPrice,
@@ -393,7 +397,6 @@ function buildManualFormData(form, images) {
       note: form.callCenterNote,
    };
    const hasCallCenterData = [
-      callCenter.verifiedAddressText,
       callCenter.bottomPrice,
       callCenter.interestLevel,
       callCenter.urgencyLevel,
@@ -479,7 +482,7 @@ function buildEditForm(item) {
       type_estate: item?.type_estate || '',
       type_deal: item?.type_deal || '',
       title: item?.title || '',
-      location_text: item?.location_text || '',
+      location_text: item?.callCenter?.verifiedAddressText?.trim() || item?.location_text || '',
       rooms: item?.rooms || '',
       square_tot: item?.square_tot || '',
       floor: item?.floor || '',
@@ -494,7 +497,6 @@ function buildEditForm(item) {
       sourceAddedAt: toDatetimeLocalInput(attrs.sourceAddedAt),
       sourceUpdatedAt: toDatetimeLocalInput(attrs.sourceUpdatedAt),
       sourcePriceChangedAt: toDatetimeLocalInput(attrs.sourcePriceChangedAt),
-      verifiedAddressText: item?.callCenter?.verifiedAddressText || '',
       infoVerified: item?.callCenter?.infoVerified || 'unchecked',
       inspectionLoyalty: item?.callCenter?.inspectionLoyalty || 'unknown',
       bottomPrice: item?.callCenter?.bottomPrice || '',
@@ -540,6 +542,7 @@ export default function ParsingPage({ callCenterMode = false }) {
    const [callQueue, setCallQueue] = useState(callCenterMode ? 'new' : 'all');
    const [page, setPage] = useState(1);
    const [total, setTotal] = useState(0);
+   const [serverStats, setServerStats] = useState(null);
    const listRequest = useRef(0);
    const [source, setSource] = useState('all');
    const [communicationFilter, setCommunicationFilter] = useState('all');
@@ -567,8 +570,13 @@ export default function ParsingPage({ callCenterMode = false }) {
    const [communicationTarget, setCommunicationTarget] = useState(null);
    const [statusItem, setStatusItem] = useState(null);
    const [statusForm, setStatusForm] = useState(null);
+   const statusSavingRef = useRef(false);
+   const statusOpeningRef = useRef(false);
+   const statusAutoClaim = useRef(false);
+   const statusSavedContact = useRef(null);
    const [savingStatus, setSavingStatus] = useState(false);
    const [statusError, setStatusError] = useState('');
+   const [callFeedback, setCallFeedback] = useState(null);
    const [duplicateSearch, setDuplicateSearch] = useState('');
    const [duplicateCandidates, setDuplicateCandidates] = useState([]);
    const [duplicateLoading, setDuplicateLoading] = useState(false);
@@ -609,6 +617,7 @@ export default function ParsingPage({ callCenterMode = false }) {
          if (requestId !== listRequest.current) return;
          setItems(data.items);
          setTotal(data.total ?? data.items.length);
+         setServerStats(data.stats || null);
          if (!silent) setError('');
       } catch (e) {
          console.error(e);
@@ -675,12 +684,13 @@ export default function ParsingPage({ callCenterMode = false }) {
    }, [items, loading, error, stage, reservationNow, callCenterMode]);
 
    const stats = useMemo(() => {
+      if (serverStats) return serverStats;
       return visibleItems.reduce((acc, item) => {
          const key = getParsingStageKey(item, reservationNow);
          acc[key] = (acc[key] || 0) + 1;
          return acc;
       }, {});
-   }, [visibleItems, reservationNow]);
+   }, [visibleItems, reservationNow, serverStats]);
 
    const patchItem = async (item, payload) => {
       if (String(item?._id || '').startsWith('demo-')) {
@@ -760,7 +770,7 @@ export default function ParsingPage({ callCenterMode = false }) {
             entityId: item._id,
             type: communication?.type || 'note',
             tone: communication?.tone || 'info',
-            happenedAt: communication?.happenedAt || new Date().toISOString(),
+            happenedAt: communication?.happenedAt ? new Date(communication.happenedAt).toISOString() : new Date().toISOString(),
             text: communication?.text || '',
             meta,
          }),
@@ -784,20 +794,37 @@ export default function ParsingPage({ callCenterMode = false }) {
       setOpenCommunicationDialog(true);
    };
 
-   const openStatus = (item) => {
+   const openStatus = async (item) => {
+      if (statusOpeningRef.current) return;
       if (callClaimConflict(item, workspace.actor?.key)) {
          setError(`В обробці: ${item.callQueue.ownerName}. Дочекайся завершення.`);
          return;
       }
-      setStatusItem(item);
-      setStatusForm(buildInitialStatusForm(item));
-      setStatusError('');
-      setDuplicateSearch(buildDuplicateSearchSeed(item));
-      setDuplicateCandidates([]);
+      statusOpeningRef.current = true;
+      try {
+         let current = item;
+         statusAutoClaim.current = false;
+         if (workspace.actor && !String(item._id).startsWith('demo-')) {
+            statusAutoClaim.current = item.callQueue?.ownerKey !== workspace.actor.key || new Date(item.callQueue?.expiresAt || 0).getTime() <= Date.now();
+            const claimed = await workspace.mutate(item, { action: 'claim' });
+            current = { ...item, ...claimed.item };
+            for (const key of ['propertyId', 'duplicatePropertyId', 'duplicateOf']) {
+               if (item[key]?._id && String(item[key]._id) === String(claimed.item[key])) current[key] = item[key];
+            }
+         }
+         statusSavedContact.current = null;
+         setStatusItem(current);
+         setStatusForm(buildInitialStatusForm(current));
+         setStatusError('');
+         setDuplicateSearch(buildDuplicateSearchSeed(current));
+         setDuplicateCandidates([]);
+      } catch (error) {
+         setError(getParsingRequestError(error, 'Не вдалося відкрити обробку оголошення'));
+      } finally { statusOpeningRef.current = false; }
    };
 
    useEffect(() => {
-      if (!statusItem || statusForm?.status !== 'duplicate') return undefined;
+      if (!statusItem || statusForm?.status !== 'duplicate' || statusForm?.callOutcome === 'no_answer') return undefined;
 
       const searchText = String(duplicateSearch || '').trim();
       if (searchText.length < 2) {
@@ -827,39 +854,91 @@ export default function ParsingPage({ callCenterMode = false }) {
       }, 350);
 
       return () => clearTimeout(t);
-   }, [duplicateSearch, statusForm?.status, statusItem]);
+   }, [duplicateSearch, statusForm?.status, statusForm?.callOutcome, statusItem]);
 
    const handleSubmitStatus = async () => {
-      if (!statusItem || !statusForm) return;
+      if (!statusItem || !statusForm || statusSavingRef.current) return;
 
       const status = statusForm.status;
+      const noAnswer = statusForm.callOutcome === 'no_answer';
+      const isCall = (noAnswer || statusForm.communication?.type === 'call') && !!workspace.actor;
       const needsCommunication = ['base', 'inactive', 'paused', 'duplicate', 'fake'].includes(status);
       const shouldSaveCallCenter = ['base', 'paused'].includes(status);
+      const detailsPatch = {
+         editableFields: true,
+         contactType: statusForm.contactType ?? statusItem.attrs?.contactType ?? 'unknown',
+         phone: statusForm.phone ?? statusItem.phone ?? '',
+         leadname: statusForm.leadname ?? statusItem.leadname ?? '',
+         location_text: statusForm.location_text ?? (statusItem.callCenter?.verifiedAddressText?.trim() || statusItem.location_text || ''),
+      };
 
-      if (status === 'duplicate' && !statusForm.duplicatePropertyId) {
+      if (!noAnswer && status === 'duplicate' && !statusForm.duplicatePropertyId) {
          setStatusError('Для дубля треба вибрати оригінал у нашій базі.');
          return;
       }
 
-      if (needsCommunication && !String(statusForm.communication?.text || '').trim()) {
+      if (!noAnswer && needsCommunication && !String(statusForm.communication?.text || '').trim()) {
          setStatusError('Додай опис комунікації.');
          return;
       }
+      if (noAnswer && !workspace.actor) {
+         setStatusError('Зачекай на підключення кабінету й спробуй ще раз.');
+         return;
+      }
+      const nextContactAt = statusForm.nextContactAt ? new Date(statusForm.nextContactAt) : null;
+      const happenedAt = statusForm.communication?.happenedAt ? new Date(statusForm.communication.happenedAt) : new Date();
+      if (isCall && !statusSavedContact.current && (!Number.isFinite(+happenedAt) || happenedAt.getTime() > Date.now() + 5 * 60000)) {
+         setStatusError('Перевір дату й час спроби дзвінка. Вона не може бути в майбутньому.');
+         return;
+      }
+      if (!statusSavedContact.current && nextContactAt && (!Number.isFinite(+nextContactAt) || nextContactAt <= new Date())) {
+         setStatusError('Вкажи майбутню дату й час передзвону.');
+         return;
+      }
 
+      statusSavingRef.current = true;
       setSavingStatus(true);
       setStatusError('');
 
       try {
-         if (needsCommunication) {
-            await createCommunication(statusItem, statusForm.communication, {
+         if (isCall && !String(statusItem._id).startsWith('demo-')) {
+            // Keep the claim through the decision save; a retry reuses this call's id.
+            if (!noAnswer || !statusSavedContact.current) await workspace.mutate(statusItem, { action: 'claim' });
+            if (!statusSavedContact.current) {
+               const result = await workspace.mutate(statusItem, {
+                  action: 'outcome', submissionId: statusForm.submissionId,
+                  outcome: noAnswer ? 'no_answer' : nextContactAt ? 'callback' : 'reached',
+                  text: noAnswer ? '' : statusForm.communication.text,
+                  tone: noAnswer ? 'info' : statusForm.communication.tone,
+                  happenedAt: happenedAt.toISOString(),
+                  nextContactAt: nextContactAt?.toISOString() || null,
+                  parsingStatus: noAnswer ? '' : status,
+                  retainClaim: !noAnswer,
+               });
+               statusSavedContact.current = result.communication;
+            }
+         } else if (!noAnswer && needsCommunication && !statusSavedContact.current) {
+            const saved = await createCommunication(statusItem, statusForm.communication, {
                parsingStatus: status,
                marketGroup: status === 'inactive' ? 'inactive' : status === 'paused' ? 'paused' : 'active',
                marketReason: statusForm.marketReason,
                callCenter: shouldSaveCallCenter ? statusForm.callCenter : undefined,
             });
+            statusSavedContact.current = saved || { demo: true };
          }
 
-         if (status === 'base' || status === 'inactive' || status === 'paused') {
+         if (noAnswer) {
+            // The missed call has no implication for the object's market status.
+            setCallFeedback({
+               queue: nextContactAt ? 'callbacks' : 'retry',
+               itemId: statusItem._id,
+               message: statusItem.hasSuccessfulCall
+                  ? 'Недодзвін записано в історію. Мітка «н.д.» прихована, бо успішний контакт уже був.'
+                  : ['raw', 'processing', 'called'].includes(statusItem.stage)
+                     ? `Недодзвін збережено. Картка залишається в «Нових».${nextContactAt ? ' Передзвін заплановано.' : ''}`
+                     : 'Недодзвін збережено. Статус картки не змінився.',
+            });
+         } else if (status === 'base' || status === 'inactive' || status === 'paused') {
             const actualityGroup = status === 'inactive'
                ? 'inactive'
                : status === 'paused'
@@ -867,6 +946,7 @@ export default function ParsingPage({ callCenterMode = false }) {
                   : 'active';
 
             await patchItem(statusItem, {
+               ...detailsPatch,
                action: 'moveToObjects',
                actualityGroup,
                marketReason: statusForm.marketReason || '',
@@ -874,6 +954,7 @@ export default function ParsingPage({ callCenterMode = false }) {
             });
          } else {
             await patchItem(statusItem, {
+               ...detailsPatch,
                stage: status,
                reviewStatus:
                   status === 'fake' ? 'not_actual' :
@@ -884,7 +965,7 @@ export default function ParsingPage({ callCenterMode = false }) {
             });
          }
 
-         if (statusItem.callQueue?.ownerKey === workspace.actor?.key) {
+         if (!noAnswer && statusItem.callQueue?.ownerKey === workspace.actor?.key) {
             await workspace.mutate(statusItem, { action: 'release' }).catch(() => {});
          }
          workspace.notify();
@@ -893,8 +974,10 @@ export default function ParsingPage({ callCenterMode = false }) {
          await load();
       } catch (e) {
          console.error(e);
-         setStatusError(e?.message || 'Не вдалося змінити статус');
+         const message = getParsingRequestError(e, 'Не вдалося зберегти результат');
+         setStatusError(statusSavedContact.current ? `Контакт уже записано. ${message} Повтори збереження — повторного запису дзвінка не буде.` : message);
       } finally {
+         statusSavingRef.current = false;
          setSavingStatus(false);
       }
    };
@@ -909,6 +992,7 @@ export default function ParsingPage({ callCenterMode = false }) {
 
       try {
          await patchItem(target, { action: 'reserveInspection' });
+         if (target.callQueue?.ownerKey === workspace.actor?.key) await workspace.mutate(target, { action: 'release' }).catch(() => {});
          if (statusItem?._id === target._id) {
             setStatusItem(null);
             setStatusForm(null);
@@ -929,7 +1013,8 @@ export default function ParsingPage({ callCenterMode = false }) {
       if (!target) return;
 
       try {
-         await createCommunication(target, communicationForm);
+         // A manually added phone conversation confirms contact; missed attempts use the dedicated mode.
+         await createCommunication(target, communicationForm, communicationForm.type === 'call' ? { callCenter: { outcome: 'reached' } } : {});
          setOpenCommunicationDialog(false);
          setCommunicationTarget(null);
          setCommunicationForm(EMPTY_COMMUNICATION_FORM);
@@ -966,7 +1051,6 @@ export default function ParsingPage({ callCenterMode = false }) {
             reviewStatus,
             sourceCheckedAt: editForm.sourceStatus && editForm.sourceStatus !== 'unknown' ? new Date().toISOString() : editItem.sourceCheckedAt,
             callCenter: {
-               verifiedAddressText: editForm.verifiedAddressText,
                infoVerified: editForm.infoVerified,
                inspectionLoyalty: editForm.inspectionLoyalty,
                bottomPrice: editForm.bottomPrice,
@@ -1624,10 +1708,18 @@ export default function ParsingPage({ callCenterMode = false }) {
             </Stack>
          </Stack>
 
-         <CallWorkflowDialogs workspace={workspace} onDecision={(item, text) => {
-            openStatus(item);
-            setStatusForm(previous => ({ ...previous, communication: { ...previous?.communication, type: 'note', text } }));
-         }} />
+         <CallWorkflowDialogs workspace={workspace} />
+
+         <Snackbar open={!!callFeedback} autoHideDuration={10000} onClose={() => setCallFeedback(null)} anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}>
+            <Alert severity="success" sx={{ borderRadius: 2, alignItems: 'center' }} action={
+               <Button color="inherit" size="small" onClick={() => {
+                  if (!callFeedback) return;
+                  chooseQueue(callFeedback.queue);
+                  setExpandedId(callFeedback.itemId);
+                  setCallFeedback(null);
+               }} sx={{ textTransform: 'none' }}>Показати</Button>
+            }>{callFeedback?.message}</Alert>
+         </Snackbar>
 
          <Dialog
             open={openCreate}
@@ -1752,8 +1844,12 @@ export default function ParsingPage({ callCenterMode = false }) {
 
                           <TextField
                              label="Телефон"
+                            type="tel"
                             value={manualForm.phone}
                             onChange={(e) => setManualForm((p) => ({ ...p, phone: e.target.value }))}
+                            onBlur={() => { const phone = getPhoneValidation(manualForm.phone); if (phone.isValid) setManualForm((p) => ({ ...p, phone: phone.normalized })); }}
+                            error={!!manualForm.phone && !getPhoneValidation(manualForm.phone).isValid}
+                            helperText={manualForm.phone ? getPhoneValidation(manualForm.phone).error : undefined}
                             sx={fieldSx}
                          />
 
@@ -1770,7 +1866,7 @@ export default function ParsingPage({ callCenterMode = false }) {
                          </TextField>
 
                          <TextField
-                            label="Контакт"
+                            label="Ім’я"
                             value={manualForm.leadname}
                            onChange={(e) => setManualForm((p) => ({ ...p, leadname: e.target.value }))}
                             sx={fieldSx}
@@ -1907,13 +2003,6 @@ export default function ParsingPage({ callCenterMode = false }) {
                                   gap: 1,
                                }}
                             >
-                               <TextField
-                                  label="Точна адреса"
-                                  value={manualForm.verifiedAddressText}
-                                  onChange={(e) => setManualForm((p) => ({ ...p, verifiedAddressText: e.target.value }))}
-                                  sx={{ ...fieldSx, gridColumn: { xs: 'auto', md: 'span 2' } }}
-                               />
-
                                <TextField
                                   select
                                   label="Перевірка інформації"
@@ -2276,8 +2365,8 @@ export default function ParsingPage({ callCenterMode = false }) {
 
                       <TextField label="Посилання" value={editForm.sourceUrl} onChange={(e) => setEditForm((p) => ({ ...p, sourceUrl: e.target.value }))} sx={{ ...fieldSx, gridColumn: { xs: 'auto', md: 'span 4' } }} />
 
-                      <TextField label="Телефон" value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} sx={fieldSx} />
-                      <TextField label="Контакт" value={editForm.leadname} onChange={(e) => setEditForm((p) => ({ ...p, leadname: e.target.value }))} sx={fieldSx} />
+                      <TextField label="Телефон" type="tel" value={editForm.phone} onChange={(e) => setEditForm((p) => ({ ...p, phone: e.target.value }))} onBlur={() => { const phone = getPhoneValidation(editForm.phone); if (phone.isValid) setEditForm((p) => ({ ...p, phone: phone.normalized })); }} error={!!editForm.phone && !getPhoneValidation(editForm.phone).isValid} helperText={editForm.phone ? getPhoneValidation(editForm.phone).error : undefined} sx={fieldSx} />
+                      <TextField label="Ім’я" value={editForm.leadname} onChange={(e) => setEditForm((p) => ({ ...p, leadname: e.target.value }))} sx={fieldSx} />
                       <TextField label="Email / месенджер" value={editForm.email} onChange={(e) => setEditForm((p) => ({ ...p, email: e.target.value }))} sx={fieldSx} />
                       <TextField label="Ціна" value={editForm.cost} onChange={(e) => setEditForm((p) => ({ ...p, cost: e.target.value }))} sx={fieldSx} />
 
@@ -2324,7 +2413,6 @@ export default function ParsingPage({ callCenterMode = false }) {
                       <Box sx={{ gridColumn: { xs: 'auto', md: 'span 4' }, p: 1.2, borderRadius: 3, border: `1px solid ${theme.border}`, bgcolor: mode === 'light' ? 'rgba(124,58,237,0.035)' : 'rgba(255,255,255,0.025)' }}>
                          <Typography sx={{ fontWeight: 950, color: theme.text, mb: 1 }}>Технічка продзвону</Typography>
                          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(4, 1fr)' }, gap: 1 }}>
-                            <TextField label="Точна адреса" value={editForm.verifiedAddressText} onChange={(e) => setEditForm((p) => ({ ...p, verifiedAddressText: e.target.value }))} sx={{ ...fieldSx, gridColumn: { xs: 'auto', md: 'span 2' } }} />
                             <TextField select label="Перевірка інформації" value={editForm.infoVerified} onChange={(e) => setEditForm((p) => ({ ...p, infoVerified: e.target.value }))} sx={fieldSx}>
                                {INFO_VERIFIED_OPTIONS.map(([value, label]) => <MenuItem key={value} value={value}>{label}</MenuItem>)}
                             </TextField>
@@ -2426,6 +2514,7 @@ export default function ParsingPage({ callCenterMode = false }) {
              onChange={setStatusForm}
              onClose={() => {
                 if (savingStatus || reservingInspection) return;
+               if (statusAutoClaim.current && statusItem) workspace.mutate(statusItem, { action: 'release' }).catch(() => {});
                setStatusItem(null);
                setStatusForm(null);
                setStatusError('');
@@ -2434,6 +2523,8 @@ export default function ParsingPage({ callCenterMode = false }) {
             }}
              onSubmit={handleSubmitStatus}
              saving={savingStatus || reservingInspection}
+             canRecordCall={!!workspace.actor && !String(statusItem?._id || '').startsWith('demo-')}
+             contactSaved={!!statusSavedContact.current}
              onReserveInspection={() => handleReserveInspection(statusItem)}
              canReserveInspection={['owner', 'admin', 'manager', 'realtor'].includes(currentUser?.role)}
              reservingInspection={reservingInspection}
@@ -2526,11 +2617,11 @@ export default function ParsingPage({ callCenterMode = false }) {
                      </Box>
 
                      <Chip
-                        label={(STAGE_META[getParsingStageKey(selected, reservationNow)] || STAGE_META.raw).label}
+                        label={getParsingStageMeta(selected, reservationNow).label}
                         sx={{
                            fontWeight: 950,
-                           color: (STAGE_META[getParsingStageKey(selected, reservationNow)] || STAGE_META.raw).color,
-                           bgcolor: `${(STAGE_META[getParsingStageKey(selected, reservationNow)] || STAGE_META.raw).color}18`,
+                           color: getParsingStageMeta(selected, reservationNow).color,
+                           bgcolor: `${getParsingStageMeta(selected, reservationNow).color}18`,
                         }}
                      />
                   </Stack>
@@ -2538,6 +2629,9 @@ export default function ParsingPage({ callCenterMode = false }) {
                   <Divider sx={{ borderColor: theme.border }} />
 
                   <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                     <Chip label={`ID парсингу: ${selected._id}`} sx={{ userSelect: 'text' }} />
+                     <Chip label={`ID на сайті: ${getSourceExternalId(selected) || '—'}`} sx={{ userSelect: 'text' }} />
+                     {!!selected.propertyId && <Chip label={`ID у Базі: ${selected.propertyId?._id || selected.propertyId}`} sx={{ userSelect: 'text' }} />}
                      <Chip label={getAddress(selected)} />
                      <Chip label={selected.rooms ? `${selected.rooms} кімн.` : 'Кімн. —'} />
                      <Chip label={selected.floor || selected.floors ? `${selected.floor || '-'}/${selected.floors || '-'}` : 'Поверх —'} />

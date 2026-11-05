@@ -1,16 +1,9 @@
 import LeadProperty from '@/models/LeadProperty';
 import Property from '@/models/Property';
-
-export function normalizePhone(value) {
-   const digits = String(value || '').replace(/\D/g, '');
-   if (!digits) return '';
-
-   if (digits.length === 12 && digits.startsWith('380')) return `0${digits.slice(3)}`;
-   if (digits.length === 11 && digits.startsWith('80')) return `0${digits.slice(2)}`;
-   if (digits.length === 9) return `0${digits}`;
-
-   return digits;
-}
+import { getPhoneValidation } from '@/utils/crm/phone';
+import { ownerPhoneKeys } from '@/utils/crm/phoneIndex';
+import { cachedCRMQuery } from '@/utils/crm/queryCache';
+export { normalizePhone } from '@/utils/crm/phone';
 
 function getLeadContactKind(item) {
    const raw = String(
@@ -80,20 +73,14 @@ function finalizeIntel(intel) {
    return intel;
 }
 
-export async function buildPhoneIntelMap() {
-   const [leadRows, propertyRows] = await Promise.all([
-      LeadProperty.find({ phone: { $exists: true, $nin: ['', null] } })
-         .select('_id title phone source sourceUrl stage reviewStatus leadname attrs importedAt')
-         .lean(),
-      Property.find({ 'owners.phones': { $exists: true, $ne: [] } })
-         .select('_id title location_text actualityGroup crmStage owners')
-         .lean(),
-   ]);
-
+function assemblePhoneIntel(leadRows, propertyRows, requestedKeys = null) {
    const map = {};
 
    for (const row of leadRows) {
-      const phoneKey = normalizePhone(row.phone);
+      const phone = getPhoneValidation(row.phone);
+      // Invalid numbers retain their own contact classification without linking unrelated cards.
+      const phoneKey = phone.isValid ? phone.normalized : `invalid:${row._id}`;
+      if (requestedKeys && !requestedKeys.has(phoneKey)) continue;
       const intel = addEmptyIntel(map, phoneKey);
       if (!intel) continue;
 
@@ -125,7 +112,9 @@ export async function buildPhoneIntelMap() {
          const phones = Array.isArray(owner?.phones) ? owner.phones : [];
 
          for (const phone of phones) {
-            const phoneKey = normalizePhone(phone);
+            const validation = getPhoneValidation(phone);
+            const phoneKey = validation.isValid ? validation.normalized : '';
+            if (requestedKeys && !requestedKeys.has(phoneKey)) continue;
             const intel = addEmptyIntel(map, phoneKey);
             if (!intel) continue;
 
@@ -153,15 +142,117 @@ export async function buildPhoneIntelMap() {
    return map;
 }
 
+async function backfillPhoneKeys(model, property) {
+   let cursor;
+   const version = property ? 'phoneIndexVersion' : 'attrs.phoneIndexVersion';
+   while (true) {
+      const rows = await model.find({ [version]: { $ne: 1 }, ...(cursor ? { _id: { $gt: cursor } } : {}) })
+         .select(property ? '_id owners updatedAt phoneIntelUpdatedAt' : '_id phone updatedAt phoneIntelUpdatedAt')
+         .sort({ _id: 1 }).limit(500).lean();
+      if (!rows.length) return;
+      await model.collection.bulkWrite(rows.map(row => {
+         const phone = getPhoneValidation(row.phone);
+         return { updateOne: {
+            // A concurrent edit wins; only derived fields are backfilled.
+            filter: { _id: row._id, updatedAt: row.updatedAt || null, ...(!property ? { phone: row.phone ?? null } : {}) },
+            update: [{ $set: {
+               ...(property ? { phoneKeys: ownerPhoneKeys(row.owners), phoneIndexVersion: 1 }
+                  : { attrs: { $mergeObjects: [
+                     { $cond: [{ $eq: [{ $type: '$attrs' }, 'object'] }, '$attrs', {}] },
+                     { phoneNormalized: phone.isValid ? phone.normalized : '', phoneIndexVersion: 1 },
+                  ] } }),
+               ...(!row.phoneIntelUpdatedAt ? { phoneIntelUpdatedAt: row.updatedAt || new Date(0) } : {}),
+            } }],
+         } };
+      }), { ordered: false });
+      cursor = rows[rows.length - 1]._id;
+   }
+}
+
+async function ensurePhoneIndexes() {
+   return cachedCRMQuery('phone-keys-backfill', 60000, () => Promise.all([
+      backfillPhoneKeys(LeadProperty, false), backfillPhoneKeys(Property, true),
+   ]));
+}
+
+async function getPhoneRevision() {
+   return cachedCRMQuery('phone-revision', 1000, async () => {
+      const [lead, property, leads, properties] = await Promise.all([
+         LeadProperty.findOne().sort({ phoneIntelUpdatedAt: -1 }).select('_id phoneIntelUpdatedAt').lean(),
+         Property.findOne().sort({ phoneIntelUpdatedAt: -1 }).select('_id phoneIntelUpdatedAt').lean(),
+         LeadProperty.estimatedDocumentCount(), Property.estimatedDocumentCount(),
+      ]);
+      return JSON.stringify([lead?._id, lead?.phoneIntelUpdatedAt, leads, property?._id, property?.phoneIntelUpdatedAt, properties]);
+   });
+}
+
+function legacyPhonePattern(key) {
+   const tail = key.slice(1);
+   const variants = [key, tail, `38${key}`, `38${tail}`, `8${key}`];
+   return new RegExp(`^\\D*(?:${variants.map(value => value.split('').join('\\D*')).join('|')})\\D*$`);
+}
+
+export async function buildPhoneIntelMap(items = []) {
+   const keys = [...new Set(items.flatMap(item => {
+      const phone = getPhoneValidation(typeof item === 'string' ? item : item?.phone);
+      return phone.isValid ? [phone.normalized] : [];
+   }))];
+   if (!keys.length) return {};
+   await ensurePhoneIndexes();
+   const revision = await getPhoneRevision();
+   let batch;
+   const readBatch = () => batch ||= (async () => {
+      const legacy = keys.map(legacyPhonePattern);
+      const [leads, properties] = await Promise.all([
+         LeadProperty.find({ $or: [
+            { 'attrs.phoneNormalized': { $in: keys } },
+            { 'attrs.phoneIndexVersion': { $ne: 1 }, phone: { $in: legacy } },
+         ] }).select('_id title phone source sourceUrl stage reviewStatus attrs.contactType attrs.sellerType importedAt').lean(),
+         Property.find({ $or: [
+            { phoneKeys: { $in: keys } },
+            { phoneIndexVersion: { $ne: 1 }, 'owners.phones': { $in: legacy } },
+         ] }).select('_id title location_text actualityGroup crmStage owners').lean(),
+      ]);
+      return assemblePhoneIntel(leads, properties, new Set(keys));
+   })();
+   const values = await Promise.all(keys.map(key => cachedCRMQuery(`phone:${revision}:${key}`, 20000,
+      async () => (await readBatch())[key] || null)));
+   return Object.fromEntries(keys.map((key, index) => [key, values[index]]));
+}
+
+export async function getPhoneContactIds(kind) {
+   await ensurePhoneIndexes();
+   const revision = await getPhoneRevision();
+   const directory = await cachedCRMQuery(`phone-directory:${revision}`, 20000, async () => {
+      const [leads, properties] = await Promise.all([
+         LeadProperty.find({}).select('_id phone reviewStatus attrs.contactType attrs.sellerType').lean(),
+         Property.find({ 'owners.phones': { $exists: true, $ne: [] } }).select('_id owners.phones').lean(),
+      ]);
+      const map = assemblePhoneIntel(leads, properties);
+      const ids = { owner: [], realtor: [], suspected_realtor: [], unknown: [] };
+      for (const lead of leads) {
+         const explicit = getLeadContactKind(lead);
+         if (explicit === 'owner' || explicit === 'realtor') ids[explicit].push(lead._id);
+         const phone = getPhoneValidation(lead.phone);
+         const suggested = map[phone.isValid ? phone.normalized : `invalid:${lead._id}`]?.suggestedKind || 'unknown';
+         if (suggested === 'suspected_realtor' || suggested === 'unknown') ids[suggested].push(lead._id);
+      }
+      return ids;
+   });
+   return directory[kind] || [];
+}
+
 export function attachPhoneIntel(items, phoneIntelMap) {
    return items.map((item) => {
-      const phoneKey = normalizePhone(item?.phone);
+      const phoneValidation = getPhoneValidation(item?.phone);
+      const phoneKey = phoneValidation.isValid ? phoneValidation.normalized : '';
       const phoneIntel = phoneKey ? phoneIntelMap[phoneKey] : null;
       const phoneCount = phoneIntel?.total || 0;
 
       return {
          ...item,
          phoneKey,
+         phoneValidation,
          phoneCount,
          phoneIntel,
          attrs: {

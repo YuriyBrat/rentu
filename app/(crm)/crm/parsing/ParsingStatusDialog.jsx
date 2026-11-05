@@ -20,7 +20,10 @@ import {
    toDatetimeLocal,
 } from '@/crm_components/communications/communicationMeta';
 import DriveEtaRoundedIcon from '@mui/icons-material/DriveEtaRounded';
+import PhoneMissedRoundedIcon from '@mui/icons-material/PhoneMissedRounded';
 import { getParsingStageKey, isInspectionReservationActive } from './ParsingRowCard';
+import { getPhoneValidation } from '@/utils/crm/phone';
+import { getParsingMarketState, PARSING_MARKET_REASONS } from '@/utils/crm/parsingMarket';
 
 const STATUS_OPTIONS = [
    { value: 'duplicate', label: 'Дубль' },
@@ -30,20 +33,15 @@ const STATUS_OPTIONS = [
    { value: 'paused', label: 'Зупинений' },
 ];
 
-const INACTIVE_REASONS = [
-   ['sold_us', 'Проданий нами'],
-   ['sold_owner', 'Проданий власником'],
-   ['sold_not_us', 'Проданий не нами'],
-   ['removed', 'Знято з продажу'],
-   ['unknown', 'Невідома причина'],
-];
-
-const PAUSED_REASONS = [
-   ['deposit', 'Завдаток'],
-   ['thinking', 'Власник думає'],
-   ['pause', 'Пауза'],
+const CONTACT_TYPE_OPTIONS = [
+   ['owner', 'Власник'],
+   ['realtor', 'Маклер'],
+   ['suspected_realtor', 'Ймов. маклер'],
    ['unknown', 'Невідомо'],
 ];
+
+const INACTIVE_REASONS = PARSING_MARKET_REASONS.inactive;
+const PAUSED_REASONS = PARSING_MARKET_REASONS.paused;
 
 const INFO_VERIFIED_OPTIONS = [
    ['unchecked', 'Не перевірено'],
@@ -93,6 +91,8 @@ const getFieldSx = (theme, mode) => ({
       '&.Mui-focused fieldset': { borderColor: theme.accentLight },
    },
    '& .MuiInputLabel-root': { color: theme.textSoft },
+   '& .MuiOutlinedInput-root.Mui-error fieldset': { borderColor: '#ef4444' },
+   '& .MuiInputLabel-root.Mui-error': { color: '#ef4444' },
    '& .MuiInputBase-input': { color: `${theme.text} !important`, WebkitTextFillColor: theme.text },
    '& textarea': { color: `${theme.text} !important`, WebkitTextFillColor: theme.text },
    '& .MuiSelect-icon': { color: theme.text },
@@ -100,7 +100,11 @@ const getFieldSx = (theme, mode) => ({
 
 export function buildInitialStatusForm(item) {
    const allowedStatuses = STATUS_OPTIONS.map((option) => option.value);
-   const status = item?.stage === 'qualified'
+   const contactType = item?.attrs?.contactType || item?.reviewStatus;
+   const market = getParsingMarketState(item);
+   const status = item?.propertyId?.actualityGroup === 'inactive' ? 'inactive'
+      : item?.propertyId?.actualityGroup === 'paused' ? 'paused'
+      : item?.stage === 'qualified'
       ? 'base'
       : allowedStatuses.includes(item?.stage)
          ? item.stage
@@ -108,11 +112,18 @@ export function buildInitialStatusForm(item) {
 
    return {
       status,
+      contactType: CONTACT_TYPE_OPTIONS.some(([value]) => value === contactType) ? contactType : 'unknown',
+      phone: item?.phone || '',
+      leadname: item?.leadname || '',
+      location_text: item?.callCenter?.verifiedAddressText?.trim() || item?.location_text || '',
+      callOutcome: 'reached',
+      nextContactAt: '',
+      scheduleFollowup: false,
+      submissionId: globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`,
       duplicatePropertyId: item?.duplicatePropertyId?._id || item?.duplicatePropertyId || item?.phoneIntel?.relatedObjects?.[0]?._id || '',
       marketGroup: status === 'inactive' ? 'inactive' : status === 'paused' ? 'paused' : 'active',
-      marketReason: '',
+      marketReason: market?.reason || (['inactive', 'paused'].includes(status) ? 'unknown' : ''),
       callCenter: {
-         verifiedAddressText: item?.callCenter?.verifiedAddressText || '',
          infoVerified: item?.callCenter?.infoVerified || 'unchecked',
          inspectionLoyalty: item?.callCenter?.inspectionLoyalty || 'unknown',
          bottomPrice: item?.callCenter?.bottomPrice || '',
@@ -148,13 +159,17 @@ export default function ParsingStatusDialog({
    onReserveInspection,
    canReserveInspection,
    reservingInspection,
+   canRecordCall = true,
+   contactSaved = false,
 }) {
    const fieldSx = getFieldSx(theme, mode);
+   const phone = getPhoneValidation(form?.phone);
    const status = form?.status || 'raw';
+   const noAnswer = form?.callOutcome === 'no_answer';
    const needsCommunication = ['base', 'inactive', 'paused', 'duplicate', 'fake'].includes(status);
    const showCallCenter = ['base', 'paused'].includes(status);
    const parsingStage = getParsingStageKey(item);
-   const showReserveInspection = !isInspectionReservationActive(item) &&
+   const showReserveInspection = !noAnswer && !isInspectionReservationActive(item) &&
       (
          parsingStage === 'inspection_ready' ||
          (!!canReserveInspection && ['raw', 'base'].includes(parsingStage))
@@ -185,7 +200,7 @@ export default function ParsingStatusDialog({
          open={open}
          onClose={saving ? undefined : onClose}
          fullWidth
-         maxWidth="md"
+         maxWidth={noAnswer ? 'sm' : 'md'}
          PaperProps={{
             sx: {
                borderRadius: 4,
@@ -196,9 +211,9 @@ export default function ParsingStatusDialog({
          }}
       >
          <DialogTitle sx={{ fontWeight: 950, pr: 3 }}>
-            <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
-               <Typography component="span" sx={{ fontWeight: 950, fontSize: 20 }}>
-                  Зміна статусу
+            <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between" flexWrap="wrap" useFlexGap>
+               <Typography component="span" sx={{ fontWeight: 950, fontSize: { xs: 17, sm: 20 } }}>
+                  {noAnswer ? 'Недодзвін' : 'Результат контакту й статус об’єкта'}
                </Typography>
                {showReserveInspection && (
                   <Button
@@ -225,6 +240,91 @@ export default function ParsingStatusDialog({
             <Stack spacing={1.4} sx={{ mt: 0.5 }}>
                {!!error && <Alert severity="error" sx={{ borderRadius: 2 }}>{error}</Alert>}
 
+               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25} alignItems={{ xs: 'stretch', sm: 'center' }}>
+               <Button
+                  startIcon={<PhoneMissedRoundedIcon />}
+                  onClick={() => onChange?.({
+                     ...form,
+                     callOutcome: noAnswer ? 'reached' : 'no_answer',
+                     communication: {
+                        ...form?.communication,
+                        happenedAt: noAnswer ? form?.communication?.happenedAt : toDatetimeLocal(),
+                     },
+                  })}
+                  disabled={saving || contactSaved || !canRecordCall}
+                  aria-pressed={noAnswer}
+                  title={noAnswer ? 'Повернути повну форму' : 'Зафіксувати недодзвін'}
+                  sx={{ alignSelf: { xs: 'flex-start', sm: 'center' }, minHeight: 40, flexShrink: 0, borderRadius: 2, textTransform: 'none', fontWeight: 850, color: '#f59e0b', border: '1px solid rgba(245,158,11,0.45)', bgcolor: noAnswer ? 'rgba(245,158,11,0.16)' : 'transparent' }}
+               >
+                  Недодзвін
+               </Button>
+               {noAnswer && <TextField
+                  label="Дата й час недодзвону"
+                  type="datetime-local"
+                  size="small"
+                  value={form?.communication?.happenedAt || ''}
+                  onChange={(event) => setCommunication('happenedAt', event.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                  disabled={saving || contactSaved}
+                  sx={{ ...fieldSx, flex: 1, minWidth: 0 }}
+               />}
+               </Stack>
+
+               {noAnswer ? (
+                  <Stack spacing={1} alignItems="flex-start">
+                  <Button
+                     size="small"
+                     onClick={() => onChange?.({ ...form, scheduleFollowup: !form?.scheduleFollowup, nextContactAt: form?.scheduleFollowup ? '' : form?.nextContactAt || '' })}
+                     disabled={saving || contactSaved}
+                     sx={{ color: theme.textSoft, textTransform: 'none', px: 0 }}
+                  >
+                     {form?.scheduleFollowup ? 'Скасувати передзвін' : '+ Запланувати передзвін'}
+                  </Button>
+                  {form?.scheduleFollowup && <TextField
+                     label="Коли передзвонити"
+                     type="datetime-local"
+                     size="small"
+                     value={form?.nextContactAt || ''}
+                     onChange={(event) => set('nextContactAt', event.target.value)}
+                     InputLabelProps={{ shrink: true }}
+                     helperText="Окремий час наступного дзвінка."
+                     disabled={saving || contactSaved}
+                     sx={{ ...fieldSx, width: '100%' }}
+                  />}
+                  </Stack>
+               ) : <>
+               <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, minmax(0, 1fr))' }, gap: 1 }}>
+                  <TextField
+                     select
+                     label="Тип контакту"
+                     value={form?.contactType || 'unknown'}
+                     onChange={(event) => set('contactType', event.target.value)}
+                     disabled={saving}
+                     sx={fieldSx}
+                  >
+                     {CONTACT_TYPE_OPTIONS.map(([value, label]) => (
+                        <MenuItem key={value} value={value}>{label}</MenuItem>
+                     ))}
+                  </TextField>
+                  <TextField
+                     label="Телефон"
+                     type="tel"
+                     value={form?.phone ?? ''}
+                     onChange={(event) => set('phone', event.target.value)}
+                     onBlur={() => { if (phone.isValid) set('phone', phone.normalized); }}
+                     error={phone.hasValue && !phone.isValid}
+                     helperText={phone.hasValue && !phone.isValid ? phone.error : undefined}
+                     disabled={saving}
+                     sx={fieldSx}
+                  />
+                  <TextField
+                     label="Ім’я"
+                     value={form?.leadname ?? ''}
+                     onChange={(event) => set('leadname', event.target.value)}
+                     disabled={saving}
+                     sx={fieldSx}
+                  />
+               </Box>
                <Box>
                   <Typography sx={{ color: theme.textSoft, fontSize: 12, fontWeight: 900, mb: 0.75 }}>
                      Статус
@@ -233,13 +333,14 @@ export default function ParsingStatusDialog({
                      {STATUS_OPTIONS.map((option) => (
                         <Button
                            key={option.value}
+                           disabled={saving}
                            onClick={() => {
                               if (option.value === 'inactive') {
-                                 onChange?.({ ...form, status: option.value, marketGroup: 'inactive', marketReason: form?.marketReason || 'unknown' });
+                                 onChange?.({ ...form, status: option.value, marketGroup: 'inactive', marketReason: status === 'inactive' ? form?.marketReason || 'unknown' : 'unknown' });
                                  return;
                               }
                               if (option.value === 'paused') {
-                                 onChange?.({ ...form, status: option.value, marketGroup: 'paused', marketReason: form?.marketReason || 'unknown' });
+                                 onChange?.({ ...form, status: option.value, marketGroup: 'paused', marketReason: status === 'paused' ? form?.marketReason || 'unknown' : 'unknown' });
                                  return;
                               }
                               if (option.value === 'base') {
@@ -357,8 +458,8 @@ export default function ParsingStatusDialog({
                      >
                         <TextField
                            label="Точна адреса"
-                           value={form?.callCenter?.verifiedAddressText || ''}
-                           onChange={(e) => setCallCenter('verifiedAddressText', e.target.value)}
+                           value={form?.location_text ?? ''}
+                           onChange={(e) => set('location_text', e.target.value)}
                            sx={{ ...fieldSx, gridColumn: { xs: 'auto', md: 'span 2' } }}
                         />
 
@@ -462,6 +563,7 @@ export default function ParsingStatusDialog({
                            <TextField
                               select
                               label="Тип"
+                              disabled={saving || contactSaved}
                               value={form?.communication?.type || 'call'}
                               onChange={(e) => setCommunication('type', e.target.value)}
                               sx={{ ...fieldSx, flex: 1 }}
@@ -473,6 +575,7 @@ export default function ParsingStatusDialog({
                            <TextField
                               select
                               label="Тон"
+                              disabled={saving || contactSaved}
                               value={form?.communication?.tone || 'info'}
                               onChange={(e) => setCommunication('tone', e.target.value)}
                               sx={{ ...fieldSx, flex: 1 }}
@@ -484,6 +587,7 @@ export default function ParsingStatusDialog({
                         </Stack>
                         <TextField
                            label="Дата і час контакту"
+                           disabled={saving || contactSaved}
                            type="datetime-local"
                            value={form?.communication?.happenedAt || ''}
                            onChange={(e) => setCommunication('happenedAt', e.target.value)}
@@ -492,6 +596,7 @@ export default function ParsingStatusDialog({
                         />
                         <TextField
                            label="Опис"
+                           disabled={saving || contactSaved}
                            value={form?.communication?.text || ''}
                            onChange={(e) => setCommunication('text', e.target.value)}
                            multiline
@@ -501,6 +606,18 @@ export default function ParsingStatusDialog({
                      </Stack>
                   </Box>
                )}
+               {form?.communication?.type === 'call' && canRecordCall && (
+                  <TextField
+                     label="Наступний дзвінок (за потреби)"
+                     type="datetime-local"
+                     value={form?.nextContactAt || ''}
+                     onChange={(event) => set('nextContactAt', event.target.value)}
+                     InputLabelProps={{ shrink: true }}
+                     disabled={saving || contactSaved}
+                     sx={fieldSx}
+                  />
+               )}
+               </>}
             </Stack>
          </DialogContent>
           <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -517,7 +634,7 @@ export default function ParsingStatusDialog({
                   background: `linear-gradient(90deg, ${theme.accent}, ${theme.accentLight})`,
                }}
             >
-               Зберегти
+               {saving ? 'Збереження…' : noAnswer ? 'Зберегти недодзвін' : 'Зберегти'}
             </Button>
          </DialogActions>
       </Dialog>

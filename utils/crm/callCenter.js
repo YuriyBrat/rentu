@@ -1,7 +1,7 @@
 export const CALL_CENTER_ROLES = ['owner', 'admin', 'manager', 'callcenter', 'realtor'];
 export const CALL_OUTCOMES = {
    reached: 'Поговорили',
-   no_answer: 'Не відповів',
+   no_answer: 'Недодзвін',
    busy: 'Зайнято',
    callback: 'Передзвонити',
    wrong_number: 'Неправильний номер',
@@ -12,6 +12,15 @@ export const CALL_PRIORITIES = {
    urgent: { label: 'Терміново', color: '#fb7185', rank: 3 },
 };
 export const CALL_LEASE_MS = 5 * 60 * 1000;
+
+export function getNewCallQueueFilter() {
+   return {
+      $or: [
+         { 'callQueue.lastHandledAt': null, lastCallAt: null },
+         { 'callQueue.lastOutcome': { $in: ['no_answer', 'busy'] } },
+      ],
+   };
+}
 
 export function getCallActor(sessionUser) {
    return {

@@ -379,8 +379,7 @@ export default function SharePresentationPage({ slug }) {
    }
 
    const images = property.images || [];
-   const mainImage = images?.[0]?.url || '/krm/logo-krm-transparent.png';
-   // const mainImage = property.images?.[0]?.url || '/krm/logo-krm-transparent.png';
+   const mainImage = images?.[0]?.url || (share.type === 'partner' ? '' : '/krm/logo-krm-transparent.png');
    const manager = property.assignee;
    const managerName = getEmployeeName(manager);
    const managerPhone = getManagerPhone(manager);
@@ -484,7 +483,7 @@ export default function SharePresentationPage({ slug }) {
                            border: '1px solid rgba(255,255,255,0.12)',
                         }}
                      >
-                        <Box
+                        {mainImage ? <Box
                            component="img"
                            src={mainImage}
                            alt={property.title}
@@ -499,7 +498,9 @@ export default function SharePresentationPage({ slug }) {
                               setPhotoIndex(0);
                               setPhotoOpen(true);
                            }}
-                        />
+                        /> : <Box sx={{ height: { xs: 310, md: 520 }, display: 'grid', placeItems: 'center', bgcolor: 'rgba(255,255,255,0.04)' }}>
+                           <Typography sx={{ color: 'rgba(255,255,255,0.6)' }}>Фото поки немає</Typography>
+                        </Box>}
 
                         {videoPreview && (
                            <Box

@@ -75,6 +75,7 @@
 
 
 import { Schema, model, models } from "mongoose";
+import { installPhoneIndex } from '@/utils/crm/phoneIndex';
 
 const LeadPropertyImageSchema = new Schema(
    {
@@ -242,6 +243,13 @@ const LeadPropertySchema = new Schema(
 );
 
 // точний дедуп по джерелу
+installPhoneIndex(LeadPropertySchema);
+LeadPropertySchema.index({ 'attrs.phoneNormalized': 1, importedAt: -1, _id: -1 });
+LeadPropertySchema.index({ 'attrs.phoneIndexVersion': 1, _id: 1 });
+LeadPropertySchema.index({ stage: 1, importedAt: -1, _id: -1 });
+LeadPropertySchema.index({ source: 1, importedAt: -1, _id: -1 });
+LeadPropertySchema.index({ importedAt: -1, _id: -1 });
+LeadPropertySchema.index({ 'callQueue.callbackOwnerKey': 1, 'callQueue.nextContactAt': 1, _id: 1 });
 LeadPropertySchema.index({ updatedAt: -1 });
 LeadPropertySchema.index({ callPriorityRank: -1, importedAt: -1 });
 LeadPropertySchema.index(

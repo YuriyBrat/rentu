@@ -5,10 +5,13 @@ import Employee from '@/models/Employee';
 import LeadProperty from '@/models/LeadProperty';
 import Property from '@/models/Property';
 import { logActivity, pickActivitySnapshot } from '@/utils/crm/activityLog';
-import { attachPhoneIntel, buildPhoneIntelMap, normalizePhone } from '@/utils/crm/phoneIntel';
+import { attachPhoneIntel, buildPhoneIntelMap, getPhoneContactIds, normalizePhone } from '@/utils/crm/phoneIntel';
 import { getSessionUser } from '@/utils/getSessionUser';
 import { randomUUID } from 'crypto';
-import { getCallActor } from '@/utils/crm/callCenter';
+import { getCallActor, getNewCallQueueFilter } from '@/utils/crm/callCenter';
+import { getPhoneValidation } from '@/utils/crm/phone';
+import { getParsingStats } from '@/utils/crm/parsingStats';
+import { Types } from 'mongoose';
 
 function parseNumber(value) {
    if (value === undefined || value === null || value === '') return undefined;
@@ -37,7 +40,6 @@ function normalizeCallCenter(value) {
    if (!value || typeof value !== 'object') return undefined;
 
    const data = {
-      verifiedAddressText: String(value.verifiedAddressText || '').trim(),
       infoVerified: pickEnum(value.infoVerified, ['unchecked', 'verified', 'partial', 'mismatch', ''], 'unchecked'),
       inspectionLoyalty: pickEnum(value.inspectionLoyalty, ['unknown', 'yes', 'maybe', 'no', ''], 'unknown'),
       bottomPrice: parseNumber(value.bottomPrice),
@@ -149,6 +151,7 @@ function buildLeadPropertyData(raw) {
    const body = raw && typeof raw === 'object' ? raw : {};
    const attrs = body?.attrs && typeof body.attrs === 'object' ? body.attrs : {};
    const source = String(body?.source || 'manual').trim() || 'manual';
+   const phone = getPhoneValidation(body?.phone);
 
    return {
       source,
@@ -166,7 +169,7 @@ function buildLeadPropertyData(raw) {
       type_estate: String(body?.type_estate || '').trim(),
       type_deal: String(body?.type_deal || '').trim(),
       title: String(body?.title || '').trim(),
-      location_text: String(body?.location_text || '').trim(),
+      location_text: String(body?.callCenter?.verifiedAddressText || '').trim() || String(body?.location_text || '').trim(),
       location: {
          city: String(body?.location?.city || body?.city || '').trim(),
          street: String(body?.location?.street || body?.street || '').trim(),
@@ -182,11 +185,11 @@ function buildLeadPropertyData(raw) {
       description: String(body?.description || '').trim(),
       images: normalizeImages(body?.images),
       leadname: String(body?.leadname || body?.contactName || '').trim(),
-      phone: String(body?.phone || '').trim(),
+      phone: phone.isValid ? phone.normalized : String(body?.phone || '').trim(),
       email: String(body?.email || '').trim(),
       attrs: {
          ...attrs,
-         phoneNormalized: normalizePhone(body?.phone),
+         phoneNormalized: phone.isValid ? phone.normalized : '',
          sourcePublishedAt: parseDate(body?.sourcePublishedAt || attrs.sourcePublishedAt),
          sourceAddedAt: parseDate(body?.sourceAddedAt || attrs.sourceAddedAt),
          sourceUpdatedAt: parseDate(body?.sourceUpdatedAt || attrs.sourceUpdatedAt),
@@ -345,6 +348,10 @@ async function attachLastCommunications(items) {
    const ids = items.map((item) => item?._id).filter(Boolean);
    if (!ids.length) return items;
 
+   const missedCall = { $and: [
+      { $eq: ['$type', 'call'] },
+      { $in: ['$meta.callCenter.outcome', ['no_answer', 'busy']] },
+   ] };
    const rows = await Communication.aggregate([
       {
          $match: {
@@ -360,6 +367,12 @@ async function attachLastCommunications(items) {
             lastCommunicationType: { $first: '$type' },
             lastCommunicationTone: { $first: '$tone' },
             communicationCount: { $sum: 1 },
+            missedCallCount: { $sum: { $cond: [missedCall, 1, 0] } },
+            missedCallTimes: { $push: { $cond: [missedCall, '$happenedAt', null] } },
+            hasSuccessfulCall: { $max: { $cond: [{ $and: [
+               { $eq: ['$type', 'call'] },
+               { $in: ['$meta.callCenter.outcome', ['reached', 'callback']] },
+            ] }, 1, 0] } },
          },
       },
    ]);
@@ -368,7 +381,7 @@ async function attachLastCommunications(items) {
 
    return items.map((item) => {
       const row = map.get(String(item._id));
-      if (!row) return { ...item, communicationCount: 0 };
+      if (!row) return { ...item, communicationCount: 0, missedCallCount: 0, missedCallTimes: [], hasSuccessfulCall: false };
 
       return {
          ...item,
@@ -376,30 +389,11 @@ async function attachLastCommunications(items) {
          lastCommunicationType: row.lastCommunicationType,
          lastCommunicationTone: row.lastCommunicationTone,
          communicationCount: row.communicationCount,
+         missedCallCount: row.missedCallCount || 0,
+         missedCallTimes: (row.missedCallTimes || []).filter(Boolean),
+         hasSuccessfulCall: !!row.hasSuccessfulCall,
       };
    });
-}
-
-function getLeadIdsByContactKind(phoneIntelMap, contactKind) {
-   const ids = [];
-
-   Object.values(phoneIntelMap || {}).forEach((intel) => {
-      const related = intel?.relatedParsing || [];
-
-      if (contactKind === 'owner' || contactKind === 'realtor') {
-         related.forEach((item) => {
-            if (item?.contactKind === contactKind && item?._id) ids.push(item._id);
-         });
-         return;
-      }
-
-      if (intel?.suggestedKind !== contactKind) return;
-      related.forEach((item) => {
-         if (item?._id) ids.push(item._id);
-      });
-   });
-
-   return ids;
 }
 
 function applyQualityFilter(filter, value) {
@@ -458,22 +452,25 @@ export const GET = async (req) => {
       const queueActor = callQueue ? getCallActor(await getSessionUser()) : null;
       if (callQueue && !queueActor?.key) return Response.json({ error: 'Увійди в CRM.' }, { status: 401 });
       const queueNow = new Date();
-      if (callQueue === 'new') addAndFilter(filter, { 'callQueue.lastHandledAt': null, lastCallAt: null });
+      if (callQueue === 'new') addAndFilter(filter, getNewCallQueueFilter());
       if (callQueue === 'retry') addAndFilter(filter, { 'callQueue.lastOutcome': { $in: ['no_answer', 'busy'] }, 'callQueue.nextContactAt': null });
       if (callQueue === 'mine') addAndFilter(filter, { 'callQueue.ownerKey': queueActor.key, 'callQueue.expiresAt': { $gt: queueNow } });
       if (callQueue === 'callbacks') addAndFilter(filter, { 'callQueue.callbackOwnerKey': queueActor.key, 'callQueue.nextContactAt': { $ne: null } });
       if (callQueue === 'overdue') addAndFilter(filter, { 'callQueue.callbackOwnerKey': queueActor.key, 'callQueue.nextContactAt': { $lte: queueNow, $ne: null } });
       if (callQueue === 'requests') addAndFilter(filter, { callRequests: { $elemMatch: { resolvedAt: null } } });
       if (callQueue === 'myRequests') addAndFilter(filter, { callRequests: { $elemMatch: { requestedByKey: queueActor.key } } });
-      const phoneIntelMap = await buildPhoneIntelMap();
       const now = new Date();
+      const stageFilter = {};
 
       if (stage && stage !== 'all') {
-         if (stage === 'inspection_reserved') {
-            addAndFilter(filter, { 'inspectionReservation.expiresAt': { $gt: now } });
+         if (['inactive', 'paused'].includes(stage)) {
+            const propertyIds = await Property.distinct('_id', { actualityGroup: stage });
+            addAndFilter(stageFilter, { stage: 'moved', propertyId: { $in: propertyIds } });
+         } else if (stage === 'inspection_reserved') {
+            addAndFilter(stageFilter, { 'inspectionReservation.expiresAt': { $gt: now } });
          } else if (stage === 'base') {
             const basePropertyIds = await Property.distinct('_id', { crmStage: 'base' });
-            addAndFilter(filter, {
+            addAndFilter(stageFilter, {
                $or: [
                   {
                      stage: 'qualified',
@@ -497,7 +494,7 @@ export const GET = async (req) => {
                Property.distinct('_id', { crmStage: 'inspection' }),
             ]);
 
-            addAndFilter(filter, {
+            addAndFilter(stageFilter, {
                $or: [
                   {
                      stage: 'qualified',
@@ -522,15 +519,19 @@ export const GET = async (req) => {
                   { crmStage: '' },
                ],
             });
-            addAndFilter(filter, { stage: 'moved', propertyId: { $in: objectPropertyIds } });
+            addAndFilter(stageFilter, { stage: 'moved', propertyId: { $in: objectPropertyIds } });
          } else if (stage === 'raw') {
-            filter.stage = { $in: ['raw', 'processing', 'called'] };
+            stageFilter.stage = { $in: ['raw', 'processing', 'called'] };
          } else {
-            filter.stage = stage;
+            stageFilter.stage = stage;
          }
 
-         if (stage !== 'inspection_reserved') {
-            addAndFilter(filter, {
+         if (['base', 'inspection_ready', 'inspection_reserved', 'objects'].includes(stage)) {
+            const unavailableIds = await Property.distinct('_id', { actualityGroup: { $in: ['inactive', 'paused'] } });
+            addAndFilter(stageFilter, { propertyId: { $nin: unavailableIds } });
+         }
+         if (!['inspection_reserved', 'inactive', 'paused'].includes(stage)) {
+            addAndFilter(stageFilter, {
                $or: [
                   { 'inspectionReservation.expiresAt': { $exists: false } },
                   { 'inspectionReservation.expiresAt': null },
@@ -551,8 +552,17 @@ export const GET = async (req) => {
             { phone: { $regex: safeQ, $options: 'i' } },
             { source: { $regex: safeQ, $options: 'i' } },
             { sourceUrl: { $regex: safeQ, $options: 'i' } },
+            { sourceId: { $regex: safeQ, $options: 'i' } },
+            { reamakId: { $regex: safeQ, $options: 'i' } },
+            { 'attrs.reamak.siteId': { $in: [q, ...(/^\d+$/.test(q) ? [Number(q)] : [])] } },
+            { 'attrs.realtyId': { $in: [q, ...(/^\d+$/.test(q) ? [Number(q)] : [])] } },
+            { 'attrs.webId': { $in: [q, ...(/^\d+$/.test(q) ? [Number(q)] : [])] } },
             { description: { $regex: safeQ, $options: 'i' } },
          ];
+         if (/^[a-f\d]{24}$/i.test(q)) {
+            const id = new Types.ObjectId(q);
+            filter.$or.push({ _id: id }, { propertyId: id });
+         }
       }
 
       if (communicationFilter === 'none') {
@@ -573,7 +583,7 @@ export const GET = async (req) => {
       }
 
       if (contactKind && contactKind !== 'all') {
-         const contactLeadIds = getLeadIdsByContactKind(phoneIntelMap, contactKind);
+         const contactLeadIds = await getPhoneContactIds(contactKind);
 
          if (contactKind === 'unknown') {
             addAndFilter(filter, {
@@ -591,25 +601,28 @@ export const GET = async (req) => {
 
       qualityFilters.forEach((value) => applyQualityFilter(filter, value));
 
-      const total = await LeadProperty.countDocuments(filter);
+      const listFilter = { $and: [filter, stageFilter] };
+      const [total, rawItems, stats, sources] = await Promise.all([
+         LeadProperty.countDocuments(listFilter),
+         LeadProperty.find(listFilter)
+            .populate('assignedToEmployee', 'name fullName surname role')
+            .populate('propertyId', 'title actualityGroup actualityStatus actualityNote crmStage assignee')
+            .populate('inspectionReservation.reservedByEmployee', 'name fullName surname role color avatarUrl')
+            .populate('duplicateOf', 'title source sourceUrl')
+            .populate('duplicatePropertyId', 'title location_text crmStage actualityGroup')
+            .sort(callQueue === 'callbacks' || callQueue === 'overdue' ? { 'callQueue.nextContactAt': 1, _id: 1 } : callQueue === 'requests' ? { callPriorityRank: -1, importedAt: -1, _id: -1 } : { importedAt: -1, _id: -1 })
+            .skip(skip)
+            .limit(pageSize)
+            .lean(),
+         getParsingStats(filter, now),
+         LeadProperty.distinct('source'),
+      ]);
 
-      const rawItems = await LeadProperty.find(filter)
-         .populate('assignedToEmployee', 'name fullName surname role')
-         .populate('propertyId', 'title actualityGroup crmStage assignee')
-         .populate('inspectionReservation.reservedByEmployee', 'name fullName surname role color avatarUrl')
-         .populate('duplicateOf', 'title source sourceUrl')
-         .populate('duplicatePropertyId', 'title location_text crmStage actualityGroup')
-         .sort(callQueue === 'callbacks' || callQueue === 'overdue' ? { 'callQueue.nextContactAt': 1, _id: 1 } : callQueue === 'requests' ? { callPriorityRank: -1, importedAt: -1, _id: -1 } : { importedAt: -1, _id: -1 })
-         .skip(skip)
-         .limit(pageSize)
-         .lean();
-
+      const phoneIntelMap = await buildPhoneIntelMap(rawItems);
       const itemsWithPhoneIntel = attachPhoneIntel(rawItems, phoneIntelMap);
       const items = await attachLastCommunications(itemsWithPhoneIntel);
 
-      const sources = await LeadProperty.distinct('source');
-
-      return Response.json({ items, total, page, pageSize, sources }, { status: 200 });
+      return Response.json({ items, total, page, pageSize, sources, stats }, { status: 200 });
    } catch (error) {
       console.error(error);
       return new Response('Error fetching parsed properties', { status: 500 });

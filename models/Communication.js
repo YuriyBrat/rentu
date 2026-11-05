@@ -70,6 +70,8 @@ const CommunicationSchema = new Schema(
 );
 
 CommunicationSchema.index({ entityType: 1, entityId: 1, happenedAt: -1 });
+CommunicationSchema.index({ entityType: 1, type: 1, 'meta.callCenter.actorKey': 1, happenedAt: -1 });
+CommunicationSchema.index({ entityType: 1, type: 1, createdByEmployee: 1, happenedAt: -1 });
 CommunicationSchema.index({ responsibleEmployee: 1, happenedAt: -1 });
 CommunicationSchema.index({ entityType: 1, createdAt: -1 });
 CommunicationSchema.index({ 'meta.callCenter.requestId': 1 }, {

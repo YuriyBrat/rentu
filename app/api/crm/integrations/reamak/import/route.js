@@ -1,6 +1,6 @@
 import connectDB from '@/config/database';
 import LeadProperty from '@/models/LeadProperty';
-import { normalizePhone } from '@/utils/crm/phoneIntel';
+import { getPhoneValidation } from '@/utils/crm/phone';
 
 const CORS_HEADERS = {
    'Access-Control-Allow-Origin': '*',
@@ -180,7 +180,8 @@ function normalizeItem(input) {
    const sourceId = buildSourceId(input, reamakId, siteName, siteId);
    const cost = roundPrice(input?.cost ?? input?.price);
    const currency = clean(input?.currency) || 'USD';
-   const phone = clean(input?.phone);
+   const phoneValidation = getPhoneValidation(input?.phone);
+   const phone = phoneValidation.isValid ? phoneValidation.normalized : clean(input?.phone);
    const reamakPageUrl = clean(input?.reamakPageUrl || reamakAttrs.reamakPageUrl);
    const sourcePublishedAt = parseDate(input?.sourcePublishedAt || attrs.sourcePublishedAt || attrs.sourceAddedAt);
    const sourceUpdatedAt = parseDate(input?.sourceUpdatedAt || attrs.sourceUpdatedAt);
@@ -228,7 +229,7 @@ function normalizeItem(input) {
       phone,
       attrs: {
          ...attrs,
-         phoneNormalized: normalizePhone(phone),
+         phoneNormalized: phoneValidation.isValid ? phoneValidation.normalized : '',
          contactKind: clean(input?.contactKind || attrs.contactKind),
          sourcePublishedAt,
          sourceAddedAt: sourcePublishedAt,

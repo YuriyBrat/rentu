@@ -1,34 +1,7 @@
 import connectDB from '@/config/database';
 import Property from '@/models/Property';
 import Employee from '@/models/Employee';
-
-function getShareImageUrl(img, useBrandedPhotos) {
-   if (!img) return '';
-
-   if (useBrandedPhotos) {
-      return (
-         img.brandedUrl ||
-         img.variants?.branded ||
-         img.processedUrl ||
-         img.variants?.full ||
-         img.variants?.card ||
-         img.variants?.preview ||
-         img.url ||
-         ''
-      );
-   }
-
-   return (
-      img.processedUrl ||
-      img.variants?.full ||
-      img.variants?.card ||
-      img.variants?.preview ||
-      img.url ||
-      img.brandedUrl ||
-      img.variants?.branded ||
-      ''
-   );
-}
+import { selectShareImages } from '@/utils/crm/shareImages.mjs';
 
 export const GET = async (req, { params }) => {
    try {
@@ -59,20 +32,7 @@ export const GET = async (req, { params }) => {
          }
       );
 
-      const images = (property.images || [])
-         .filter((img) => !img.isHidden)
-         .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-         .map((img) => {
-            const url = getShareImageUrl(img, shareLink.useBrandedPhotos);
-
-            return {
-               url,
-               width: img.width,
-               height: img.height,
-               isMain: img.isMain,
-            };
-         })
-         .filter((img) => img.url);
+      const images = selectShareImages(property.images, shareLink);
 
       return Response.json({
          ok: true,

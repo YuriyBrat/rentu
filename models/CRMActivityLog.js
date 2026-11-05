@@ -68,6 +68,7 @@ const CRMActivityLogSchema = new Schema(
 
 CRMActivityLogSchema.index({ entityType: 1, entityId: 1, createdAt: -1 });
 CRMActivityLogSchema.index({ actorEmployee: 1, createdAt: -1 });
+CRMActivityLogSchema.index({ actorUserId: 1, createdAt: -1 });
 CRMActivityLogSchema.index({ action: 1, createdAt: -1 });
 CRMActivityLogSchema.index({ source: 1, createdAt: -1 });
 

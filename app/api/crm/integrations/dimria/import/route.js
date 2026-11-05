@@ -6,6 +6,7 @@ import {
    searchDimriaIds,
 } from '@/utils/crm/dimriaClient';
 import { normalizePhone } from '@/utils/crm/phoneIntel';
+import { getPhoneValidation } from '@/utils/crm/phone';
 
 function parseBoolean(value, fallback = false) {
    if (value === undefined || value === null || value === '') return fallback;
@@ -192,8 +193,10 @@ async function fetchLeadItems(ids) {
       try {
          const advert = await fetchDimriaAdvert(id);
          const item = mapDimriaAdvertToLeadProperty(advert);
+         const phone = getPhoneValidation(item.phone);
          items.push({
             ...item,
+            phone: phone.isValid ? phone.normalized : item.phone,
             images: normalizeImages(item.images),
             fingerprint: buildFingerprint(item),
             priceHistory: Array.isArray(item.priceHistory) && item.priceHistory.length
@@ -201,7 +204,7 @@ async function fetchLeadItems(ids) {
                : buildInitialPriceHistory(item),
             attrs: {
                ...(item.attrs || {}),
-               phoneNormalized: normalizePhone(item.phone),
+               phoneNormalized: phone.isValid ? phone.normalized : '',
             },
          });
       } catch (error) {

@@ -17,6 +17,8 @@ import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded';
 import { useCRMTheme } from '@/app/(crm)/crm/context/CRMThemeContext';
 import ImageLightbox from '@/crm_components/ImageLightbox';
 import { CallWorkflowBar } from './CallCenterWorkspace';
+import { getPhoneValidation } from '@/utils/crm/phone';
+import { getParsingMarketState } from '@/utils/crm/parsingMarket';
 
 function formatMoney(value, currency = 'USD') {
    if (!value && value !== 0) return '-';
@@ -130,7 +132,7 @@ function normalizeLightboxImages(images) {
       .filter(Boolean);
 }
 
-function getSourceExternalId(item) {
+export function getSourceExternalId(item) {
    return item?.attrs?.reamak?.siteId || item?.sourceId || item?.attrs?.realtyId || item?.attrs?.webId || '';
 }
 
@@ -379,6 +381,8 @@ export const STAGE_META = {
    fake: { label: 'Фейк', compact: 'Фейк', color: '#ef4444' },
    rejected: { label: 'Фейк', compact: 'Фейк', color: '#ef4444' },
    moved: { label: 'БАЗА', compact: 'БАЗА', color: '#22c55e' },
+   inactive: { label: 'Неактуальні', compact: 'Неактуальний', color: '#ef4444' },
+   paused: { label: 'Зупинені', compact: 'Зупинений', color: '#f59e0b' },
 };
 
 export function isInspectionReservationActive(item, now = Date.now()) {
@@ -398,6 +402,8 @@ function formatReservationCountdown(item, now) {
 }
 
 export function getParsingStageKey(item, now = Date.now()) {
+   const market = getParsingMarketState(item);
+   if (market) return market.group;
    if (isInspectionReservationActive(item, now)) return 'inspection_reserved';
 
    const sourceStage = item?.stage || 'raw';
@@ -417,11 +423,25 @@ export function getParsingStageKey(item, now = Date.now()) {
    return sourceStage;
 }
 
+export function getParsingStageMeta(item, now = Date.now()) {
+   const stage = getParsingStageKey(item, now);
+   const meta = STAGE_META[stage] || STAGE_META.raw;
+   const market = getParsingMarketState(item);
+   return market ? { ...meta, label: market.label, compact: market.label } : meta;
+}
+
 function CommunicationClock({ item, theme, onClick }) {
-   const age = getCommunicationAgeMeta(getDaysSince(item?.lastCommunicationAt), theme);
+   const awaitingFirstContact = item?.missedCallCount > 0 && !item?.hasSuccessfulCall;
+   const age = awaitingFirstContact
+      ? { color: '#f59e0b', bg: 'rgba(245,158,11,0.13)', border: 'rgba(245,158,11,0.35)' }
+      : getCommunicationAgeMeta(getDaysSince(item?.lastCommunicationAt), theme);
+   const missedCallTimes = item?.missedCallTimes || [];
 
    return (
-      <Tooltip title={`Остання комунікація: ${formatFullDateTime(item?.lastCommunicationAt)}. Натисни, щоб додати комунікацію.`}>
+      <Stack alignItems="center" spacing={0.35}>
+      <Tooltip title={awaitingFirstContact
+         ? `Недодзвін: ${formatFullDateTime(missedCallTimes[0] || item?.lastCommunicationAt)}.`
+         : `Остання комунікація: ${formatFullDateTime(item?.lastCommunicationAt)}. Натисни, щоб додати комунікацію.`}>
          <IconButton
             onClick={() => onClick?.(item)}
             sx={{
@@ -441,21 +461,39 @@ function CommunicationClock({ item, theme, onClick }) {
             <AccessTimeRoundedIcon sx={{ fontSize: 22 }} />
          </IconButton>
       </Tooltip>
+      {awaitingFirstContact && (
+         <Tooltip title={
+            <Box>
+               <Typography sx={{ fontSize: 12, fontWeight: 700 }}>Недодзвони: {item.missedCallCount}</Typography>
+               {missedCallTimes.map((time, index) => (
+                  <Typography key={`${time}-${index}`} sx={{ fontSize: 12 }}>{formatFullDateTime(time)}</Typography>
+               ))}
+            </Box>
+         }>
+            <Typography sx={{ color: '#f59e0b', fontSize: 9.5, lineHeight: 1, fontWeight: 850, whiteSpace: 'nowrap' }}>
+               н.д. {item.missedCallCount}
+            </Typography>
+         </Tooltip>
+      )}
+      </Stack>
    );
 }
 
 function ContactCell({ item, theme }) {
    const count = getPhoneCount(item);
    const kind = getContactKind(item);
+   const phone = getPhoneValidation(item?.phone);
 
    return (
       <Stack spacing={0.15} sx={{ minWidth: 0, display: { xs: 'none', lg: 'flex' } }}>
          <Stack direction="row" spacing={0.45} alignItems="center" minWidth={0}>
-            <Typography sx={{ color: theme.text, fontWeight: 850, fontSize: 12.4 }} noWrap>
-               {item?.phone || item?.leadname || 'Контакт -'}
-            </Typography>
+            <Tooltip title={phone.error}>
+               <Typography sx={{ color: phone.isValid ? theme.text : '#ef4444', fontWeight: 850, fontSize: 12.4 }} noWrap>
+                  {phone.isValid ? phone.normalized : item?.phone || 'Телефон відсутній'}
+               </Typography>
+            </Tooltip>
 
-            {!!count && (
+            {!!count && phone.isValid && (
                <Tooltip title="Скільки разів номер зустрічається в базі">
                   <Box
                      component="span"
@@ -496,8 +534,9 @@ export default function ParsingRowCard({ item, expanded, onToggleExpand, onStatu
       item = { ...item, sourceStatus: 'не перевірено' };
    }
    const { theme, mode } = useCRMTheme();
+   const phoneValidation = getPhoneValidation(item?.phone);
    const displayStage = getParsingStageKey(item, now);
-   const meta = STAGE_META[displayStage] || STAGE_META.raw;
+   const meta = getParsingStageMeta(item, now);
    const isNew = displayStage === 'raw';
    const awaitsInspection = displayStage === 'inspection_ready';
    const reservationActive = displayStage === 'inspection_reserved';
@@ -662,7 +701,7 @@ export default function ParsingRowCard({ item, expanded, onToggleExpand, onStatu
             sx={{
                justifySelf: { xs: 'start', lg: 'stretch' },
                display: { xs: 'none', lg: 'inline-flex' },
-               height: reservationActive ? 38 : 27,
+               height: reservationActive || ['inactive', 'paused'].includes(displayStage) ? 38 : 27,
                minWidth: 0,
                px: 0.8,
                borderRadius: 1.5,
@@ -672,6 +711,8 @@ export default function ParsingRowCard({ item, expanded, onToggleExpand, onStatu
                bgcolor: `${meta.color}18`,
                border: `1px solid ${meta.color}45`,
                textTransform: 'none',
+               whiteSpace: 'normal',
+               lineHeight: 1.15,
                overflow: 'hidden',
                textOverflow: 'ellipsis',
                 cursor: reservationActive && !canManageReservation ? 'not-allowed' : 'pointer',
@@ -737,7 +778,7 @@ export default function ParsingRowCard({ item, expanded, onToggleExpand, onStatu
             </Tooltip>
          </Stack>
 
-         <CallWorkflowBar item={item} workspace={workspace} expanded={expanded} now={now} />
+         <CallWorkflowBar item={item} workspace={workspace} expanded={expanded} now={now} onResult={onStatus} />
 
          {expanded && (
             <Box
@@ -882,6 +923,8 @@ export default function ParsingRowCard({ item, expanded, onToggleExpand, onStatu
                      <Stack direction="row" spacing={0.7} flexWrap="wrap" useFlexGap>
                         <Chip size="small" label={`Сайт: ${getOriginalSiteName(item) || getSourceLabel(getSourceFromUrl(item?.sourceUrl)) || '-'}`} />
                         <Chip size="small" label={`ID на сайті: ${getSourceExternalId(item) || '-'}`} />
+                        <Chip size="small" label={`ID парсингу: ${item._id}`} sx={{ userSelect: 'text' }} />
+                        {!!item?.propertyId && <Chip size="small" label={`ID у Базі: ${item.propertyId?._id || item.propertyId}`} sx={{ userSelect: 'text' }} />}
                         <Chip size="small" label={`Імпорт: ${getImportKindLabel(item)}`} />
                         <Chip size="small" label={`REAMAK ID: ${getReamakId(item) || '-'}`} />
                         <Chip size="small" label={item?.sourceStatus ? `Статус джерела: ${item.sourceStatus}` : 'Статус джерела: unknown'} />
@@ -962,7 +1005,9 @@ export default function ParsingRowCard({ item, expanded, onToggleExpand, onStatu
                      </Box>
 
                      <Stack direction="row" spacing={0.7} flexWrap="wrap" useFlexGap>
-                        <Chip size="small" label={item?.phone ? `Телефон: ${item.phone}` : 'Телефон -'} />
+                        <Tooltip title={phoneValidation.error}>
+                           <Chip size="small" color={phoneValidation.isValid ? 'default' : 'error'} variant={phoneValidation.isValid ? 'filled' : 'outlined'} label={item?.phone ? `Телефон: ${phoneValidation.isValid ? phoneValidation.normalized : item.phone}` : 'Телефон відсутній'} />
+                        </Tooltip>
                         <Chip size="small" label={item?.leadname ? `Контакт: ${item.leadname}` : 'Контакт -'} />
                         <Chip size="small" label={item?.rooms ? `${item.rooms} кім.` : 'Кімнати -'} />
                         <Chip size="small" label={item?.square_tot ? `${item.square_tot} м2` : 'Площа -'} />

@@ -1,4 +1,5 @@
 import { Schema, model, models } from "mongoose";
+import { installPhoneIndex } from '@/utils/crm/phoneIndex';
 
 const ACTUALITY_GROUPS = ["active", "paused", "inactive"];
 const CRM_STAGES = ["base", "inspection", "rs", "ds", "zs", "archived"];
@@ -663,6 +664,10 @@ const PropertySchema = new Schema(
   { timestamps: true }
 );
 
+installPhoneIndex(PropertySchema, true);
+PropertySchema.index({ phoneKeys: 1 });
+PropertySchema.index({ phoneIndexVersion: 1, _id: 1 });
+PropertySchema.index({ updatedAt: -1 });
 PropertySchema.index({ actualityGroup: 1, actualityStatus: 1, updatedAt: -1 });
 PropertySchema.index({ crmStage: 1, updatedAt: -1 });
 PropertySchema.index({ 'advertisingSettings.assignedEmployee': 1, 'advertisingSettings.priority': -1 });

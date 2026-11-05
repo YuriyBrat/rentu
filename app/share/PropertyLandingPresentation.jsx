@@ -719,12 +719,9 @@ export default function PropertyLandingPresentation({
 
    const { property, share } = data;
 
-   const images = (property?.images || []).map((img) => ({
-      ...img,
-      url: img?.brandedUrl || img?.processedUrl || img?.url || img?.preview,
-   }));
+   const images = property?.images || [];
 
-   const mainImage = images?.[0]?.url || '/krm/logo-krm-transparent.png';
+   const mainImage = images?.[0]?.url || (share.type === 'partner' ? '' : '/krm/logo-krm-transparent.png');
 
    const manager = property.assignee;
 
@@ -803,9 +800,10 @@ export default function PropertyLandingPresentation({
                overflow: 'hidden',
             }}
          >
-            <Box
+            {mainImage && <Box
                component="img"
                src={mainImage}
+               alt={property.title || ''}
                sx={{
                   position: 'absolute',
                   inset: 0,
@@ -813,7 +811,7 @@ export default function PropertyLandingPresentation({
                   height: '100%',
                   objectFit: 'cover',
                }}
-            />
+            />}
 
             <Box
                sx={{

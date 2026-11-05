@@ -74,6 +74,9 @@ export async function POST(request, { params }) {
          const requestId = String(body.submissionId || '');
          if (!/^[a-zA-Z0-9-]{16,80}$/.test(requestId)) return Response.json({ error: 'Некоректний ідентифікатор дзвінка.' }, { status: 400 });
          const text = String(body.text || '').trim().slice(0, 5000);
+         const retainClaim = body.retainClaim === true;
+         const happenedAt = body.happenedAt ? new Date(body.happenedAt) : now;
+         if (!Number.isFinite(+happenedAt) || happenedAt > new Date(+now + 5 * 60000)) return Response.json({ error: 'Некоректний час дзвінка.' }, { status: 400 });
          const nextContactAt = body.nextContactAt ? new Date(body.nextContactAt) : null;
          if (nextContactAt && (!Number.isFinite(+nextContactAt) || nextContactAt <= now)) return Response.json({ error: 'Передзвін має бути в майбутньому.' }, { status: 400 });
          if (body.outcome === 'callback' && !nextContactAt) return Response.json({ error: 'Вкажи час передзвону.' }, { status: 400 });
@@ -84,7 +87,18 @@ export async function POST(request, { params }) {
             return Response.json({ error: 'Ідентифікатор дзвінка вже використано.' }, { status: 409 });
          }
          const completed = await LeadProperty.findOne({ _id: id, 'callQueue.lastSubmissionId': requestId }).lean();
-         if (completed && communication) return Response.json({ item: completed, communication });
+         if (completed && communication) {
+            if (!retainClaim) return Response.json({ item: completed, communication });
+            // A retry resumes the same call without creating another history entry.
+            const resumed = await LeadProperty.findOneAndUpdate({ _id: id, $or: [
+               { 'callQueue.ownerKey': actor.key },
+               { 'callQueue.ownerKey': { $in: ['', null] } },
+               { 'callQueue.expiresAt': { $lte: now } },
+               { 'callQueue.expiresAt': null },
+            ] }, { $set: { 'callQueue.ownerKey': actor.key, 'callQueue.ownerName': actor.name, 'callQueue.expiresAt': new Date(+now + CALL_LEASE_MS) } }, { new: true });
+            if (!resumed) return Response.json({ error: 'Дзвінок уже записано, але оголошення зараз обробляє інший працівник.' }, { status: 409 });
+            return Response.json({ item: resumed, communication });
+         }
 
          // Renew the owner's lease before saving the result. Claims never overwrite another owner.
          item = await LeadProperty.findOneAndUpdate({ _id: id, 'callQueue.ownerKey': actor.key, 'callQueue.expiresAt': { $gt: now } },
@@ -93,10 +107,14 @@ export async function POST(request, { params }) {
          if (!communication) {
             try {
                communication = await Communication.create({
-                  entityType: 'leadProperty', entityId: id, type: 'call', tone: body.outcome === 'reached' ? 'positive' : 'info',
-                  happenedAt: now, text: text || CALL_OUTCOMES[body.outcome],
+                  entityType: 'leadProperty', entityId: id, type: 'call',
+                  tone: ['positive', 'negative', 'important', 'info'].includes(body.tone) ? body.tone : body.outcome === 'reached' ? 'positive' : 'info',
+                  happenedAt, text: text || CALL_OUTCOMES[body.outcome],
                   responsibleEmployee: actor.employeeId, createdByEmployee: actor.employeeId,
-                  meta: { callCenter: { requestId, actorKey: actor.key, actorName: actor.name, outcome: body.outcome, nextContactAt } },
+                  meta: {
+                     parsingStatus: String(body.parsingStatus || '').slice(0, 30),
+                     callCenter: { requestId, actorKey: actor.key, actorName: actor.name, outcome: body.outcome, nextContactAt },
+                  },
                });
             } catch (error) {
                if (error.code !== 11000) throw error;
@@ -109,7 +127,8 @@ export async function POST(request, { params }) {
          const recordedOutcome = communication.meta.callCenter.outcome;
          const recordedNextContact = communication.meta.callCenter.nextContactAt || null;
          item = await LeadProperty.findOneAndUpdate({ _id: id, 'callQueue.ownerKey': actor.key }, { $set: {
-            'callQueue.ownerKey': '', 'callQueue.ownerName': '', 'callQueue.expiresAt': now,
+            'callQueue.ownerKey': retainClaim ? actor.key : '', 'callQueue.ownerName': retainClaim ? actor.name : '',
+            'callQueue.expiresAt': retainClaim ? new Date(+now + CALL_LEASE_MS) : now,
             'callQueue.nextContactAt': recordedNextContact, 'callQueue.callbackOwnerKey': recordedNextContact ? actor.key : '',
             'callQueue.lastOutcome': recordedOutcome, 'callQueue.lastHandledAt': now, 'callQueue.lastSubmissionId': requestId,
             lastCallAt: now,

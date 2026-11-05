@@ -90,7 +90,7 @@ export function useCallCenter({ overview, onChange }) {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
          }));
          if (payload.action === 'claim') setActiveClaimId(item._id);
-         if (['release', 'outcome'].includes(payload.action)) setActiveClaimId(previous => previous === item._id ? '' : previous);
+         if (payload.action === 'release' || (payload.action === 'outcome' && !payload.retainClaim)) setActiveClaimId(previous => previous === item._id ? '' : previous);
          notify();
          return result;
       } finally { setBusyId(''); }
@@ -111,7 +111,6 @@ export function useCallCenter({ overview, onChange }) {
    }, [activeClaimId]);
 
    const openDialog = next => {
-      if (next?.type === 'outcome') setActiveClaimId(next.item._id);
       setDialog(next);
    };
    return { data, days, setDays, syncError, lastSync, busyId, dialog, setDialog: openDialog, mutate, notify, refresh, actor: data?.actor };
@@ -126,6 +125,7 @@ export function CallCenterOverview({ workspace, queue, onQueueChange, onOpenReco
       ['Поговорили', data?.stats?.reached, '#34d399'],
       ['Унікальні об’єкти', data?.stats?.unique, '#a78bfa'],
       ['Додано в Базу', data?.stats?.addedBase, '#22d3ee'],
+      ['Чекає огляд', data?.stats?.inspectionReady, '#f59e0b', 'Унікальні об’єкти, для яких ви позначили «Готовий до огляду» за обраний період.'],
    ];
    const queues = [
       ['new', 'Нові', data?.queue?.new], ['mine', 'В обробці у мене', data?.queue?.mine],
@@ -150,14 +150,14 @@ export function CallCenterOverview({ workspace, queue, onQueueChange, onOpenReco
                   ))}
                </Stack>
             </Stack>
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(4, minmax(0, 1fr)) minmax(180px, 1.5fr)' }, gap: 1.25, alignItems: 'center' }}>
-               {metrics.map(([label, value, color]) => (
-                  <Box key={label} sx={{ px: 1.25, py: 0.75, borderLeft: `2px solid ${color}`, minWidth: 0 }}>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: 'repeat(2, minmax(0, 1fr))', md: 'repeat(5, minmax(0, 1fr))', xl: 'repeat(5, minmax(0, 1fr)) minmax(180px, 1.5fr)' }, gap: 1.25, alignItems: 'center' }}>
+               {metrics.map(([label, value, color, hint]) => (
+                  <Box key={label} title={hint} sx={{ px: 1.25, py: 0.75, borderLeft: `2px solid ${color}`, minWidth: 0 }}>
                      <Typography sx={{ fontSize: 27, lineHeight: 1.15, fontWeight: 950, color }}>{value ?? '—'}</Typography>
                      <Typography sx={{ fontSize: 11, color: theme.textSoft }}>{label}</Typography>
                   </Box>
                ))}
-               <Box sx={{ height: 76, minWidth: 0, gridColumn: { xs: '1 / -1', md: 'auto' } }}>
+               <Box sx={{ height: 76, minWidth: 0, gridColumn: { xs: '1 / -1', xl: 'auto' } }}>
                   <ResponsiveContainer width="100%" height="100%">
                      <AreaChart data={data?.chart || []} margin={{ top: 4, right: 4, left: 4, bottom: 0 }}>
                         <XAxis dataKey="label" tick={{ fill: theme.textSoft, fontSize: 9 }} axisLine={false} tickLine={false} minTickGap={18} />
@@ -193,7 +193,7 @@ export function CallCenterOverview({ workspace, queue, onQueueChange, onOpenReco
    );
 }
 
-export function CallWorkflowBar({ item, workspace, expanded, now }) {
+export function CallWorkflowBar({ item, workspace, expanded, now, onResult }) {
    const { theme } = useCRMTheme();
    const [error, setError] = useState('');
    if (!workspace?.actor || String(item._id).startsWith('demo-')) return null;
@@ -220,7 +220,7 @@ export function CallWorkflowBar({ item, workspace, expanded, now }) {
                {canRequest && <Button size="small" startIcon={<StarRoundedIcon />} onClick={() => workspace.setDialog({ type: 'priority', item })} sx={{ textTransform: 'none', fontSize: 11, color: priority?.color || theme.textSoft }}>Запит</Button>}
                {!active && <Button size="small" disabled={workspace.busyId === item._id} onClick={() => action('claim')} startIcon={<HeadsetMicRoundedIcon />} sx={{ color: '#60a5fa', fontSize: 11, textTransform: 'none' }}>В обробку</Button>}
                {mine && <>
-                  <Button size="small" startIcon={<PhoneInTalkRoundedIcon />} onClick={() => workspace.setDialog({ type: 'outcome', item })} sx={{ color: '#34d399', fontSize: 11, textTransform: 'none' }}>Результат дзвінка</Button>
+                  <Button size="small" startIcon={<PhoneInTalkRoundedIcon />} onClick={() => onResult?.(item)} sx={{ color: '#34d399', fontSize: 11, textTransform: 'none' }}>Результат дзвінка</Button>
                   <Button size="small" disabled={workspace.busyId === item._id} onClick={() => action('release')} sx={{ color: theme.textSoft, fontSize: 11, textTransform: 'none' }}>Звільнити</Button>
                </>}
             </Stack>
@@ -242,40 +242,36 @@ export function CallWorkflowBar({ item, workspace, expanded, now }) {
    );
 }
 
-export function CallWorkflowDialogs({ workspace, onDecision }) {
+export function CallWorkflowDialogs({ workspace }) {
    const { theme } = useCRMTheme();
    const { dialog } = workspace;
    const [form, setForm] = useState({});
    const [error, setError] = useState('');
    const [saving, setSaving] = useState(false);
-   const submissionId = useRef('');
    useEffect(() => {
       const existing = dialog?.item?.callRequests?.find(request => !request.resolvedAt && request.requestedByKey === workspace.actor?.key);
       const dueAt = existing?.dueAt ? new Date(new Date(existing.dueAt).getTime() - new Date(existing.dueAt).getTimezoneOffset() * 60000).toISOString().slice(0, 16) : '';
-      setForm({ outcome: 'reached', text: '', level: existing?.level || 'interesting', note: existing?.note || '', nextContactAt: '', dueAt, resolution: '' });
+      setForm({ level: existing?.level || 'interesting', note: existing?.note || '', dueAt, resolution: '' });
       setError('');
-      submissionId.current = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random().toString(36).slice(2)}`;
    }, [dialog, workspace.actor?.key]);
    const set = (key, value) => setForm(previous => ({ ...previous, [key]: value }));
    const close = () => { if (!saving) workspace.setDialog(null); };
-   const submit = async decision => {
+   const submit = async () => {
       setSaving(true); setError('');
       try {
          const type = dialog.type;
-         const result = await workspace.mutate(dialog.item, {
-            action: type, ...form, submissionId: submissionId.current,
+         await workspace.mutate(dialog.item, {
+            action: type, ...form,
             requestId: dialog.request?._id,
-            nextContactAt: form.nextContactAt ? new Date(form.nextContactAt).toISOString() : null,
             dueAt: form.dueAt ? new Date(form.dueAt).toISOString() : null,
          });
          workspace.setDialog(null);
-         if (decision) onDecision?.(result.item, form.text);
       } catch (error) { setError(error.message); } finally { setSaving(false); }
    };
    const fieldSx = { '& .MuiInputBase-root': { color: theme.text }, '& .MuiInputLabel-root': { color: theme.textSoft }, '& .MuiOutlinedInput-notchedOutline': { borderColor: theme.border }, '& .MuiSelect-icon': { color: theme.textSoft } };
    return (
       <Dialog open={!!dialog} onClose={close} fullWidth maxWidth="sm" disableScrollLock PaperProps={{ sx: { bgcolor: theme.bgPanel, color: theme.text, border: `1px solid ${theme.border}`, borderRadius: 3 } }}>
-         <DialogTitle sx={{ fontWeight: 900 }}>{dialog?.type === 'priority' ? 'Запит на продзвін' : dialog?.type === 'resolveRequest' ? 'Відповідь рієлтору' : 'Результат дзвінка'}</DialogTitle>
+         <DialogTitle sx={{ fontWeight: 900 }}>{dialog?.type === 'priority' ? 'Запит на продзвін' : 'Відповідь рієлтору'}</DialogTitle>
          <DialogContent>
             <Stack spacing={1.5} sx={{ pt: 1 }}>
                <Typography sx={{ fontSize: 13, color: theme.textSoft }}>{dialog?.item?.title}</Typography>
@@ -286,13 +282,6 @@ export function CallWorkflowDialogs({ workspace, onDecision }) {
                   <TextField label="Що потрібно уточнити" value={form.note || ''} onChange={event => set('note', event.target.value)} multiline minRows={3} sx={fieldSx} disabled={saving} />
                   <TextField label="Продзвонити до" type="datetime-local" value={form.dueAt || ''} onChange={event => set('dueAt', event.target.value)} InputLabelProps={{ shrink: true }} sx={fieldSx} required={form.level === 'urgent'} disabled={saving} />
                </>}
-               {dialog?.type === 'outcome' && <>
-                  <TextField select label="Результат" value={form.outcome || 'reached'} onChange={event => set('outcome', event.target.value)} sx={fieldSx} disabled={saving}>
-                     {Object.entries(CALL_OUTCOMES).map(([key, label]) => <MenuItem key={key} value={key}>{label}</MenuItem>)}
-                  </TextField>
-                  <TextField label="Коротка нотатка" value={form.text || ''} onChange={event => set('text', event.target.value)} multiline minRows={3} sx={fieldSx} disabled={saving} />
-                  <TextField label="Наступний дзвінок" type="datetime-local" value={form.nextContactAt || ''} onChange={event => set('nextContactAt', event.target.value)} InputLabelProps={{ shrink: true }} sx={fieldSx} required={form.outcome === 'callback'} disabled={saving} />
-               </>}
                {dialog?.type === 'resolveRequest' && <>
                   <Typography sx={{ fontSize: 13 }}>{dialog.request?.requestedByName}: {dialog.request?.note}</Typography>
                   <TextField label="Що вдалося з’ясувати" value={form.resolution || ''} onChange={event => set('resolution', event.target.value)} multiline minRows={3} sx={fieldSx} disabled={saving} />
@@ -302,8 +291,7 @@ export function CallWorkflowDialogs({ workspace, onDecision }) {
          </DialogContent>
          <DialogActions sx={{ px: 3, pb: 2, flexWrap: 'wrap', gap: 0.5 }}>
             <Button onClick={close} disabled={saving} sx={{ color: theme.textSoft }}>Скасувати</Button>
-            {dialog?.type === 'outcome' && form.outcome === 'reached' && <Button onClick={() => submit(true)} disabled={saving} sx={{ color: '#60a5fa', textTransform: 'none' }}>Зберегти й оцінити об’єкт</Button>}
-            <Button onClick={() => submit(false)} disabled={saving} variant="contained" sx={{ textTransform: 'none', borderRadius: 2 }}>{saving ? 'Збереження…' : 'Зберегти'}</Button>
+            <Button onClick={submit} disabled={saving} variant="contained" sx={{ textTransform: 'none', borderRadius: 2 }}>{saving ? 'Збереження…' : 'Зберегти'}</Button>
          </DialogActions>
       </Dialog>
    );

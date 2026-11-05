@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useSession, signOut } from 'next-auth/react';
@@ -58,6 +58,7 @@ import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
 import ArticleRoundedIcon from '@mui/icons-material/ArticleRounded';
 import TelegramIcon from '@mui/icons-material/Telegram';
+import ExtensionRoundedIcon from '@mui/icons-material/ExtensionRounded';
 
 // для наводок варіанти
 import TipsAndUpdatesIcon from '@mui/icons-material/TipsAndUpdates';
@@ -75,6 +76,10 @@ const phoneTypeLabel = {
    work: 'Робочий',
    other: 'Інший',
 };
+
+const integrationItems = [
+   { label: 'Telegram', path: '/crm/settings/telegram', Icon: TelegramIcon },
+];
 
 phoneTypeLabel.personal = 'Основний';
 phoneTypeLabel.work = 'Робочий';
@@ -130,12 +135,17 @@ export default function CRMLayout({ children }) {
    const [open, setOpen] = useState(false);
    const [anchorEl, setAnchorEl] = useState(null);
    const [generationAnchorEl, setGenerationAnchorEl] = useState(null);
+   const [integrationsAnchorEl, setIntegrationsAnchorEl] = useState(null);
+   const [focusIntegrationItem, setFocusIntegrationItem] = useState(false);
+   const integrationsCloseTimer = useRef(null);
+   const integrationsListRef = useRef(null);
    const [profileGalleryOpen, setProfileGalleryOpen] = useState(false);
    const [profileGalleryIndex, setProfileGalleryIndex] = useState(0);
 
    const { theme, mode, toggleTheme } = useCRMTheme();
    const { data: session } = useSession();
    const canOpenAdvertising = session?.user?.role !== 'callcenter';
+   const canManageIntegrations = session?.user?.isFallbackAdmin || ['owner', 'admin'].includes(session?.user?.role);
 
    const { user } = useCurrentUser();
    const userPhones = (user?.phones || [])
@@ -148,13 +158,45 @@ export default function CRMLayout({ children }) {
 
    const openMenu = Boolean(anchorEl);
    const openGenerationMenu = Boolean(generationAnchorEl);
+   const openIntegrationsMenu = Boolean(integrationsAnchorEl);
+   const cancelIntegrationsClose = () => clearTimeout(integrationsCloseTimer.current);
+   const handleIntegrationsMenuClose = () => {
+      cancelIntegrationsClose();
+      setIntegrationsAnchorEl(null);
+      setFocusIntegrationItem(false);
+   };
+   const scheduleIntegrationsClose = () => {
+      cancelIntegrationsClose();
+      integrationsCloseTimer.current = setTimeout(handleIntegrationsMenuClose, 180);
+   };
+   useEffect(() => () => clearTimeout(integrationsCloseTimer.current), []);
+   useEffect(() => {
+      if (integrationsAnchorEl && focusIntegrationItem) {
+         integrationsListRef.current?.querySelector('[role="menuitem"]')?.focus();
+      }
+   }, [integrationsAnchorEl, focusIntegrationItem]);
+
    const handleMenuOpen = (e) => setAnchorEl(e.currentTarget);
    const handleMenuClose = () => {
       setAnchorEl(null);
       setGenerationAnchorEl(null);
+      handleIntegrationsMenuClose();
    };
-   const handleGenerationMenuOpen = (e) => setGenerationAnchorEl(e.currentTarget);
+   const handleGenerationMenuOpen = (e) => {
+      handleIntegrationsMenuClose();
+      setGenerationAnchorEl(e.currentTarget);
+   };
    const handleGenerationMenuClose = () => setGenerationAnchorEl(null);
+   const handleIntegrationsMenuOpen = (e, keyboard = false) => {
+      cancelIntegrationsClose();
+      setGenerationAnchorEl(null);
+      setFocusIntegrationItem(keyboard);
+      setIntegrationsAnchorEl(e.currentTarget);
+   };
+   const returnToIntegrations = () => {
+      integrationsAnchorEl?.focus();
+      handleIntegrationsMenuClose();
+   };
 
    const handleLogout = async () => {
       handleMenuClose();
@@ -177,9 +219,6 @@ export default function CRMLayout({ children }) {
       // { label: 'Завдання', path: '/crm/tasks', icon: <TaskIcon />, badge: 2 },
       { label: 'Наводки', path: '/crm/navodky4', icon: <RadarIcon /> },
       { label: 'Персонал', path: '/crm/employees', icon: <GroupsRoundedIcon /> },
-      ...(session?.user?.isFallbackAdmin || ['owner', 'admin'].includes(session?.user?.role)
-         ? [{ label: 'Telegram', path: '/crm/settings/telegram', icon: <TelegramIcon /> }]
-         : []),
       // { label: 'Аналітика', path: '/crm/analytics', icon: <BarChartIcon /> },
    ];
 
@@ -458,7 +497,7 @@ export default function CRMLayout({ children }) {
 
 
                   {/* User */}
-                  <IconButton onClick={handleMenuOpen} sx={{ p: 0.4 }}>
+                  <IconButton onClick={handleMenuOpen} aria-label="Меню профілю" aria-haspopup="menu" aria-controls={openMenu ? 'crm-profile-menu' : undefined} aria-expanded={openMenu ? true : undefined} sx={{ p: 0.4 }}>
                      <Avatar
                         src={userAvatarUrl}
                         sx={{
@@ -473,10 +512,12 @@ export default function CRMLayout({ children }) {
                   </IconButton>
 
                   <Menu
+                     id="crm-profile-menu"
                      anchorEl={anchorEl}
                      open={openMenu}
                      onClose={handleMenuClose}
                      disableScrollLock
+                     disableEnforceFocus={openIntegrationsMenu}
                      PaperProps={{
                         sx: {
                            bgcolor: BG_PANEL,
@@ -604,9 +645,76 @@ export default function CRMLayout({ children }) {
                         <ManageAccountsRoundedIcon sx={{ mr: 1, color: ACCENT }} /> Логіка ролей
                      </MenuItem>
 
+                     {canManageIntegrations && <MenuItem
+                        id="crm-integrations-trigger"
+                        aria-haspopup="menu"
+                        aria-controls={openIntegrationsMenu ? 'crm-integrations-menu' : undefined}
+                        aria-expanded={openIntegrationsMenu}
+                        onPointerEnter={event => { if (event.pointerType === 'mouse') handleIntegrationsMenuOpen(event); }}
+                        onPointerLeave={event => { if (event.pointerType === 'mouse') scheduleIntegrationsClose(); }}
+                        onClick={event => handleIntegrationsMenuOpen(event, event.detail === 0)}
+                        onKeyDown={event => {
+                           if (event.key === 'ArrowRight') {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              handleIntegrationsMenuOpen(event, true);
+                           }
+                        }}
+                        sx={{ justifyContent: 'space-between', gap: 2, bgcolor: openIntegrationsMenu ? HOVER : undefined }}
+                     >
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                           <ExtensionRoundedIcon sx={{ mr: 1, color: ACCENT }} /> Інтеграції
+                        </Box>
+                        <ArrowForwardIosRoundedIcon sx={{ fontSize: 14, color: TEXT_SOFT }} />
+                     </MenuItem>}
+
                      <MenuItem onClick={handleLogout}>
                         <LogoutIcon sx={{ mr: 1, color: ACCENT }} /> Вийти
                      </MenuItem>
+                  </Menu>
+                  <Menu
+                     id="crm-integrations-menu"
+                     anchorEl={integrationsAnchorEl}
+                     open={openMenu && canManageIntegrations && openIntegrationsMenu}
+                     onClose={(_, reason) => reason === 'tabKeyDown' ? handleMenuClose() : returnToIntegrations()}
+                     disableScrollLock
+                     hideBackdrop
+                     disableAutoFocus={!focusIntegrationItem}
+                     autoFocus={focusIntegrationItem}
+                     disableEnforceFocus
+                     disableRestoreFocus
+                     anchorOrigin={{ vertical: smallScreen ? 'bottom' : 'top', horizontal: smallScreen ? 'right' : 'left' }}
+                     transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+                     sx={{ pointerEvents: 'none' }}
+                     MenuListProps={{
+                        ref: integrationsListRef,
+                        'aria-labelledby': 'crm-integrations-trigger',
+                        onKeyDown: event => {
+                           if (event.key === 'ArrowLeft') {
+                              event.preventDefault();
+                              event.stopPropagation();
+                              returnToIntegrations();
+                           }
+                        },
+                     }}
+                     PaperProps={{
+                        onPointerEnter: event => { if (event.pointerType === 'mouse') cancelIntegrationsClose(); },
+                        onPointerLeave: event => { if (event.pointerType === 'mouse') scheduleIntegrationsClose(); },
+                        sx: {
+                           pointerEvents: 'auto',
+                           bgcolor: BG_PANEL,
+                           color: TEXT,
+                           border: `1px solid ${BORDER}`,
+                           borderRadius: 3,
+                           boxShadow: '0 20px 45px rgba(0,0,0,0.4)',
+                           minWidth: 220,
+                           maxWidth: 'calc(100vw - 32px)',
+                        },
+                     }}
+                  >
+                     {integrationItems.map(({ label, path, Icon }) => <MenuItem key={path} component={Link} href={path} selected={isActive(path)} onClick={handleMenuClose} sx={{ '&:hover, &.Mui-selected': { bgcolor: HOVER } }}>
+                        <Icon sx={{ mr: 1, color: ACCENT }} /> {label}
+                     </MenuItem>)}
                   </Menu>
                </Toolbar>
             </AppBar>
