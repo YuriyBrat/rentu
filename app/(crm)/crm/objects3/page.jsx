@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
    Box,
    Typography,
@@ -17,6 +17,7 @@ import {
    Alert,
    MenuItem,
    Popover,
+   Pagination,
 } from '@mui/material';
 
 import { useCRMTheme } from '@/app/(crm)/crm/context/CRMThemeContext';
@@ -314,7 +315,12 @@ function ObjectStatsHeader({ summary, theme, mode }) {
 
 export default function ObjectsPage() {
    const [openCreate, setOpenCreate] = useState(false);
-   const [q, setQ] = useState('');
+   const [q, setQuery] = useState('');
+   const [page, setPage] = useState(1);
+   const [total, setTotal] = useState(0);
+   const requestSequence = useRef(0);
+   const pageSize = 12;
+   const setQ = value => { setPage(1); setQuery(value); };
    const [items, setItems] = useState([]);
    const [summary, setSummary] = useState({
       total: 0,
@@ -342,12 +348,13 @@ export default function ObjectsPage() {
    const fieldSx = getFieldSx(theme, mode);
 
 
-   const [filters, setFilters] = useState({
+   const [filters, setFilterState] = useState({
       assignee: '',
       actualityGroup: 'active',
       type_estate: '',
       isPublic: '',
    });
+   const setFilters = value => { setPage(1); setFilterState(value); };
 
    const [errorDialog, setErrorDialog] = useState({
       open: false,
@@ -370,12 +377,16 @@ export default function ObjectsPage() {
    // };
 
    const load = async (query = q, nextFilters = filters) => {
+      const requestId = ++requestSequence.current;
       setLoading(true);
 
       try {
          const params = new URLSearchParams();
 
          params.set('mode', 'sale');
+         params.set('catalog', 'agency');
+         params.set('page', String(page));
+         params.set('pageSize', String(pageSize));
          if (nextFilters.actualityGroup && nextFilters.actualityGroup !== 'inactive') {
             params.set('crmStage', 'work');
          }
@@ -403,6 +414,11 @@ export default function ObjectsPage() {
             throw new Error(data?.error || data?.message || text || 'Не вдалося завантажити об’єкти');
          }
 
+         if (requestId !== requestSequence.current) return;
+         const nextTotal = Number(data?.total || 0);
+         const lastPage = Math.max(1, Math.ceil(nextTotal / pageSize));
+         setTotal(nextTotal);
+         if (page > lastPage) { setPage(lastPage); return; }
          setItems(data?.items || []);
          setSummary(data?.summary || {
             total: data?.total || 0,
@@ -418,10 +434,11 @@ export default function ObjectsPage() {
             portfolioValue: [],
          });
       } catch (e) {
+         if (requestId !== requestSequence.current) return;
          console.error(e);
          showError('Не вдалося завантажити об’єкти', e);
       } finally {
-         setLoading(false);
+         if (requestId === requestSequence.current) setLoading(false);
       }
    };
 
@@ -526,7 +543,7 @@ export default function ObjectsPage() {
       if (!defaultsApplied) return undefined;
       const t = setTimeout(() => load(q), 350);
       return () => clearTimeout(t);
-   }, [q, filters, defaultsApplied]);
+   }, [q, filters, defaultsApplied, page]);
 
    const employeeTree = useMemo(() => buildEmployeeTree(employees), [employees]);
    const employeeById = useMemo(
@@ -1081,6 +1098,21 @@ export default function ObjectsPage() {
          </Stack>
 
 
+
+         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems="center" justifyContent="space-between" sx={{ mt: 2 }}>
+            <Typography sx={{ color: theme.textSoft, fontSize: 13 }}>
+               {total ? `Показано ${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, total)} із ${total}` : 'Об’єктів не знайдено'}
+            </Typography>
+            {total > pageSize && (
+               <Pagination
+                  count={Math.ceil(total / pageSize)}
+                  page={page}
+                  onChange={(_event, value) => setPage(value)}
+                  disabled={loading}
+                  sx={{ '& .MuiPaginationItem-root': { color: theme.text }, '& .Mui-selected': { bgcolor: `${theme.accent} !important`, color: '#fff' } }}
+               />
+            )}
+         </Stack>
 
          <CreatePropertyDialog
             open={openCreate}

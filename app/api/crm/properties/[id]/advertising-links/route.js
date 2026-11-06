@@ -3,6 +3,7 @@ import Property from '@/models/Property';
 import MarketingEvent from '@/models/MarketingEvent';
 import { getSessionUser } from '@/utils/getSessionUser';
 import { canManageProperty } from '@/utils/crm/accessControl';
+import { serializePropertyForUser, withPropertyOwnerContactScope } from '@/utils/crm/propertyVisibility';
 import { buildActivityDiff, logActivity } from '@/utils/crm/activityLog';
 
 const AD_LINK_FIELDS = [
@@ -165,7 +166,7 @@ export const POST = async (req, { params }) => {
          sessionUser,
       });
 
-      return Response.json({ ok: true, item: property });
+      return Response.json({ ok: true, item: serializePropertyForUser(await withPropertyOwnerContactScope(sessionUser), property) });
    } catch (error) {
       console.log(error);
       return new Response('Smth wrong', { status: 500 });

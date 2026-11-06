@@ -69,8 +69,12 @@ export async function getEmployeeScopeIds(sessionUser) {
    return [...scoped];
 }
 
-export async function buildPropertyAccessFilter(sessionUser) {
+export async function buildPropertyAccessFilter(sessionUser, { agencyCatalog = false } = {}) {
    if (isElevatedCrmUser(sessionUser)) return {};
+
+   // Agency catalog visibility does not grant permission to edit colleagues' properties.
+   const role = sessionUser?.role || sessionUser?.user?.role || '';
+   if (agencyCatalog && ['realtor', 'trainee'].includes(role)) return {};
 
    const employeeScopeIds = await getEmployeeScopeIds(sessionUser);
    const userId = String(sessionUser?.userId || '');

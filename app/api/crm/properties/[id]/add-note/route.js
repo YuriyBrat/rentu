@@ -2,6 +2,7 @@ import connectDB from '@/config/database';
 import Property from '@/models/Property';
 import { getSessionUser } from '@/utils/getSessionUser';
 import { buildActivityDiff, logActivity } from '@/utils/crm/activityLog';
+import { canManageProperty } from '@/utils/crm/accessControl';
 // POST /api/crm/properties/:id/add-note
 
 const VALID_TYPES = ['note', 'call', 'message', 'meeting'];
@@ -35,6 +36,7 @@ export const POST = async (req, { params }) => {
 
       const property = await Property.findById(params.id);
       if (!property) return new Response('Not found', { status: 404 });
+      if (!(await canManageProperty(sessionUser, property))) return new Response('Forbidden', { status: 403 });
 
       // property.workHistory.unshift({
       //    type: body.type || 'note',
@@ -91,6 +93,7 @@ export const PATCH = async (req, { params }) => {
 
       const property = await Property.findById(params.id);
       if (!property) return new Response('Not found', { status: 404 });
+      if (!(await canManageProperty(sessionUser, property))) return new Response('Forbidden', { status: 403 });
 
       const note = property.workHistory.id(noteId);
       if (!note) return new Response('Note not found', { status: 404 });
@@ -144,6 +147,7 @@ export const DELETE = async (req, { params }) => {
 
       const property = await Property.findById(params.id);
       if (!property) return new Response('Not found', { status: 404 });
+      if (!(await canManageProperty(sessionUser, property))) return new Response('Forbidden', { status: 403 });
 
       const note = property.workHistory.id(noteId);
       if (!note) return new Response('Note not found', { status: 404 });

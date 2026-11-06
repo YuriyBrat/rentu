@@ -2,7 +2,8 @@ import connectDB from '@/config/database';
 import Lead from '@/models/Lead';
 import OperationEvent from '@/models/OperationEvent';
 import Property from '@/models/Property';
-import { buildPropertyAccessFilter, combineMongoFilters } from '@/utils/crm/accessControl';
+import { buildPropertyAccessFilter, canManageProperty, combineMongoFilters } from '@/utils/crm/accessControl';
+import { canViewPropertyOwnerContacts, redactPropertyOwnerContactText, withPropertyOwnerContactScope } from '@/utils/crm/propertyVisibility';
 import { getSessionUser } from '@/utils/getSessionUser';
 import { Types } from 'mongoose';
 
@@ -215,17 +216,19 @@ export const GET = async (_req, { params }) => {
          return Response.json({ error: 'Invalid property id' }, { status: 400 });
       }
 
-      const sessionUser = await getSessionUser().catch(() => null);
+      const sessionUser = await withPropertyOwnerContactScope(await getSessionUser().catch(() => null));
+      if (!sessionUser) return Response.json({ error: 'Unauthorized' }, { status: 401 });
       const propertyId = new Types.ObjectId(params.id);
-      const accessFilter = await buildPropertyAccessFilter(sessionUser);
+      const accessFilter = await buildPropertyAccessFilter(sessionUser, { agencyCatalog: true });
       const property = await Property.findOne(combineMongoFilters({ _id: propertyId }, accessFilter))
-         .select('title location_text workHistory')
+         .select('title location_text workHistory assignee createdByEmployee owner owners phoneKeys')
          .lean();
 
       if (!property) {
          return Response.json({ error: 'Property not found' }, { status: 404 });
       }
 
+      const canManage = await canManageProperty(sessionUser, property);
       const operations = await OperationEvent.find({ property: propertyId })
          .select('type occurredAt createdAt responsibleEmployee shownByEmployee facilitatedByEmployee createdByEmployee lead buyerRealtorKind buyerRealtorEmployee buyerPartnerName showingKind financialProduct resultObject resultBuyer resultShowing resultDescription review pzs loss')
          .populate('responsibleEmployee', 'name fullName surname')
@@ -263,7 +266,9 @@ export const GET = async (_req, { params }) => {
          .slice(0, 120);
 
       return Response.json({
-         items,
+         items: canViewPropertyOwnerContacts(sessionUser, property)
+            ? items.map(item => ({ ...item, editable: item.editable && canManage }))
+            : redactPropertyOwnerContactText(property, items.map(item => ({ ...item, editable: item.editable && canManage }))),
          total: items.length,
          workHistoryCount: workItems.length,
          operationCount: operationItems.length,

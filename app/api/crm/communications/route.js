@@ -11,6 +11,9 @@ import { getSessionUser } from '@/utils/getSessionUser';
 import { Types } from 'mongoose';
 import LeadProperty from '@/models/LeadProperty';
 import { getCallActor, callClaimConflict } from '@/utils/crm/callCenter';
+import Property from '@/models/Property';
+import { buildPropertyAccessFilter, combineMongoFilters } from '@/utils/crm/accessControl';
+import { canViewPropertyOwnerContacts, redactPropertyOwnerContactText, withPropertyOwnerContactScope } from '@/utils/crm/propertyVisibility';
 
 void Employee;
 void OperationEvent;
@@ -56,6 +59,8 @@ function mapCommunication(item) {
 export const GET = async (req) => {
    try {
       await connectDB();
+      const sessionUser = await withPropertyOwnerContactScope(await getSessionUser().catch(() => null));
+      if (!sessionUser) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
       const sp = req.nextUrl.searchParams;
       const entityType = (sp.get('entityType') || '').trim();
@@ -72,6 +77,13 @@ export const GET = async (req) => {
          return Response.json({ error: 'invalid entityId' }, { status: 400 });
       }
 
+      let property = null;
+      if (entityType === 'property') {
+         const accessFilter = await buildPropertyAccessFilter(sessionUser, { agencyCatalog: true });
+         property = await Property.findOne(combineMongoFilters({ _id: new Types.ObjectId(entityId) }, accessFilter))
+            .select('assignee createdByEmployee owner owners phoneKeys').lean();
+         if (!property) return Response.json({ error: 'Property not found' }, { status: 404 });
+      }
       const filter = { entityType, entityId };
       const total = await Communication.countDocuments(filter);
       const rawItems = await Communication.find(filter)
@@ -83,7 +95,12 @@ export const GET = async (req) => {
          .limit(pageSize)
          .lean();
 
-      return Response.json({ items: rawItems.map(mapCommunication), total, page, pageSize }, { status: 200 });
+      const items = rawItems.map(mapCommunication);
+      return Response.json({
+         items: property && !canViewPropertyOwnerContacts(sessionUser, property)
+            ? redactPropertyOwnerContactText(property, items) : items,
+         total, page, pageSize,
+      }, { status: 200 });
    } catch (error) {
       console.error(error);
       return new Response('Error fetching communications', { status: 500 });

@@ -9,7 +9,8 @@ import {
    logActivity,
    pickActivitySnapshot,
 } from '@/utils/crm/activityLog';
-import { canManageProperty } from '@/utils/crm/accessControl';
+import { buildPropertyAccessFilter, canManageProperty, combineMongoFilters } from '@/utils/crm/accessControl';
+import { canViewPropertyOwnerContacts, serializePropertyForUser, withPropertyOwnerContactScope } from '@/utils/crm/propertyVisibility';
 import { getSessionUser } from '@/utils/getSessionUser';
 import cloudinary from '@/config/cloudinary';
 import { Types } from 'mongoose';
@@ -76,8 +77,11 @@ export const GET = async (_request, { params }) => {
    try {
       await connectDB();
 
-      // const item = await Property.findById(params.id).lean();
-      const item = await Property.findById(params.id)
+      const sessionUser = await withPropertyOwnerContactScope(await getSessionUser().catch(() => null));
+      if (!sessionUser) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      if (!Types.ObjectId.isValid(params.id)) return Response.json({ error: 'Invalid property id' }, { status: 400 });
+      const accessFilter = await buildPropertyAccessFilter(sessionUser, { agencyCatalog: true });
+      const item = await Property.findOne(combineMongoFilters({ _id: new Types.ObjectId(params.id) }, accessFilter))
          .populate('assignee', 'name fullName surname phone email avatar')
          .populate('createdByEmployee', 'name fullName surname phone email avatar')
          .populate('rentOptions.rentStory.rentedByEmployee', 'name fullName surname phone email avatar')
@@ -85,7 +89,7 @@ export const GET = async (_request, { params }) => {
          .lean();
       if (!item) return new Response('Property Not Found', { status: 404 });
 
-      return new Response(JSON.stringify({ item }), { status: 200 });
+      return new Response(JSON.stringify({ item: serializePropertyForUser(sessionUser, item) }), { status: 200 });
    } catch (error) {
       console.log(error);
       return new Response('Smth wrong', { status: 500 });
@@ -195,7 +199,7 @@ export const PATCH = async (request, { params }) => {
    try {
       await connectDB();
 
-      const sessionUser = await getSessionUser().catch(() => null);
+      const sessionUser = await withPropertyOwnerContactScope(await getSessionUser().catch(() => null));
       const existing = await Property.findById(params.id);
       if (!existing) return new Response('Property Not Found', { status: 404 });
 
@@ -221,6 +225,9 @@ export const PATCH = async (request, { params }) => {
 
       const formData = await request.formData();
       const wasInactive = existing.actualityGroup === 'inactive';
+      if (formData.has('owners') && !canViewPropertyOwnerContacts(sessionUser, existing)) {
+         return Response.json({ error: 'Немає доступу до контактів власника цього об’єкта' }, { status: 403 });
+      }
       const beforePropertySnapshot = pickActivitySnapshot(existing, PROPERTY_FIELDS);
 
       const parseNumber = (value) => {
@@ -746,7 +753,7 @@ export const PATCH = async (request, { params }) => {
          .populate('rentOptions.rentHistory.rentedByEmployee', 'name fullName surname phone email avatar')
          .lean();
 
-      return new Response(JSON.stringify({ item: saved }), { status: 200 });
+      return new Response(JSON.stringify({ item: serializePropertyForUser(sessionUser, saved) }), { status: 200 });
    } catch (error) {
       console.log(error);
       return new Response('Smth wrong', { status: 500 });

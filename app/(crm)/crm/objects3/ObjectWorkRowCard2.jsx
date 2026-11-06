@@ -3198,6 +3198,11 @@ ${url}`;
                         <DetailLine label="Примітка" value={item?.actualityNote} theme={theme} />
                         <DetailLine label="Відповідальний" value={assigneeName} theme={theme} />
                         <DetailLine label="Хто вніс" value={createdByName} theme={theme} />
+                        {item?.ownerContactsHidden && (
+                           <Typography sx={{ color: theme.textSoft, fontSize: 12, mt: 0.7 }}>
+                              Контакти власника — у відповідального рієлтора
+                           </Typography>
+                        )}
 
                         <Divider sx={{ borderColor: 'rgba(255,255,255,0.07)' }} />
 

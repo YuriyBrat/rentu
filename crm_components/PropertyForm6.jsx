@@ -857,7 +857,7 @@ export default function PropertyForm({
 
             statusRent: isRentFormMode && fields.statusRent === 'rentNo' ? 'rentActual' : fields.statusRent,
 
-            owners: (fields.owners || [])
+            owners: initialData?.ownerContactsHidden ? undefined : (fields.owners || [])
                .map((owner) => ({
                   ...owner,
                   name: owner.name?.trim() || '',
@@ -2225,12 +2225,16 @@ export default function PropertyForm({
             </Grid>
 
             <Grid item xs={12}>
-               <OwnersSection
+               {initialData?.ownerContactsHidden ? (
+                  <Typography sx={{ color: 'rgba(255,255,255,0.65)', fontSize: 13 }}>
+                     Контакти власника доступні відповідальному рієлтору
+                  </Typography>
+               ) : <OwnersSection
                   value={fields.owners}
                   onChange={setOwners}
                   fieldSx={fieldSx}
                   selectMenuProps={selectMenuProps}
-               />
+               />}
             </Grid>
 
 

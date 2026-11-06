@@ -9,6 +9,7 @@ import {
 } from '@/utils/crm/activityLog';
 import { getSessionUser } from '@/utils/getSessionUser';
 import { buildPropertyAccessFilter, combineMongoFilters } from '@/utils/crm/accessControl';
+import { buildPropertyOwnerContactFilter, serializePropertyForUser, withPropertyOwnerContactScope } from '@/utils/crm/propertyVisibility';
 import cloudinary from '@/config/cloudinary';
 import { Types } from 'mongoose';
 
@@ -290,7 +291,7 @@ export const GET = async (req) => {
    try {
       await connectDB();
 
-      const sessionUser = await getSessionUser().catch(() => null);
+      const sessionUser = await withPropertyOwnerContactScope(await getSessionUser().catch(() => null));
       if (!sessionUser) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
       const sp = req.nextUrl.searchParams;
@@ -386,7 +387,10 @@ export const GET = async (req) => {
                { 'location.city': { $regex: safeQ, $options: 'i' } },
                { 'location.street': { $regex: safeQ, $options: 'i' } },
                { 'location.number': { $regex: safeQ, $options: 'i' } },
-               { 'owners.phones': { $regex: safeQ, $options: 'i' } },
+               combineMongoFilters(
+                  { 'owners.phones': { $regex: safeQ, $options: 'i' } },
+                  buildPropertyOwnerContactFilter(sessionUser)
+               ),
             ],
          };
 
@@ -401,7 +405,9 @@ export const GET = async (req) => {
          }
       }
 
-      const accessFilter = await buildPropertyAccessFilter(sessionUser);
+      const accessFilter = await buildPropertyAccessFilter(sessionUser, {
+         agencyCatalog: sp.get('catalog') === 'agency',
+      });
       const scopedFilter = combineMongoFilters(filter, accessFilter);
 
       const total = await Property.countDocuments(scopedFilter);
@@ -551,12 +557,12 @@ export const GET = async (req) => {
                ? (rentTitle || saleTitle || 'Без назви')
                : (saleTitle || rentTitle || 'Без назви');
 
-         return {
+         return serializePropertyForUser(sessionUser, {
             ...item,
             _id: item._id?.toString?.() || item._id,
             displayTitle,
             operationSummary: operationSummaries.get(item._id?.toString?.() || String(item._id)) || emptyOperationSummary(),
-         };
+         });
       });
 
       return new Response(JSON.stringify({
@@ -598,7 +604,7 @@ export const POST = async (request) => {
    try {
       await connectDB();
 
-      const sessionUser = await getSessionUser().catch(() => null);
+      const sessionUser = await withPropertyOwnerContactScope(await getSessionUser().catch(() => null));
       const userId = sessionUser?.userId || null;
 
       const formData = await request.formData();
@@ -995,7 +1001,7 @@ export const POST = async (request) => {
       created.images = uploadedImages;
       await created.save();
 
-      return new Response(JSON.stringify({ item: created }), { status: 201 });
+      return new Response(JSON.stringify({ item: serializePropertyForUser(sessionUser, created) }), { status: 201 });
    } catch (error) {
       console.log(error);
       return new Response('Error to add property', { status: 500 });

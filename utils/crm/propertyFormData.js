@@ -60,7 +60,7 @@ export function buildPropertyFormData(payload) {
 
    fd.append('businessScore', JSON.stringify(payload.businessScore || {}));
 
-   fd.append('owners', JSON.stringify(payload.owners || []));
+   if (payload.owners !== undefined) fd.append('owners', JSON.stringify(payload.owners || []));
    fd.append('rentOptions', JSON.stringify(payload.rentOptions || {}));
 
    (payload.advantages || []).forEach((x) => fd.append('advantages', x));

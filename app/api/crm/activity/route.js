@@ -1,6 +1,9 @@
 import connectDB from '@/config/database';
 import CRMActivityLog from '@/models/CRMActivityLog';
 import Employee from '@/models/Employee';
+import Property from '@/models/Property';
+import { getSessionUser } from '@/utils/getSessionUser';
+import { canViewPropertyOwnerContacts, redactPropertyOwnerContactText, restrictPropertyOwnerContacts, withPropertyOwnerContactScope } from '@/utils/crm/propertyVisibility';
 import { Types } from 'mongoose';
 
 void Employee;
@@ -19,6 +22,8 @@ function parseDate(value) {
 export const GET = async (req) => {
    try {
       await connectDB();
+      const sessionUser = await withPropertyOwnerContactScope(await getSessionUser().catch(() => null));
+      if (!sessionUser) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
       const sp = req.nextUrl.searchParams;
       const page = Math.max(parseInt(sp.get('page') || '1', 10), 1);
@@ -54,7 +59,30 @@ export const GET = async (req) => {
          .limit(pageSize)
          .lean();
 
-      return Response.json({ items, total, page, pageSize }, { status: 200 });
+      let visibleItems = items;
+      if (restrictPropertyOwnerContacts(sessionUser)) {
+         const propertyIdOf = item => String(item.entityType === 'property' ? item.entityId || '' : item.meta?.propertyId || '');
+         const propertyIds = [...new Set(items.map(propertyIdOf).filter(id => Types.ObjectId.isValid(id)))];
+         const properties = propertyIds.length
+            ? await Property.find({ _id: { $in: propertyIds } }).select('title assignee createdByEmployee owner owners phoneKeys').lean()
+            : [];
+         const byId = new Map(properties.map(property => [String(property._id), property]));
+         visibleItems = items.map(item => {
+            const propertyId = propertyIdOf(item);
+            if (!propertyId) return item;
+            const property = byId.get(propertyId);
+            if (canViewPropertyOwnerContacts(sessionUser, property)) return item;
+            return {
+               _id: item._id, entityType: item.entityType, entityId: item.entityId,
+               action: item.action, source: item.source, actorEmployee: item.actorEmployee,
+               actorName: item.actorName, createdAt: item.createdAt,
+               title: property ? redactPropertyOwnerContactText(property, property.title || 'Об’єкт агентства') : 'Об’єкт агентства',
+               message: 'Зміни об’єкта агентства', before: null, after: null, diff: [],
+               meta: { pageName: item.meta?.pageName, pagePath: item.meta?.pagePath, propertyId },
+            };
+         });
+      }
+      return Response.json({ items: visibleItems, total, page, pageSize }, { status: 200 });
    } catch (error) {
       console.error(error);
       return new Response('Error fetching activity logs', { status: 500 });
